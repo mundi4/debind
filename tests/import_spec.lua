@@ -97,6 +97,21 @@ return function(DebindPrivate, DebindStorage)
         return placements[1].action, placements[1];
     end
 
+    --- **An action nothing can run does not turn the string away** (`sanitizing-actions-with-one-
+    --- function.md` §6-6 item 2, which replaced the 2026-08-18 rule of refusing the whole string). It
+    --- lands as `INVALID`, saying in `formerly` what it was, keeping its key and place.
+    local function ArrivesInvalid(payload, formerType, formerValue)
+        check(not DebindStorage.PayloadIsImpossible(payload), "문자열이 거절됐다");
+        ResetProfile();
+        local action = PlanOne(payload);
+        check(action.type == Constants.INVALID, "타입 " .. tostring(action.type));
+        local formerly = action.formerly or {};
+        check(formerly.type == formerType and formerly.value == formerValue,
+            ("formerly: %s %s"):format(tostring(formerly.type), tostring(formerly.value)));
+        check(action.key == "F", "키를 잃었다: " .. tostring(action.key));
+        return action;
+    end
+
     ResetProfile();
 
     ---------------------------------------------------------------------------
@@ -362,7 +377,10 @@ return function(DebindPrivate, DebindStorage)
         ResetProfile();
         local action = PlanOne(General({
             { type = "setstate", key = "F", seq = 1, setstate = 5 } }));
-        check(action.type == "setstate", "타입이 바뀌었다");
+        -- Nothing can run a `setstate` the raising step could not read, so it lands as an action
+        -- that says what it was (`SanitizeAction`).
+        check(action.type == Constants.INVALID and action.formerly and action.formerly.type == "setstate",
+            "타입: " .. tostring(action.type));
         check(action.setstate == nil, "포맷 필드가 액션에 남았다");
     end);
 
@@ -380,6 +398,25 @@ return function(DebindPrivate, DebindStorage)
         check(action.units == nil, "units " .. tostring(action.units));
         check(action.forms == nil, "forms " .. tostring(action.forms));
         check(action.value == 774 and action.key == "F", "멀쩡한 필드까지 걸렀다");
+    end);
+
+    -- **A pasted string's broken values land the way a load leaves the same values.** `BuildAction`
+    -- hands its copy to `SanitizeAction` and filters nothing first. A filter of its own dropped these
+    -- three: the condition went, and the action fired where the same profile loaded from disk was
+    -- kept off the key; the broken type left nothing in `formerly` to say what it was.
+    test("붙여넣은 깨진 값은 불러올 때와 같은 모양으로 들어온다", function()
+        ResetProfile();
+        local action = PlanOne(General({
+            { type = Constants.SPELL, value = 774, key = "F", seq = 1,
+              conditions = { specs = "쓰레기", groups = "쓰레기" } } }));
+        local conditions = action.conditions or {};
+        check(type(conditions.specs) == "table" and next(conditions.specs) == nil,
+            "specs " .. tostring(conditions.specs));
+        check(conditions.groups == 0, "groups " .. tostring(conditions.groups));
+
+        local typed = PlanOne(General({ { type = 5, value = 1, key = "F", seq = 1 } }));
+        check(typed.type == Constants.INVALID and typed.formerly and typed.formerly.type == 5,
+            "formerly.type " .. tostring(typed.formerly and typed.formerly.type));
     end);
 
     -- **타입 선언이 틀리면 실패가 조용하다.** 멀쩡한 필드가 임포트에서 걸러지고, 받는 쪽은
@@ -417,7 +454,8 @@ return function(DebindPrivate, DebindStorage)
         -- the types pass, not whether the contradiction is caught; `issue_spec` looks at that.
         bonusbars = 2 + 2 ^ Constants.BONUSBAR_SKYRIDING,
         units = { target = {} },
-        specs = { [102] = true, [104] = true },
+        -- A mask of specialization indices per class id; 11 is the druid.
+        specs = { [11] = Constants.SpecIndexFlag(1) + Constants.SpecIndexFlag(2) },
         -- 전문화 id로 갈린 표이고 그 안이 주문 id 배열 둘이다
         -- (`adding-a-talent-condition.md` §2).
         talents = { [102] = { taken = { 429523 }, notTaken = { 428544 } } },
@@ -443,6 +481,8 @@ return function(DebindPrivate, DebindStorage)
         resolvedSpellID = 774,
         -- Another addon's values, waiting for the payload to be added.
         untranslated = { spec1 = true },
+        -- What an action nothing can run held. Only an `INVALID` one keeps it (`INVALID_ONLY`).
+        formerly = { type = Constants.MACRO, value = 4 },
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,
@@ -463,17 +503,21 @@ return function(DebindPrivate, DebindStorage)
     };
 
     local REZ_ONLY = { skipWhenUnusable = true, noTargetMassRez = true, battleRezOutOfCombat = true };
+    local INVALID_ONLY = { formerly = true };
 
     test("애드온이 실제로 쓰는 값이 명단의 타입을 통과한다", function()
         ResetProfile();
 
         local sent = {};
         local rez = { type = Constants.RESURRECT, key = "G", seq = 1 };
+        local invalid = { type = Constants.INVALID, key = "H", seq = 1 };
         for field in pairs(DebindStorage.ACTION_FIELDS) do
             check(REAL_VALUES[field] ~= nil,
                 field .. "이 명단에 늘었는데 이 표에는 없다");
             if (REZ_ONLY[field]) then
                 rez[field] = REAL_VALUES[field];
+            elseif (INVALID_ONLY[field]) then
+                invalid[field] = REAL_VALUES[field];
             else
                 sent[field] = REAL_VALUES[field];
             end
@@ -489,13 +533,17 @@ return function(DebindPrivate, DebindStorage)
                 field .. "이 누름 명단에 늘었는데 이 표에는 없다");
         end
 
-        local placements = DebindStorage.PlanArrival(General({ sent, rez }));
-        check(#placements == 2, "액션 수 " .. #placements);
+        local placements = DebindStorage.PlanArrival(General({ sent, rez, invalid }));
+        check(#placements == 3, "액션 수 " .. #placements);
         local action, rezArrived = placements[1].action, placements[2].action;
+        local invalidArrived = placements[3].action;
         for field in pairs(REZ_ONLY) do
             check(rezArrived[field] == REAL_VALUES[field],
                 field .. "이 " .. tostring(REAL_VALUES[field]) .. " 대신 " .. tostring(rezArrived[field]));
         end
+        check(invalidArrived.formerly and invalidArrived.formerly.type == REAL_VALUES.formerly.type
+            and invalidArrived.formerly.value == REAL_VALUES.formerly.value,
+            "formerly가 안 왔다");
         for field, want in pairs(REAL_CONDITIONS) do
             local got = action.conditions and action.conditions[field];
             if (type(want) == "table") then
@@ -510,8 +558,8 @@ return function(DebindPrivate, DebindStorage)
         -- payload's numbers become a condition only if it got through.
         for field, want in pairs(REAL_VALUES) do
             local got = action[field];
-            if (REZ_ONLY[field]) then
-                -- Asked of the resurrection above.
+            if (REZ_ONLY[field] or INVALID_ONLY[field]) then
+                -- Asked of the resurrection and the invalid action above.
                 check(got == nil, field .. "이 주문에 남았다");
             elseif (field == "untranslated") then
                 check(got == nil, "untranslated이 프로필까지 왔다");
@@ -929,13 +977,20 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     -- Our catalog only offers the commands in `ACTION_BUTTON_COMMANDS`, so any other name was typed.
-    test("행동 단축키 액션은 아는 명령 이름일 때만 받는다", function()
+    -- **It arrives as it is and its row is marked**, the way a macro name nothing answers to is: the
+    -- value is a string of the right type, and what it names is not `SanitizeAction`'s question.
+    test("모르는 명령 이름의 행동 단축키 액션도 들어오고 표시된다", function()
         check(not DebindStorage.PayloadIsImpossible(General({
             { type = Constants.ACTIONBUTTON, value = "MULTIACTIONBAR1BUTTON5", key = "F", seq = 1 } })),
             "아는 이름이 걸렸다");
-        check(DebindStorage.PayloadIsImpossible(General({
-            { type = Constants.ACTIONBUTTON, value = "TOGGLEWORLDMAP", key = "F", seq = 1 } })),
-            "모르는 이름이 안 걸렸다");
+        local unknown = General({ { type = Constants.ACTIONBUTTON, value = "TOGGLEWORLDMAP", key = "F", seq = 1 } });
+        check(not DebindStorage.PayloadIsImpossible(unknown), "모르는 이름이 문자열을 거절시켰다");
+        ResetProfile();
+        local action = PlanOne(unknown);
+        check(action.type == Constants.ACTIONBUTTON and action.value == "TOGGLEWORLDMAP",
+            "모양이 바뀌었다: " .. tostring(action.type) .. " " .. tostring(action.value));
+        check(DebindPrivate.GetBindingIssue(action) == Constants.BINDING_ISSUE_UNKNOWN_ACTION_BUTTON,
+            "표시: " .. tostring(DebindPrivate.GetBindingIssue(action)));
     end);
 
     test("dbver 없는 v1 페이로드의 equipslot도 useslot으로 들어온다", function()
@@ -944,18 +999,18 @@ return function(DebindPrivate, DebindStorage)
         check(action.type == Constants.USESLOT, "타입이 " .. tostring(action.type));
     end);
 
-    -- **모르는 모드는 옛 타입인 채로 남는다.** 무엇을 하려던 액션인지 알 수 없으니 셋 중
-    -- 아무거나 고르면 켜기가 끄기가 된다. 남은 `"setstate"`는 이 판이 모르는 타입이라
-    -- `IsUsableAction`이 걸러내고, 문자열 전체가 거절된다 - 아래 그 자리에서 다시 본다.
+    -- **A mode nobody knows stays the old type.** What the action meant to do cannot be told, and
+    -- picking one of the three would turn an on into an off. The `"setstate"` left behind is a type
+    -- this build does not know, so it arrives as an action nothing can run.
     --
-    -- **딸려온 `value`도 같이 죽는다.** v1은 `value`를 비우고 보냈으므로 그 자리에 숫자가
-    -- 앉아 있는 문자열은 손으로 만든 것이고, 그 숫자는 어떤 것이든 어떤 스위치로 풀린다.
+    -- **The `value` that came with it goes too.** v1 sent `value` empty, so a number sitting there
+    -- was put in by hand, and any number resolves to some switch.
     test("모르는 모드는 안 갈리고, 그래서 못 쓰는 액션이 된다", function()
         local payload = Forwarded(V1Setstate("없는모드", "$state3"));
         local action = payload.layers.account.GENERAL[0][1];
         check(action.type == "setstate", "타입 " .. tostring(action.type));
         check(action.setstate == nil, "서브테이블이 남았다");
-        check(DebindStorage.PayloadIsImpossible(payload), "문자열이 안 거절됐다");
+        ArrivesInvalid(payload, "setstate", nil);
     end);
 
     -- **정의가 없는 이름은 그대로 도착한다. 이것이 바뀐 자리다.**
@@ -1018,13 +1073,10 @@ return function(DebindPrivate, DebindStorage)
     -- it hands that position to a different macro. No sharing needed: it breaks the next day on the
     -- same account and the same character.
     --
-    -- **Our export cannot emit that**, so a string holding one was edited after it was made, and
-    -- the whole string goes. `ImportEntry` reads this and refuses; the rest of the entry is not
-    -- warranted by a string somebody has been inside of.
-    test("숫자를 든 MACRO 하나가 문자열 전체를 거절시킨다", function()
-        check(DebindStorage.PayloadIsImpossible(General({
-            { type = Constants.MACRO, value = 4, key = "F", seq = 1 },
-            { type = Constants.SPELL, value = 774, key = "G", seq = 1 } })), "안 걸렸다");
+    -- **Our export cannot emit that**, so a string holding one was edited after it was made. The
+    -- action arrives as one nothing can run and the rest of the string with it.
+    test("숫자를 든 MACRO는 못 쓰는 액션으로 들어온다", function()
+        ArrivesInvalid(General({ { type = Constants.MACRO, value = 4, key = "F", seq = 1 } }), Constants.MACRO, 4);
     end);
 
     -- Everything the addon does make goes through untouched. A false positive here refuses a
@@ -1061,34 +1113,30 @@ return function(DebindPrivate, DebindStorage)
 
     -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
     -- broken reference to show marked, it is a row that raises while being drawn.
-    test("값이 있어야 하는 타입이 값 없이 오면 걸린다", function()
+    test("값이 있어야 하는 타입이 값 없이 오면 못 쓰는 액션이 된다", function()
         for _, type in ipairs({ Constants.SETCUSTOM, Constants.COMMAND, Constants.WORLDMARKER }) do
-            check(DebindStorage.PayloadIsImpossible(General({
-                { type = type, key = "F", seq = 1 } })), "안 걸렸다: " .. type);
+            ArrivesInvalid(General({ { type = type, key = "F", seq = 1 } }), type, nil);
         end
     end);
 
-    -- A type from a Debind that does not exist yet. It cannot be drawn, bound, or repaired, and
-    -- guessing at it is how a key ends up doing something nobody chose.
-    test("모르는 타입도 걸린다", function()
-        check(DebindStorage.PayloadIsImpossible(General({
-            { type = "직업변경", value = 1, key = "F", seq = 1 } })), "안 걸렸다");
+    -- A type from a Debind that does not exist yet. It cannot be drawn or bound, and guessing at it
+    -- is how a key ends up doing something nobody chose.
+    test("모르는 타입은 못 쓰는 액션이 된다", function()
+        ArrivesInvalid(General({ { type = "직업변경", value = 1, key = "F", seq = 1 } }), "직업변경", 1);
     end);
 
-    -- **The old single type is one nothing knows any more**, so a payload still carrying it is
-    -- turned away by the same rule that turns away a type from a Debind that does not exist. It
-    -- is reachable two ways: a v1 string whose mode the adapter could not read (above), and a
-    -- string somebody wrote by hand.
-    test("옛 단일 타입 setstate는 모르는 타입으로 걸린다", function()
-        check(DebindStorage.PayloadIsImpossible(General({
-            { type = "setstate", value = "$state3", key = "F", seq = 1 } })), "안 걸렸다");
+    -- **The old single type is one nothing knows any more**, so it goes the way a type from a Debind
+    -- that does not exist goes. It is reachable two ways: a v1 string whose mode the adapter could
+    -- not read (above), and a string somebody wrote by hand.
+    test("옛 단일 타입 setstate는 못 쓰는 액션이 된다", function()
+        ArrivesInvalid(General({ { type = "setstate", value = "$state3", key = "F", seq = 1 } }), "setstate", "$state3");
     end);
 
     -- The three that replaced it carry a name, and a number there is a reference to nothing: it
     -- reaches `SetAttribute` as the name of the attribute to set (`ButtonAttributes.lua`).
-    test("이름 대신 숫자를 든 SETSWITCH도 걸린다", function()
-        check(DebindStorage.PayloadIsImpossible(General({
-            { type = Constants.SETSWITCH_TOGGLE, value = 3, key = "F", seq = 1 } })), "안 걸렸다");
+    test("이름 대신 숫자를 든 SETSWITCH는 못 쓰는 액션이 된다", function()
+        ArrivesInvalid(General({ { type = Constants.SETSWITCH_TOGGLE, value = 3, key = "F", seq = 1 } }),
+            Constants.SETSWITCH_TOGGLE, 3);
     end);
 
     -- **No value at all is the opposite.** Since 3c the picker adds an on/off/toggle with no target

@@ -126,6 +126,22 @@ function DebindPrivate.UnitConditionIsUnreadable(value)
     return value ~= nil and type(value) ~= "table" and UNIT_SCALAR_TO_STATE[value] == nil;
 end
 
+--- Does this stored unit row remember any axis? Asked when a row is turned off: one that remembers
+--- nothing goes rather than staying as an empty table (`WriteUnitConditionMode`, `SetPlayerLife`,
+--- `SanitizeAction`).
+---
+--- **Every field but the two mode ones is an axis**, read off `UNIT_CONDITION_FIELDS`. This used to
+--- name the axes one by one, and the group axis was left off it when it was added: a row holding
+--- only a group was deleted rather than remembered the moment it was turned off.
+function DebindPrivate.UnitConditionRemembersAxis(cond)
+    for name in pairs(Constants.UNIT_CONDITION_FIELDS) do
+        if (name ~= "disabled" and name ~= "exists" and cond[name] ~= nil) then
+            return true;
+        end
+    end
+    return false;
+end
+
 --- The unit frame condition stored on this action. **The old spelling is read as well.**
 ---
 --- `dbver <= 6` moves a stored `units.hover` to `units.unitframe`, but **a place that reads the raw

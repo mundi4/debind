@@ -102,8 +102,8 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
 end
 
 
---- 저장할 priority 값. 기본값이면 nil이다 - CleanUpDB가 어차피 지운다
---- (Profile.lua:286-287). UI가 저장하기 전에 반드시 이걸 거친다.
+--- The priority as it is stored: none for the default, the one spelling the duplicate check compares
+--- (`IDENTITY_FIELDS`). The menu writes through this, and `SanitizeAction` folds everything else.
 function DebindPrivate.ImportanceToStored(priority)
     if (priority == nil or priority == DEFAULT_IMPORTANCE) then
         return nil;

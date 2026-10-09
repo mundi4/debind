@@ -444,13 +444,14 @@ return function(DebindPrivate, _, ctx)
     --
     -- The second key is what stops this passing on a stub that answers true to everything.
     pressTest("in my party still reaches a raid member in my own subgroup, at the key", function()
-        shim.world.units.party1 = { id = "party1", inParty = true, inRaid = true };
-        shim.world.units.raid7 = { id = "raid7", inParty = false, inRaid = true };
+        -- Rows the menu can make, on units the world places in and out of the reader's subgroup.
+        shim.world.units.target = { id = "party1", inParty = true, inRaid = true };
+        shim.world.units.focus = { id = "raid7", inParty = false, inRaid = true };
         Bind({
             spell({ key = "F1",
-                conditions = { units = { party1 = { group = Constants.UNITGROUP_PARTY } } } }),
+                conditions = { units = { target = { exists = true, group = Constants.UNITGROUP_PARTY } } } }),
             spell({ key = "F2", seq = 2,
-                conditions = { units = { raid7 = { group = Constants.UNITGROUP_PARTY } } } }),
+                conditions = { units = { focus = { exists = true, group = Constants.UNITGROUP_PARTY } } } }),
         }, {});
 
         check(Fires("F1"), "a party condition missed a raid member in my own subgroup");

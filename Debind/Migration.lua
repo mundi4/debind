@@ -906,13 +906,13 @@ local function MigrateLayer(layerTbl, dbver, to)
         --   - an action on Escape, taken as a shape a shipped build could store (owner, 2026-10-09).
         --
         -- **Every rule is version 8's, written out**, for the reason the old type names above are:
-        -- `FoldIntoStoredShape` is this build's shape and moves with it. So the lines below repeat
+        -- `SanitizeAction` is this build's shape and moves with it. So the lines below repeat
         -- `DropFieldsTheTypeCannotHold` and `Talents.Prune` on purpose, and the two are meant to part:
-        -- when the live fold changes, bringing data already raised along is a new step's job, and this
-        -- copy stays as version 8 left it.
+        -- when the live rules change, bringing data already raised along is a new step's job, and
+        -- this copy stays as version 8 left it.
         --
-        -- A received payload rides this before its types are asked about (`BuildAction`), so nothing
-        -- here may raise on one that is wrong.
+        -- A received payload rides this before `SanitizeAction` asks its types (`BuildAction`), so
+        -- nothing here may raise on one that is wrong.
         --
         -- Running twice is safe: what it takes off is not put back.
         local SPEC_RESOLVED_AT_8 = { dispel = true, dispel2 = true, raidbuff = true, resurrect = true };

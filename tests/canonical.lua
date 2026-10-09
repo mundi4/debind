@@ -1,14 +1,13 @@
---- **Every action in the profile has to be one that could be saved or exported at this moment**
---- (`checking-pasted-strings-and-keeping-actions-canonical.md`, §2 item 3 and §4). The writers keep
---- that shape rather than leaving it to `CleanUpDB`. This net looks at every layer right before
---- each `UpdateBindings` and each `CleanUpDB`, which is where a writer that relied on the clean-up
---- shows: each test stands its own profile up, so by the end of a spec only the last test's few
---- actions are left to look at.
+--- **Every action in the profile has to be one that could be saved or exported at this moment.**
+--- The writers keep that shape rather than leaving it to a clean-up. This net looks at every layer
+--- right before each `UpdateBindings` and each `CleanUpDB`, which is where a writer that relied on
+--- the clean-up shows: each test stands its own profile up, so by the end of a spec only the last
+--- test's few actions are left to look at.
 ---
---- **The field tables are the store's** (`ACTION_FIELDS`, `CONDITION_TYPES`, `CASTING_TYPES`),
---- which `check:export-fields` holds against `KEYS_TO_SAVE`. The other rules restate that
---- document's §2-2 here rather than calling `DropFieldsTheTypeCannotHold` or `Talents.Prune`: a
---- net that called them would agree with whatever they do.
+--- **The field tables are the store's** (`ACTION_FIELDS`, `CONDITION_TYPES`, `CASTING_TYPES`), read
+--- off Debind's own. The other rules restate the shape here rather than calling
+--- `SanitizeAction`, `DropFieldsTheTypeCannotHold` or `Talents.Prune`: a net that called them would
+--- agree with whatever they do.
 ---
 --- A test that plants a hand-made value on purpose says so with `ctx.HandMade(action)`, and that
 --- action is skipped.

@@ -93,163 +93,42 @@ local ENVELOPE_LIBS      = 1;
 local ENVELOPE_PREFIX    = "DEB";
 local ENVELOPE_SEPARATOR = ":";
 
---- Action fields that go out on the wire.
+--- Action fields that go out on the wire: **every field the profile saves** (`KEYS_TO_SAVE`), with the
+--- same types, **but `arrivalID`, and with `untranslated`**.
 ---
---- This is `KEYS_TO_SAVE` (`Profile.lua`) minus one: `arrivalID` counts the arrivals **this store**
---- has taken in, and that count exists nowhere else. It is the one field that means nothing on
---- another machine.
+---   * `arrivalID` counts the arrivals **this store** has taken in, and that count exists nowhere
+---     else. It is the one saved field that means nothing on another machine.
+---   * `untranslated` is what another addon stored that cannot be translated until the payload is
+---     added, kept as that addon wrote it (`importing-clique-profiles.md` §2). `Build` drops it, so it
+---     is never saved.
 ---
---- `key` and `seq` are on the list. They used to be the two exceptions -- `key` moved up to a group
---- layer and `seq` was replaced by a computed `order` -- and both reasons are gone: a key **is** the
---- group now, so there is nothing above the action to hold it, and the collision `seq` was renamed
---- to avoid was never there. `PlaceArrivedActions` is the only way these reach the profile and it
---- overwrites `seq` on every one of them with an arrival number before renumbering the group, so a
---- sender's number cannot survive landing. `building-export-import.md`.
+--- **Read off the saved list rather than restated.** Restated, a field saved and never exported was
+--- caught only by a check of the names, and nothing compared the types.
 ---
---- `KEYS_TO_SAVE` is not reachable from here (it is a local, and this file stays off Profile.lua
---- deliberately), so the list is restated. **`tools/check-export-fields.js` fails the build when
---- the two drift** -- a field added to one and not the other is otherwise silent: the action
---- saves fine and simply never exports.
---- **The value is the type the field may arrive as**, `|`-separated where more than one is real.
---- The export only ever reads this as a set, but the import reads the type: a whitelist of names
---- is not a whitelist of values, and every one of these reaches code that computes on it. `seq` is
---- added to an arrival number, `priority` is compared inside `table.sort`, `units` is walked
---- with `pairs`, the masks go through `band`. A pasted string carrying `seq = {}` raised **inside**
---- `PlaceArrivedActions`, leaving the actions before it in the profile and skipping the renumber
---- that follows - so the survivors kept the internal arrival band, which `CleanUpDB` does not clamp
---- and a logout therefore writes to disk.
----
---- Kept to one line each. `tools/check-export-fields.js` reads this table by matching `name =` per
---- line, so a value spread over several lines would have its inner keys read as field names.
-local ACTION_FIELDS      = {
-    type = "string",
-    -- A spell or item id, or a macro name, or a macro body.
-    value = "number|string",
-    -- A binding string. **Only a string** - a number used to be "a group whose key the sender had
-    -- not decided", and nothing makes one any more (`building-export-import.md` 12절). An
-    -- old string can still hold them and the ladder nils those on the way in (`MigrateLayer`,
-    -- `dbver <= 5`); this line catches one that reaches here anyway, because a number landing in
-    -- `key` would stand as a group nobody can name and no key the reader can press.
-    key = "string",
-    seq = "number",
-    name = "string",
-    -- A file id, or a path for the ones that still carry one.
-    icon = "number|string",
-    unit = "string",
-    priority = "number",
-    -- **An action the sender had turned off arrives turned off.** Dropping it would hand the reader
-    -- a running action the sender had stopped, and turning something on is not a thing an import may
-    -- do by itself.
-    disabled = "boolean",
-    -- The spec-resolved types' switch for handing the key on when there is nothing to cast.
-    skipWhenUnusable = "boolean",
-    -- The rank a spell is held at rather than the highest: its id, or a Clique binding's cast text.
-    -- A client without ranks has nothing to hold, and casts the one spell there is.
-    pinnedSpell = "number|string",
-    -- The id a spell stored by name resolved to where it was added. It travels because a reader
-    -- in another locale cannot resolve the name at all.
-    resolvedSpellID = "number",
-    -- A resurrection's two switches.
-    noTargetMassRez = "boolean",
-    battleRezOutOfCombat = "boolean",
-    -- Which presses the action stands on. What may sit inside is `CASTING_TYPES` below, and the
-    -- import filters that level the way it filters `conditions`.
-    casting = "table",
-    -- What another addon stored that cannot be translated until the payload is added, kept as that
-    -- addon wrote it. The payload's `fromAddon` says whose shape it is, and adding reads it and
-    -- drops it (`importing-clique-profiles.md` §2). Never saved: it is not in `KEYS_TO_SAVE`.
-    untranslated = "table",
-    -- **Every condition rides inside this one.** The names and their types are `CONDITION_TYPES`
-    -- below, and `check:export-fields` holds that list against `Profile.lua`'s.
-    conditions = "table",
-};
+--- A few of them travel for a reason worth keeping:
+---   * `key` and `seq`. A key **is** the group, so there is nothing above the action to hold it, and
+---     `PlaceArrivedActions` turns the sender's `seq` into a place in the receiving group
+---     (`building-export-import.md`).
+---   * `disabled`. **An action the sender had turned off arrives turned off.** Dropping it would hand
+---     the reader a running action the sender had stopped.
+---   * `resolvedSpellID`. A reader in another locale cannot resolve the spell's name at all.
+---   * `formerly`. A row the sender's load could not read arrives saying what it was. **A build from
+---     before `INVALID` refuses a string carrying one**: nothing is promised to an older build.
+local ACTION_FIELDS      = {};
+for name, kind in pairs(DebindPrivate.KEYS_TO_SAVE) do
+    if (name ~= "arrivalID") then
+        ACTION_FIELDS[name] = kind;
+    end
+end
+ACTION_FIELDS.untranslated = "table";
 
---- What may sit inside `conditions`, by name and type. **The wire is untrusted**, so the
---- receiving side filters one level deeper than it used to (`Import.lua`'s `FieldAllowed`).
----
---- `known` says **what** is asked about rather than whether to ask
---- (`making-known-a-spell-name.md`): the name of a spell, the id where the client could
---- not name it, or `true` on the three types whose spell the specialization picks, which is the
---- only shape left meaning "this action's own spell". All three types are listed because a shape
---- left out is a condition that vanishes out of a shared action with nothing said.
----
---- `false` rides in under `boolean` and dies at `GetBindingInfoForAction`, the way it always has:
---- the question is about a spell the action casts, so "only while it is unlearned" has no state
---- that satisfies it.
----
---- **A `$`-prefixed name passes unlisted, as a boolean.** Switch conditions are stored
---- under their own name and the redesign turns the five slots into arbitrary ones
---- (`redesigning-custom-states.md`); listing five and stopping there would drop every
---- named switch the day it lands.
-local CONDITION_TYPES    = {
-    -- Bit masks.
-    groups = "number",
-    forms = "number",
-    bonusbars = "number",
-    bartakeover = "number",
-    -- A specialization mask per class id. **What is inside is not filtered**, the way `units` is
-    -- not: a class id this client has never heard of is never the one being played, and a bit
-    -- standing for a specialization that does not exist matches nothing, so both make the condition
-    -- true less often -- and the direction a keybinding addon must not fail in is the other one.
-    -- The tooltip walks the client's own classes rather than the table, so a junk key has nothing
-    -- to print itself into.
-    --
-    -- **A value that is not a mask is caught where it is read** (`Specs.lua`'s `MaskFor`), the way
-    -- `talents` catches a list that is not a list. These are arithmetic now, and `band` on a
-    -- string raises inside the rebuild rather than failing narrow.
-    --
-    -- **A class with no key holds nothing**, so a string from a client that knows a class this one
-    -- does not says nothing about it and this one answers the same: the key is not for that class
-    -- here either.
-    specs = "table",
-    -- A table of specialization ids, each holding a list of spell ids to have taken and one to
-    -- not. **What is inside is not filtered either**, for the reason above: an id this client
-    -- cannot name matches no talent, which makes the condition true less often. The reader walks
-    -- the two lists rather than indexing them, so it skips what is not a number
-    -- (`Talents.lua`).
-    talents = "table",
-    known = "boolean|number|string",
-    combat = "boolean",
-    stealth = "boolean",
-    extrabar = "boolean",
-    mounted = "boolean",
-    indoors = "boolean",
-    flyable = "boolean",
-    advflyable = "boolean",
-    flying = "boolean",
-    skyriding = "boolean",
-    units = "table",
-    ["$state1"] = "boolean",
-    ["$state2"] = "boolean",
-    ["$state3"] = "boolean",
-    ["$state4"] = "boolean",
-    ["$state5"] = "boolean",
-};
+--- What may sit inside `conditions` and `casting`, by name and type: **Debind's own tables**, the ones
+--- `SanitizeAction` reads at load. Kept apart they were two lists, and a condition named in one
+--- only was dropped on the way out or on the way in with nothing said.
+local CONDITION_TYPES    = Constants.CONDITION_FIELDS;
+local CASTING_TYPES      = Constants.CASTING_FIELDS;
 
---- What may sit inside `casting`, by name and type. **The same reason `CONDITION_TYPES` exists**:
---- folded into one table, the whitelist above sees `casting = "table"` and nothing looks inside.
----
---- **Every value is a scalar, so this whitelist reaches all of them.** A spelling nobody knows still
---- gets through when it is a string of the right name, and every reader compares it against a
---- spelling it does know (`ActionBindings.lua`'s `CastingValue`), so it reads as the default, which is the
---- value an action with no `casting` at all has.
-local CASTING_TYPES      = {
-    selfCastKey = "string",
-    focusCastKey = "string",
-    hoverCast = "string",
-    hoverCastMode = "string",
-    normalCast = "boolean",
-    -- **네 이름은 클라이언트 CVar 이름 그대로다**, 그 값을 누르는 동안만 그 값으로 두는 줄들이라
-    -- (`setting-the-clients-cast-automatics-per-action.md`). 셋째 값인 "게임 설정 그대로"는
-    -- 이름이 없다: 값이 없는 것이 그것이다.
-    autoSelfCast = "boolean",
-    autoUnshift = "boolean",
-    autoDismount = "boolean",
-    autoDismountFlying = "boolean",
-};
-
---- Read by `Import.lua`, which filters the incoming table through the **same** list. One side a
---- whitelist and the other a blacklist is what let a wire field nobody named ride into the profile.
+--- For the headless specs, which hold their fixtures to the same lists (`tests/canonical.lua`).
 DebindStorage.ACTION_FIELDS = ACTION_FIELDS;
 DebindStorage.CONDITION_TYPES = CONDITION_TYPES;
 DebindStorage.CASTING_TYPES = CASTING_TYPES;
@@ -265,9 +144,9 @@ DebindStorage.CASTING_TYPES = CASTING_TYPES;
 ---
 --- An override row has the same three fields, so this list copies both.
 ---
---- ⚠ **Nothing checks this table.** `check:export-fields` compares `ACTION_FIELDS` and the
---- condition table and never looks here, so a definition field added without a line here simply
---- does not go out - no error on either side and no check to catch it.
+--- ⚠ **Nothing checks this table.** `check:export-fields` compares the options and never looks
+--- here, so a definition field added without a line here simply does not go out - no error on
+--- either side and no check to catch it.
 ---
 --- **These names are the wire's, and 3.2 wrote the older ones.** A v1 payload carries a numeric
 --- `mode` and `initialValue`, so the step that raises v1 renames them (`BringPayloadForward`).
@@ -405,7 +284,7 @@ end
 ---
 --- `NormalizeAction` stood in this spot and rewrote exactly one type. It cleared `setstate`'s
 --- bitpacked `value` and hung a `setstate = { mode, state }` subtable off the copy -- a field that
---- is not in `ACTION_FIELDS` and therefore outside the contract `check-export-fields.js` holds. The
+--- is not in `ACTION_FIELDS`, so no list the export and the import share named it. The
 --- same action existed in two shapes, in the profile and on the wire, and the migration for it was
 --- about to exist in two copies for the same reason.
 ---
@@ -1026,9 +905,8 @@ end
 ---
 --- **Asked whether it is a table, not whether it is there.** A hand-made `setstate = 5` would raise
 --- here and take down a commit with half an entry already placed. A mode or a name this build cannot
---- read leaves the action under the old type, which is a type nothing knows -- `IsUsableAction`
---- turns it down and the whole string with it, and that is the right end for a `setstate` with
---- nothing to set.
+--- read leaves the action under the old type, which is a type nothing knows: it arrives as an action
+--- nothing can run (`SanitizeAction`), which is the right end for a `setstate` with nothing to set.
 ---
 --- **The three types are literals, the ones the `dbver <= 5` step writes**, and the `dbver <= 7`
 --- step renames them the way it renames a stored one.

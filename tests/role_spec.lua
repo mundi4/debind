@@ -276,11 +276,12 @@ return function(DebindPrivate)
             "the unit condition group was not marked");
     end);
 
-    --- **전부 켠 것은 조건이 아니다.** 메뉴가 그때 nil을 쓰지만, 손으로 고친 프로필이나
-    --- 옛 문자열이 전체 마스크로 올 수 있고 그것을 조건으로 읽으면 상자가 둘로 갈린다.
+    --- **Every role checked is no condition.** The menu stores nil then; an action that has not been
+    --- through `SanitizeAction` yet can still carry the whole mask, and read as a condition it would
+    --- split the box in two. Asked of one handed straight to the reader, outside the profile.
     test("every role checked constrains nothing", function()
+        Profile({});
         local action = roleAction(Constants.ROLE_ALL);
-        Profile({ action });
         local binding = DebindPrivate.GetBindingInfoForAction(action);
         check(binding.unitRole == Constants.ROLE_ALL,
             "unitRole: " .. tostring(binding.unitRole));

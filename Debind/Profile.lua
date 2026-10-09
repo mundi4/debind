@@ -9,19 +9,26 @@ local strlower           = strlower;
 local dump               = DebindPrivate.dump;
 local LayerArray         = {};
 
+--- Every field a stored action may hold, to the Lua type it is stored as (`|`-separated where more
+--- than one is real). `SanitizeAction` drops a name missing here and a value of another type, so
+--- **a field left out of this table is deleted from every profile**: a new field goes in here first.
+--- The export sends what is here (`ACTION_FIELDS`).
 local KEYS_TO_SAVE       = {
-    type = true,
-    value = true,
-    key = true,
-    name = true,
-    icon = true,
-    unit = true,
+    type = "string",
+    -- Which of the two depends on `type` (`Constants.VALUE_SHAPES`).
+    value = "number|string",
+    -- A binding string.
+    key = "string",
+    name = "string",
+    -- A file id, or a path for the ones that still carry one.
+    icon = "number|string",
+    unit = "string",
     -- **조건은 전부 이 안에 있다.** 어느 이름이 조건인지는 `Constants.IsConditionField`가
     -- 답하고, 그 표의 머리주석이 밖에 남은 것들이 왜 조건이 아닌지를 하나씩 적어둔다.
     -- `hover`/`reactions`도 한때 여기 있었다. 지금은 `conditions.units["unitframe"]`다.
-    conditions = true,
-    priority = true,
-    seq = true,
+    conditions = "table",
+    priority = "number",
+    seq = "number",
     -- **Which arrival put this action here**, and what quarantines it: while it is set the action is
     -- in the profile but reaches no key (`BuildKeyMap`), and removing it is the reader saying yes.
     -- A number, handed out one per arrival by `NextArrivalID`, and it is half of what a key group is:
@@ -31,36 +38,41 @@ local KEYS_TO_SAVE       = {
     -- **Nothing else about the arrival is stored.** The key it came in on is `key`, the same field
     -- the reader's own actions use, and its place in the set is `seq`. There used to be a synthetic
     -- key here doing the group's work; what that cost is in the same 12절.
-    arrivalID = true,
+    arrivalID = "number",
     -- **The reader has turned this action off.** It keeps everything it was set with, reaches no
     -- key, and hands its key back to the game, which is what tells it apart from an action whose
     -- presses are all off (`which-action-a-key-runs.md` §6). Deleting is the other way to
     -- stop an action, and it takes the conditions, the importance and the place in the key with it.
-    disabled = true,
+    disabled = "boolean",
     -- **With nothing to cast, the next action on the key takes the press** instead of the key being
     -- held for nothing. Only the spec-resolved types offer it (`adding-spec-resolved-actions.md`
     -- §4), because only they can be left with nothing to cast by the class or the specialization.
-    skipWhenUnusable = true,
+    skipWhenUnusable = "boolean",
     -- A resurrection's two switches (`adding-spec-resolved-actions.md` §6). `noTargetMassRez` is
     -- on unless stored false, `battleRezOutOfCombat` off unless stored true.
-    noTargetMassRez = true,
-    battleRezOutOfCombat = true,
+    noTargetMassRez = "boolean",
+    battleRezOutOfCombat = "boolean",
     -- **Which presses this action stands on**, as one table of four values
     -- (`which-action-a-key-runs.md` §8). The three checkboxes it replaced were
     -- `ignoreHoverUnit`, `ignoreSelfCastKey` and `ignoreFocusCastKey`.
-    casting = true,
+    casting = "table",
     -- **The rank a spell is held at rather than the highest one known**, on a client whose spells
     -- come in ranks (`Client.SPELLS_HAVE_RANKS`): that rank's id, or the cast text a Clique binding
     -- held (`Healing Touch(Rank 1)`). Apart from `value`, which says which spell and is never moved
     -- by pinning or unpinning (`keeping-a-pinned-rank-apart-from-the-spell.md`).
-    pinnedSpell = true,
+    pinnedSpell = "number|string",
     -- **What a spell stored by name resolved to when it arrived**, beside a `value` that stays the
     -- name. A name stands for several ids, so the id is one guess and the name is what was meant;
     -- this is asked only where the name resolves to nothing, which is a client in another locale
     -- (`importing-clique-profiles.md` §4). Only a `SPELL` holding a name keeps it
     -- (`DropFieldsTheTypeCannotHold`).
-    resolvedSpellID = true,
+    resolvedSpellID = "number",
+    -- **What an `INVALID` action held before**, `{ type, value }` with only the scalars of the two
+    -- kept, so its row can say what it was. Its own field rather than left in `type` and `value`, so
+    -- nothing that reads `value` without asking the type first reads a broken value as one to run.
+    formerly = "table",
 };
+DebindPrivate.KEYS_TO_SAVE = KEYS_TO_SAVE;
 
 --- Which of an action's stored fields decide whether two actions are **the same thing**.
 ---
@@ -2508,36 +2520,22 @@ local function DropFieldsTheTypeCannotHold(action)
             or luatype(action.resolvedSpellID) ~= "number") then
         action.resolvedSpellID = nil;
     end
+    -- Gone once [Replace] gives the row a type that runs.
+    if (action.type ~= Constants.INVALID) then
+        action.formerly = nil;
+    end
 end
 DebindPrivate.DropFieldsTheTypeCannotHold = DropFieldsTheTypeCannotHold;
 
---- Folds an action into the one spelling the profile stores for what it means: a default stored
---- as none, an empty table taken off, a talent list that says nothing taken off (`Talents.Prune`),
---- and the fields its type cannot hold (`DropFieldsTheTypeCannotHold`). Which values are folded
---- rather than refused, and why, is `checking-pasted-strings-and-keeping-actions-canonical.md` 2-2.
----
---- **One spelling is what the duplicate check compares** (`IDENTITY_FIELDS`): `priority = 3` beside
---- none would read as two different actions.
-local function FoldIntoStoredShape(action)
-    action.priority = DebindPrivate.ImportanceToStored(action.priority);
-    if (action.skipWhenUnusable == false) then
-        action.skipWhenUnusable = nil;
-    end
-    local casting = action.casting;
-    if (luatype(casting) == "table") then
-        if (casting.normalCast ~= false) then
-            casting.normalCast = nil;
-        end
-        PruneCasting(action);
-    end
-    DebindPrivate.Talents.Prune(action);
-    -- Last, since it also takes the conditions table off once nothing is left in it.
-    DropFieldsTheTypeCannotHold(action);
-end
-DebindPrivate.FoldIntoStoredShape = FoldIntoStoredShape;
-
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
+        local actions = layer.actions;
+        for i = #actions, 1, -1 do
+            if (not DebindPrivate.SanitizeAction(actions[i])) then
+                tremove(actions, i);
+            end
+        end
+
         -- Per group, the numbers it has already used. The net below reads it to find **duplicates**.
         --
         -- **A group is `(key, arrivalID)`, so the tally is keyed by both.** By key alone the
@@ -2565,48 +2563,9 @@ function DebindPrivate.CleanUpDB()
         end
 
         for _, action in layer:Enumerate() do
-            for k in pairs(action) do
-                if (KEYS_TO_SAVE[k] == nil) then
-                    action[k] = nil;
-                end
-            end
-
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
             -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
             ArmAction(action);
-
-            -- **면제가 한 겹 내려왔다.** `$`로 시작하는 키를 남겨두는 규칙은 커스텀 상태
-            -- 조건을 위한 것인데(2024-09-08 `d3118cf`, 2.0.4부터), 조건이 `conditions`
-            -- 안으로 들어가면서 액션 최상단에는 그런 키가 더 이상 없다. 위에서 면제를
-            -- 그대로 두면 `$`로 시작하기만 하면 무엇이든 최상단에 눌러앉는다.
-            --
-            -- 여기서 묻는 것은 `IsConditionField`이므로 재설계가 임의 이름을 풀어도
-            -- (`redesigning-custom-states.md`) 이 줄은 안 바뀐다.
-            local conditions = action.conditions;
-            if (conditions) then
-                for k in pairs(conditions) do
-                    if (not Constants.IsConditionField(k)) then
-                        conditions[k] = nil;
-                    end
-                end
-            end
-
-            -- **The third answer of the four automatics rows is no value at all**, so anything but
-            -- a boolean already reads as that answer (`CastAutomaticOf`) and only lingers in storage.
-            local casting = action.casting;
-            if (luatype(casting) == "table") then
-                local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
-                for i = 1, #rows do
-                    local row = rows[i];
-                    local value = casting[row];
-                    if (value ~= true and value ~= false) then
-                        casting[row] = nil;
-                    end
-                end
-            end
-
-            -- After the two filters above, which can leave a table empty.
-            FoldIntoStoredShape(action);
 
             -- The ordering number's net. **It is for data the migration never reached** -- MigrateDB
             -- only walks the shapes it knows about, so a hand-edited SavedVariables or a corner left

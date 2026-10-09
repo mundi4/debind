@@ -159,6 +159,11 @@ Constants.BLOCK                           = "block";
 --- name, so the row reads with the client's own `BINDING_NAME_*` and a saved `COMMAND` moves over
 --- by changing its type (`dropping-the-game-fallback.md` §4).
 Constants.ACTIONBUTTON                    = "actionbutton";
+--- **An action whose type or value nothing can run on**, kept rather than deleted: `SanitizeAction`
+--- moves what it held into `formerly` and the row stays with its key, place and conditions, so
+--- [Replace] can bring it back with nothing else lost (`sanitizing-actions-with-one-function.md`
+--- §6-6 item 2). `INVALID_ACTION` keeps it off the key.
+Constants.INVALID                         = "invalid";
 
 --- The binding commands `ACTIONBUTTON` takes, and where each one's slot is.
 ---
@@ -236,6 +241,54 @@ Constants.SPEC_RESOLVED_TYPES             = {
     [Constants.RESURRECT] = true,
 };
 
+--- What `value` is, per action type: the Lua types it may be, `|`-separated. **`false` is "this type
+--- has no value"**, spelled out so that a type missing here is one nobody knows rather than one
+--- with nothing to hold. `SanitizeAction` turns an action whose value does not fit into `INVALID`.
+---
+--- Every entry was taken from what the binding builder does with the value (`ButtonAttributes.lua`):
+--- `item` goes through `format("item:%d", …)` as a number and onto `*item-` as it is as a string,
+--- `worldmarker` through `_G["WORLD_MARKER" .. value]`, `petaction` through
+--- `_G["SLASH_" .. value .. "1"]`, `macro` straight into the `*macro-` attribute.
+Constants.VALUE_SHAPES = {
+    -- A name is what a Clique profile stores (`importing-clique-profiles.md` §4).
+    [Constants.SPELL]       = "number|string",
+    -- A name, or a string of digits for a slot, is what a Clique profile stores
+    -- (`importing-clique-profiles.md` §4). Both go on `*item-` as they are.
+    [Constants.ITEM]        = "number|string",
+    -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
+    -- there as an inventory slot rather than an item id (`ButtonAttributes.lua`).
+    [Constants.USESLOT]     = "number",
+    [Constants.MOUNT]       = "number",
+    [Constants.FLYOUT]      = "number",
+    [Constants.WORLDMARKER] = "number",
+    [Constants.SETCUSTOM]   = "number",
+    -- A switch name, or none yet: the picker adds the row with no target and the switch is picked
+    -- in the action's own menu afterwards (`redesigning-custom-states.md` §6-C). It is marked
+    -- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`) and does not bind.
+    [Constants.SETSWITCH_ON]     = "string|nil",
+    [Constants.SETSWITCH_OFF]    = "string|nil",
+    [Constants.SETSWITCH_TOGGLE] = "string|nil",
+    [Constants.MACRO]       = "string",
+    [Constants.MACROTEXT]   = "string",
+    [Constants.COMMAND]     = "string",
+    -- A command nobody knows is not asked about here: it raises nothing and is marked
+    -- (`UNKNOWN_ACTION_BUTTON`).
+    [Constants.ACTIONBUTTON] = "string",
+    [Constants.PETACTION]   = "string",
+    [Constants.TARGET]      = false,
+    [Constants.FOCUS]       = false,
+    [Constants.TOGGLEMENU]  = false,
+    [Constants.GIVEBACK]    = false,
+    [Constants.BLOCK]       = false,
+    -- The spell is the receiving character's class and specialization's to decide (`SpecSpells.lua`).
+    [Constants.DISPEL]      = false,
+    [Constants.DISPEL2]     = false,
+    [Constants.RAIDBUFF]    = false,
+    [Constants.RESURRECT]   = false,
+    -- What it held is in `formerly`.
+    [Constants.INVALID]     = false,
+};
+
 --- Which of the client's cast modifiers the press is holding, as one value: the self-cast one wins
 --- where both are held, which is `SecureButton_GetModifiedUnit`'s order. Bits, because the solver
 --- reads the column as a mask (`Solver.lua`), and a binding that has the column at all holds exactly
@@ -251,45 +304,82 @@ Constants.CASTMOD_ALL   = 7;
 --- `casting` is which press's row it stands in. Why the two heights split is carried by the
 --- `dbver <= 5` step in `Migration.lua`.
 ---
---- **Do not read this table directly.** Ask `IsConditionField`; only it also answers for the names
---- that start with a dollar sign.
+--- **Do not read this table to ask whether a name is a condition.** Ask `IsConditionField`; only it
+--- also answers for the names that start with a dollar sign, which are booleans.
+---
+--- **The value is the Lua type the condition is stored as**, `|`-separated where more than one is
+--- real, and `SanitizeAction` drops a value that is not one of them.
 Constants.CONDITION_FIELDS = {
-    units = true,
-    groups = true,
-    -- **A set of specialization ids, keyed by id.** It was a mask of indices, which meant the
-    -- same thing on every class and so followed an action to another class's tab. Ids do not,
-    -- and that is what buys the class condition: a class is exactly its own specialization ids,
-    -- so "while I am a warrior" needs no axis of its own
-    -- (`moving-the-spec-condition-to-spec-ids.md`).
-    specs = true,
-    -- **A table of specialization ids, each holding two lists of spell ids**: the talents that
-    -- have to be taken and the ones that have to not be. A specialization with no key here is one
-    -- the condition says nothing about (`adding-a-talent-condition.md` §2), which
-    -- is what
-    -- lets one action carry another class's talents without dying on this character.
-    talents = true,
-    forms = true,
-    bonusbars = true,
-    bartakeover = true,
-    extrabar = true,
-    combat = true,
-    stealth = true,
-    known = true,
-    mounted = true,
-    indoors = true,
+    -- One row per unit name; what a row holds is `UNIT_CONDITION_FIELDS`.
+    units = "table",
+    groups = "number",
+    -- **A mask of specialization indices per class id** (`Specs.lua`'s `MaskFor`). Keyed by class
+    -- so that "while I am a warrior" needs no axis of its own and an action does not follow its
+    -- indices to another class's tab (`giving-the-spec-condition-a-class-key.md`).
+    specs = "table",
+    -- **A table of specialization ids, each holding two lists of spell ids**: the talents that have
+    -- to be taken and the ones that have to not be. A specialization with no key here is one the
+    -- condition says nothing about (`adding-a-talent-condition.md` §2), which is what lets one action
+    -- carry another class's talents without dying on this character.
+    talents = "table",
+    forms = "number",
+    bonusbars = "number",
+    bartakeover = "number",
+    extrabar = "boolean",
+    combat = "boolean",
+    stealth = "boolean",
+    -- The name of a spell, the id where the client could not name it, or `true` on a spec-resolved
+    -- type (`making-known-a-spell-name.md`).
+    known = "boolean|number|string",
+    mounted = "boolean",
+    indoors = "boolean",
     -- **지역이 무엇을 허락하는가지 내가 무엇을 하고 있는가가 아니다.** 나머지 불리언들과
     -- 결이 다른데, 탈것 액션 여럿을 한 키에 얹어 자리에 맞는 것이 나가게 하려면 이 둘이
     -- 있어야 갈라진다. 그게 이 축들이 있는 이유다.
-    flyable = true,
-    advflyable = true,
+    flyable = "boolean",
+    advflyable = "boolean",
     -- **`flyable` asks what the zone allows; this asks whether the reader is off the ground.**
     -- One is the choice a mount key makes and the other is what happened after it.
-    flying = true,
+    flying = "boolean",
     -- **Reads the same value as `bonusbars`**, and that is deliberate rather than a duplicate.
     -- Nobody looking for "while flying" finds it behind a bar offset, so the one offset worth
     -- naming gets its own axis. The pair a user can set that never holds is what
     -- `GetBindingIssue` reports (`Issues.lua`).
-    skyriding = true,
+    skyriding = "boolean",
+};
+
+--- What one row of `conditions.units` holds, by name and Lua type. The menus write these and
+--- nothing else (`WriteUnitConditionMode`, `ToggleUnitConditionMask`); the headless net holds the
+--- spec fixtures to it (`tests/canonical.lua`).
+---
+--- `disabled` and `exists` are the row's mode, and the axes stay under a mode that does not read
+--- them, remembered for when it is turned back (`UnitConditionForBinding`).
+Constants.UNIT_CONDITION_FIELDS = {
+    disabled = "boolean",
+    exists = "boolean",
+    reaction = "number",
+    dead = "boolean",
+    group = "number",
+    role = "number",
+    frameTypes = "number",
+};
+
+--- What may sit inside `casting`, by name and Lua type. Every value is a scalar. A spelling nobody
+--- knows passes when it is a string, since every reader compares it against a spelling it does know
+--- (`ActionBindings.lua`'s `CastingValue`) and so reads it as the default.
+Constants.CASTING_FIELDS = {
+    selfCastKey = "string",
+    focusCastKey = "string",
+    hoverCast = "string",
+    hoverCastMode = "string",
+    normalCast = "boolean",
+    -- **네 이름은 클라이언트 CVar 이름 그대로다**, 그 값을 누르는 동안만 그 값으로 두는 줄들이라
+    -- (`setting-the-clients-cast-automatics-per-action.md`). 셋째 값인 "게임 설정 그대로"는
+    -- 이름이 없다: 값이 없는 것이 그것이다.
+    autoSelfCast = "boolean",
+    autoUnshift = "boolean",
+    autoDismount = "boolean",
+    autoDismountFlying = "boolean",
 };
 
 --- The issue categories. **Each names a control to mark, not a field.** Some, like `macro`,
@@ -458,6 +548,12 @@ Constants.INITIAL_SPEC_INDEX         = 5;
 function Constants.SpecIndexFlag(index)
     return 2 ^ (index - 1);
 end
+
+--- Every bit a stored specialization mask can hold on any client, 1..`INITIAL_SPEC_INDEX`. **Not what
+--- a class holds whole**, which is `ClassSpecMask` and differs by client. A bit past this one stands
+--- for no specialization anywhere, so `SanitizeAction` takes it off without asking which client wrote
+--- the value.
+Constants.SPEC_INDEX_ALL             = 2 ^ Constants.INITIAL_SPEC_INDEX - 1;
 
 -- **The one place this number is written.** It was two: this, and a
 -- `MAX_BONUS_ACTIONBAR_OFFSET` that the window and the condition menu drew their checkboxes
@@ -648,6 +744,23 @@ Constants.UNITGROUP_TO_CELLS = {
     [Constants.UNITGROUP_NONE]  = Constants.UNITGROUPCELL_NEITHER,
     [Constants.UNITGROUP_PARTY] = Constants.UNITGROUPCELL_PARTY + Constants.UNITGROUPCELL_BOTH,
     [Constants.UNITGROUP_RAID]  = Constants.UNITGROUPCELL_RAID + Constants.UNITGROUPCELL_BOTH,
+};
+
+--- The mask conditions, each to every bit it can hold. A bit past that is no box in any menu.
+Constants.CONDITION_MASKS = {
+    groups = Constants.GROUP_ALL,
+    forms = Constants.FORM_ALL,
+    bonusbars = Constants.BONUSBAR_ALL,
+    bartakeover = Constants.BARTAKEOVER_ALL,
+};
+
+--- The same for the masks inside one row of `conditions.units`. **All-on is stored as none there**
+--- (`ToggleUnitConditionMask`), where the four above keep it.
+Constants.UNIT_CONDITION_MASKS = {
+    reaction = Constants.REACTION_ALL,
+    group = Constants.UNITGROUP_ALL,
+    role = Constants.ROLE_ALL,
+    frameTypes = Constants.FRAMETYPE_ALL,
 };
 
 

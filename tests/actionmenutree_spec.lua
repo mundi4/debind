@@ -401,5 +401,20 @@ return function(DebindPrivate, _, harness)
 
     _G.DebindLayerPanel = layerPanel;
 
+    -- **A Broken Action's menu still builds, and [Replace] is on it**: that is how the row comes
+    -- back with its key, place and conditions (`sanitizing-actions-with-one-function.md` §6-6 item 2).
+    test("a broken action's menu builds and offers Replace", function()
+        local broken = { type = Constants.INVALID, formerly = { type = Constants.MACRO, value = 4 }, key = "F" };
+        ResetProfile({ broken });
+        local root = Build({ broken });
+        local replace;
+        for _, child in ipairs(root.children) do
+            if (child.kind == "button" and child.text == LLL["REPLACE_ACTION"]) then
+                replace = child;
+            end
+        end
+        check(replace ~= nil and replace.enabled ~= false, "no Replace on the menu");
+    end);
+
     return T;
 end

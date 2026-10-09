@@ -1189,11 +1189,10 @@ end
 ---
 --- **The binding's table can be empty.** It always exists, because every rebuild refills it in
 --- place (`GetBindingInfoForAction`). Storage is the opposite and keeps no empty table
---- (`CleanUpDB`).
+--- (`SanitizeAction`).
 ---
 --- **Everything in the table is a condition.** A name this addon does not write has no way here:
---- `CleanUpDB` takes it out of storage, and an import carrying one is refused whole (`Import.lua`'s
---- `IsUsableAction`). A hand-edited SavedVariables is not defended against.
+--- `SanitizeAction` takes it off a stored action at load and off an arriving one on import.
 function DebindPrivate.IsConditionalBinding(binding)
     local conditions = binding.conditions;
     return conditions ~= nil and next(conditions) ~= nil;

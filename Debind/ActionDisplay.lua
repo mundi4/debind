@@ -193,6 +193,7 @@ local BINDING_TYPE_NAMES   = {
 	[Constants.SETSWITCH_TOGGLE] = LLL["TYPE_SETSWITCH"],
 	[Constants.GIVEBACK] = LLL["TYPE_GIVEBACK"],
 	[Constants.BLOCK] = LLL["TYPE_BLOCK"],
+	[Constants.INVALID] = LLL["TYPE_INVALID"],
 };
 
 local UNIT_INFO            = {
@@ -310,6 +311,7 @@ local SORTED_UNIT_LIST     = {
 --- because two rows raising one code print two different names.
 local ISSUE_FIXED_NAMES = {
 	[Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY] = "CONDITION_UNIT_DOES_NOT_EXIST",
+	[Constants.BINDING_ISSUE_INVALID_ACTION] = "REPLACE_ACTION",
 };
 
 --- The sentence an issue code prints. **One place, because several surfaces print it**
@@ -488,6 +490,19 @@ local function NameAndIconForAction(action)
 		actionName = BINDING_TYPE_NAMES[Constants.BLOCK];
 		actionIcon = "INTERFACE\\BUTTONS\\UI-GroupLoot-Pass-Up";
 		skipTypeName = true;
+	elseif (type == Constants.INVALID) then
+		-- **The name is what it was**: the old type's own name where this build has one, its stored
+		-- spelling where it has none, and the value as it was stored. Nothing is looked up from the
+		-- value, since what it was is exactly what could not be read.
+		local formerly = action.formerly or {};
+		local formerType = formerly.type ~= nil and (BINDING_TYPE_NAMES[formerly.type] or tostring(formerly.type));
+		local formerValue = formerly.value ~= nil and tostring(formerly.value);
+		if (formerType and formerValue) then
+			actionName = formerType .. " " .. formerValue;
+		else
+			actionName = formerType or formerValue or LLL["UNNAMED_ACTION"];
+		end
+		actionIcon = QUESTION_MARK_ICON_NUM;
 	else
 		actionName = action.name or LLL["UNNAMED_ACTION"];
 		actionIcon = action.icon or QUESTION_MARK_ICON_NUM;

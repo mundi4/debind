@@ -113,7 +113,10 @@ L["BINDING_ERROR_MISSING_MACRO"] = "There is no macro named |cnHIGHLIGHT_FONT_CO
 L["BINDING_ERROR_UNKNOWN_PET_COMMAND"] = "This game has no pet command |cnHIGHLIGHT_FONT_COLOR:%s|r."
 L["BINDING_ERROR_UNKNOWN_ACTION_BUTTON"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r does not press an action button."
 L["BINDING_ERROR_UNKNOWN_FLYOUT"] = "This game has no flyout |cnHIGHLIGHT_FONT_COLOR:%s|r."
-L["BINDING_ERROR_INVALID_ACTION"] = "This action is invalid."
+-- **What to do about it is the sentence**, since no condition fixes it: what the action does could
+-- not be read, so a load turned it into a Broken Action (`SanitizeAction`). `%s` is the [Replace]
+-- item's label, handed in so a rename there follows (`ISSUE_FIXED_NAMES`).
+L["BINDING_ERROR_INVALID_ACTION"] = "What this action was saved with is broken, so it never runs. Use |cnHIGHLIGHT_FONT_COLOR:%s|r to give it something to do, or delete it."
 -- Not an issue: being covered is why an action is not firing, the other axis (`Constants.lua` above
 -- the issue outcomes), so this states what happened and stops there. The key itself still fires,
 -- and leaving an outranked action in place is a choice the reader is allowed to make.
@@ -1549,6 +1552,8 @@ L["TYPE_USESLOT"] = "Equipment Slot"
 -- the item itself sitting in the Carried group below it.
 L["TYPE_USESLOT_DESC"] = "Uses whatever you are wearing in this slot."
 L["TYPE_ITEM"] = "Item"
+-- An action whose saved type or value nothing can run. The row's name is what it was, beside this.
+L["TYPE_INVALID"] = "Broken Action"
 L["TYPE_MACRO"] = "Macro"
 L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves WoW's macro slots free. It can aim at special units and read your Switches, which a macro in WoW's own list cannot.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:/cast [@tank,exists] Rejuvenation|r"
 L["TYPE_MACROTEXT"] = "Custom Macro"

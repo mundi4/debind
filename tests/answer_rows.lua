@@ -50,6 +50,12 @@ return function(Constants)
             if (next(fields.casting) ~= nil) then
                 casting = copy(fields.casting);
             end
+            if (fields.type == Constants.INVALID) then
+                return {
+                    type = Constants.INVALID, formerly = { type = Constants.MACRO, value = 4 },
+                    key = fields.key or "F1", seq = 1, casting = casting, conditions = conditions,
+                };
+            end
             return {
                 type = Constants.SPELL, value = 585, key = fields.key or "F1", seq = 1,
                 unit = fields.unit, casting = casting, conditions = conditions,
@@ -100,8 +106,10 @@ return function(Constants)
         row(23, "unitframe role 0", { units = { unitframe = { role = 0 } } }),
         row(24, "unitframe role tank, solo only",
             { units = { unitframe = { role = Constants.ROLE_TANK } }, groups = Constants.GROUP_NONE }),
-        -- A value no build writes, so the action is `INVALID_ACTION` and left out.
-        row(25, "target row unreadable", { units = { target = "unreadable" } }),
+        -- **Nothing can run it, so it is `INVALID_ACTION` and left out**, its row along with it. This
+        -- row was an unreadable unit row once; `SanitizeAction` takes those off at load, and what
+        -- stays left out now is an action it turned `INVALID`.
+        row(25, "invalid action, target [there]", { type = Constants.INVALID, units = { target = { exists = true } } }),
         row(26, "target row role 0", { units = { target = { role = 0 } } }),
         row(27, "\"@\" [none], target, player, focus [there]",
             { units = { ["@"] = false, target = {}, player = {}, focus = {} } }),

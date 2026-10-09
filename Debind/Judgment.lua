@@ -51,12 +51,7 @@ local BOOL_FIELDS = {
     advflyable = true, flying = true, skyriding = true, extrabar = true,
 };
 
-local MASK_FIELDS = {
-    groups = Constants.GROUP_ALL,
-    forms = Constants.FORM_ALL,
-    bonusbars = Constants.BONUSBAR_ALL,
-    bartakeover = Constants.BARTAKEOVER_ALL,
-};
+local MASK_FIELDS = Constants.CONDITION_MASKS;
 
 local function constrain(out, key, kind, arg, all, mask, knownID)
     out[#out + 1] = {

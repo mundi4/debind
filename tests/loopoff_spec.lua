@@ -349,20 +349,22 @@ return function(DebindPrivate, _, ctx)
         end);
     end);
 
-    -- **An action holding a value no build writes is left out, and deletes nothing under it.** Read as
-    -- [when there is none], its unit condition would cover the real [when there is none] action
-    -- below and the solver would delete that one (`INVALID_ACTION`).
-    test("an action holding a value no build writes is left out and the one under it stays", function()
+    -- **An action nothing can run is left out, and deletes nothing under it.** Kept, its condition
+    -- would cover the real action below with the same one and the solver would delete that one
+    -- (`INVALID_ACTION`).
+    test("an invalid action is left out and the one under it stays", function()
         Bind({
-            action({ value = 6790, key = "F3", conditions = { units = { target = "from a hand edit" } } }),
-            action({ value = 6791, key = "F3", conditions = { units = { target = false } } }),
+            action({ type = Constants.INVALID, formerly = { type = Constants.MACRO, value = 4 }, key = "F3",
+                conditions = { units = { target = { exists = false } } } }),
+            action({ value = 6791, key = "F3", conditions = { units = { target = { exists = false } } } }),
         });
-        local on = {};
+        local on, invalid = {}, false;
         for _, binding in ipairs(DebindPrivate.KeyMap["F3"] or {}) do
-            on[binding.value] = true;
+            on[binding.value or false] = true;
+            invalid = invalid or binding.type == Constants.INVALID;
         end
-        check(not on[6790], "the invalid action reached the key");
-        check(on[6791], "the [when there is none] action under it was deleted");
+        check(not invalid, "the invalid action reached the key");
+        check(on[6791], "the action under it was deleted");
     end);
 
     -- **A role or frame type on a unit that is not the pointed frame's is not a condition**, so it

@@ -241,244 +241,46 @@ end
 -- One action
 -- ---------------------------------------------------------------------------------------------
 
---- Whether one wire field may be copied, **by name and by type**.
+--- A wire action turned into a profile action: a copy, brought into the shape the profile stores by
+--- `SanitizeAction`, the function a load runs on the same data.
 ---
---- A name filter alone let a field arrive as anything: `seq = {}` reached `ARRIVAL_SEQ + seq` and
---- raised halfway through `PlaceArrivedActions`, `priority = {}` raised inside the `table.sort`
---- that follows, `units = "x"` was walked with `pairs`. Every one of those went off after
---- part of the entry was already in the profile. The types are `ACTION_FIELDS`' values.
+--- **Nothing is filtered here first.** A filter of its own drops what sanitize keeps: a `specs` that
+--- is no table is nothing picked there and no condition at all here, so one string would land two
+--- ways depending on the door it came through, and a broken `type` would lose the name `formerly`
+--- keeps.
 ---
---- **A field of the wrong type is dropped, not corrected.** What it should have been is not
---- knowable, and an action missing a condition is a shape the rest of the addon already handles -
---- the issue mark included - while a guessed one is a binding that fires when it should not.
----
---- `$`-prefixed names pass unlisted, the same escape hatch the export copies out through
---- (`CopyFields`) and `CleanUpDB` keeps: a switch condition is stored under its own name, and
---- the redesign turns those into arbitrary names. They still have to be booleans - `$state1..5` are
---- declared as such and an arbitrary name does not make the value freer.
-local function FieldAllowed(name, value)
-    local expected = DebindStorage.ACTION_FIELDS[name];
-    if (not expected) then
-        return false;
-    end
-    return strfind(expected, luatype(value), 1, true) ~= nil;
-end
-
---- The same filter, one level down, for what may sit inside `conditions`.
----
---- **The nesting made this necessary rather than optional.** While the conditions were spread
---- across the action, the whitelist above saw each of them by name; folded into one table they
---- would arrive as a single `conditions = "table"` that nothing looked inside, and a hand-made
---- string could put anything in there. `CleanUpDB` sweeps it at the next logout, which is a whole
---- session of an unknown key riding on a real action.
----
---- `$`-prefixed names pass unlisted as booleans, the same escape the export copies out through:
---- a switch condition is stored under its own name. They still have to be booleans -- `$state1..5`
---- are declared as such and an arbitrary name does not make the value freer.
----
---- **A name this install has nothing defined for arrives all the same, and that is now the whole
---- rule.** `IsUsableAction` used to refuse the string over one, back when the runtime read no name
---- but the five: the solver gave any other name no column, so the box became the whole condition
---- space and the arriving action covered every binding under it on that key. The solver builds a
---- column per name it finds now (`Solver.lua`), so such a condition is what it looks like -- a
---- reference to a switch that is not here, which is a marked row and a binding that does not fire.
---- Like a spell the reader never learnt, it is ordinary and only fails to resolve on this machine.
-local function ConditionAllowed(name, value)
-    local expected = DebindStorage.CONDITION_TYPES[name];
-    if (not expected) then
-        return strsub(name, 1, 1) == "$" and luatype(value) == "boolean";
-    end
-    return strfind(expected, luatype(value), 1, true) ~= nil;
-end
-
---- What `value` is, per action type. `nil` in this table is not "unlisted", it is **"this type has
---- no value"** -- the four that need none are spelled out so that an unknown type is unlisted and
---- an unusable one is not.
----
---- The whitelist above cannot say any of this. It reads one field at a time, and `value` is
---- `number|string` there because a spell id is a number and a macro reference is a name. Which of
---- the two applies is the **action's type**, and the table has no column for that.
----
---- Read by `IsUsableAction`, which is the whole use. Every entry was taken from what the binding
---- builder does with the value (`ButtonAttributes.lua`): `item` goes through `format("item:%d", …)`
---- as a number and onto `*item-` as it is as a string, `worldmarker` through
---- `_G["WORLD_MARKER" .. value]`, `petaction` through `_G["SLASH_" .. value .. "1"]`, `macro`
---- straight into the `*macro-` attribute.
-local VALUE_SHAPES = {
-    -- A name is what a Clique profile stores (`importing-clique-profiles.md` §4).
-    [Constants.SPELL]       = "number|string",
-    -- A name, or a string of digits for a slot, is what a Clique profile stores
-    -- (`importing-clique-profiles.md` §4). Both go on `*item-` as they are.
-    [Constants.ITEM]        = "number|string",
-    -- An `INVSLOT_*` number, which reaches the `*item-` attribute as a bare string and is read
-    -- there as an inventory slot rather than an item id (`ButtonAttributes.lua`).
-    [Constants.USESLOT]   = "number",
-    [Constants.MOUNT]       = "number",
-    [Constants.FLYOUT]      = "number",
-    [Constants.WORLDMARKER] = "number",
-    [Constants.SETCUSTOM]   = "number",
-    -- A switch name. It reaches `SetAttribute` as the name of the attribute to set
-    -- (`ButtonAttributes.lua`), where a number would name an attribute nothing reads.
-    --
-    -- **Or nothing at all**, which is a shape this addon started producing at stage 3c: the picker
-    -- adds one row with no target and the switch is picked in the action's own menu afterwards
-    -- (`redesigning-custom-states.md` §6-C). A reader can export a layer before getting
-    -- round to that, and this table is asked whether the addon *could* have made the action. So
-    -- refusing it here would turn away the whole string over a half-finished row, which is the one
-    -- thing the receiving side is built not to do. It lands, it is marked
-    -- (`BINDING_ISSUE_SWITCH_NONE_SELECTED`), and it does not bind.
-    [Constants.SETSWITCH_ON]     = "string|nil",
-    [Constants.SETSWITCH_OFF]    = "string|nil",
-    [Constants.SETSWITCH_TOGGLE] = "string|nil",
-    [Constants.MACRO]       = "string",
-    [Constants.MACROTEXT]   = "string",
-    [Constants.COMMAND]     = "string",
-    -- One of `Constants.ACTION_BUTTON_COMMANDS`, which `IsUsableAction` asks as well.
-    [Constants.ACTIONBUTTON] = "string",
-    [Constants.PETACTION]   = "string",
-    [Constants.TARGET]      = false,
-    [Constants.FOCUS]       = false,
-    [Constants.TOGGLEMENU]  = false,
-    [Constants.GIVEBACK]    = false,
-    [Constants.BLOCK]       = false,
-    -- The spec-resolved types store no value: the spell is the receiving character's class and
-    -- specialization's to decide (`SpecSpells.lua`).
-    [Constants.DISPEL]      = false,
-    [Constants.DISPEL2]     = false,
-    [Constants.RAIDBUFF]    = false,
-    [Constants.RESURRECT]   = false,
-};
-
---- Is this a shape **this addon could have produced**? Asked of the built action, not of the wire
---- table, so it answers about what would land rather than about how the format spells it.
----
---- **This is not "is it broken".** A spell the reader never learnt, a macro name nothing answers
---- to: those are ordinary and the whole receiving side is built to show them. This asks
---- whether the action is one the addon can represent at all -- a `macro` holding a number, a
---- `worldmarker` holding nothing. **Nothing this addon writes builds one of those**, so a string
---- carrying one was touched by hand somewhere -- the string itself, or the SavedVariables it was
---- exported from -- and `ImportEntry` turns the **whole string** away on it
---- (`building-export-import.md`).
----
---- A type nobody knows is the same answer. It cannot be drawn, cannot be bound, and cannot be
---- repaired into anything.
-local function IsUsableAction(action)
-    local shape = VALUE_SHAPES[action.type];
-    if (shape == nil) then
-        return false;
-    end
-
-    if (shape == false) then
-        return true;
-    end
-
-    if (action.type == Constants.ACTIONBUTTON) then
-        return Constants.ACTION_BUTTON_COMMANDS[action.value] ~= nil;
-    end
-    -- `|`-separated, read the way `ConditionAllowed` reads `CONDITION_TYPES`. One type needs it so
-    -- far and `"nil"` is the alternative it needs, which `luatype` answers with like any other.
-    return strfind(shape, luatype(action.value), 1, true) ~= nil;
-end
-
---- A wire action turned into a profile action.
----
---- **Filtered through the same whitelist the export copies out by** (`ACTION_FIELDS`). This used to
---- be a blacklist naming the format's own fields, and being the opposite of the other end is what
---- made it a hazard: a wire field nobody had thought to name rode straight into the profile, and
---- avoiding that was the last reason left for the ranking to travel under a name other than its own.
---- With both ends reading one list there is no name to dodge (`building-export-import.md`).
----
---- **The whitelist is the only thing that brings a value into `action`.** Everything decided
---- before it writes to `fields`, which is still the untrusted table, so whoever adds the next rule
---- cannot help but hand it to the whitelist. What runs after the loop only takes away what the loop
---- let through, or folds it into the spelling the profile stores. A block there that brought a value
---- in would put it in the profile unread, which is what such blocks once did.
+--- **`arrivalID` is the receiving store's.** The wire does not carry one (`ACTION_FIELDS`), and the
+--- badge `Build` puts on is the only one an arrival has; a hand-made one is taken off unread rather
+--- than judged.
 ---
 --- **Nothing is rebuilt on the way in any more.**
 --- A `setstate` used to arrive as a `setstate = { mode, state }` subtable with no value, and this is
 --- where it was turned back into the bitpack the profile stored. §9-1 made the stored form a `type`
---- and a name, so what arrives is what lands and the loop below just copies it
---- (`unifying-action-migration.md` §3-1). Reading the old subtable is
---- `BringPayloadForward`'s now, one door earlier, where every other version step lives.
+--- and a name, so what arrives is what lands (`unifying-action-migration.md` §3-1). Reading the old
+--- subtable is `BringPayloadForward`'s now, one door earlier, where every other version step lives.
 local function BuildAction(source)
-    local fields = CopyTable(source);
-
-    local action = {};
-    for k, v in pairs(fields) do
-        -- **The key is asked about as well as the value.** A hand-made table brings numbers here,
-        -- and `FieldAllowed` reads the name with `strsub`.
-        --
-        -- A table is copied again rather than handed over. How far `fields` already stands from
-        -- `source` is `CopyTable`'s business, and this line is what makes the profile's table its
-        -- own whatever that answer is. `CopyTable` returns a table, so the `and`/`or` here cannot
-        -- fall through to `v`.
-        if (luatype(k) == "string" and FieldAllowed(k, v)) then
-            action[k] = luatype(v) == "table" and CopyTable(v) or v;
-        end
-    end
-
-    -- **The conditions table is filtered after it is copied, not instead.** The loop above is
-    -- still the only thing that brings a value in; this walks what it just put there.
-    local conditions = action.conditions;
-    if (conditions) then
-        for k, v in pairs(conditions) do
-            if (luatype(k) ~= "string" or not ConditionAllowed(k, v)) then
-                conditions[k] = nil;
-            end
-        end
-        -- **`known = false` is a boolean the addon never writes.** It passes the type check above,
-        -- and on a spec-resolved type the rebuild's two readers of it disagreed.
-        if (conditions.known == false) then
-            conditions.known = nil;
-        end
-    end
-
-    -- The same one level down for `casting`, and for the same reason: the whitelist above sees one
-    -- table and nothing inside it. The values are scalars, so this reaches all of them; an unknown
-    -- spelling of the right type stays and reads as the default.
-    local casting = action.casting;
-    if (casting) then
-        for k, v in pairs(casting) do
-            local expected = luatype(k) == "string" and DebindStorage.CASTING_TYPES[k];
-            if (not expected or expected ~= luatype(v)) then
-                casting[k] = nil;
-            end
-        end
-    end
-
-    -- **What the addon reads the same as its stored spelling is folded into it, not refused**
-    -- (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-2). Also takes off a table the
-    -- filters above emptied.
-    DebindPrivate.FoldIntoStoredShape(action);
-
+    local action = CopyTable(source);
+    action.arrivalID = nil;
+    DebindPrivate.SanitizeAction(action);
     return action;
 end
 DebindStorage.BuildAction = BuildAction;
 
---- Does this payload hold something **this addon could not have made**?
+--- Does this payload hold something that raises **before anything sanitizes it**?
 ---
---- One is enough, and one refuses the whole string (2026-08-18, owner's decision,
---- `building-export-import.md`). Not that one part on its own: our export cannot produce
---- the shape, so the string was edited after it was made, and **the rest of it is not warranted
---- either**. It is also the only answer the reader can act on. Nothing in this addon repoints an
---- existing action, so a bad row left in their profile could only be deleted -- refusing the string
---- puts the repair back where they can reach it, which is asking for it again.
+--- **A `key` of NaN, and nothing else.** It raises the moment it is used as a table index, which the
+--- count in the caller does on the raw payload. `ImportAddress` turns the same value away for `spec`
+--- and says why.
 ---
---- **Actions are asked of the built one**, not of the wire table, which is why `BuildAction` stands
---- above this section. The two differ by what the whitelist drops, and asking about the wire table
---- would be asking about fields that never land.
----
---- **A `key` of NaN is refused too.** It raises the moment it is used as a table index, which the
---- count in the caller does, rather than misbehaving. `ImportAddress` turns the same value away for
---- `spec` and says why. It needs no guard downstream, because nothing downstream runs on a payload
---- this refuses -- `ImportEntry` asks before it stores, and an entry is the only way in.
+--- **An action nothing can run does not turn the string away.** It lands as `INVALID`, saying what it
+--- was, with its key and conditions, and the reader can replace it or delete it (`sanitizing-actions-
+--- with-one-function.md` §6-6 item 2). That replaced the 2026-08-18 rule of refusing the whole
+--- string over one such action.
 function DebindStorage.PayloadIsImpossible(payload)
     local found = false;
     DebindStorage.ForEachPayloadLayer(payload, function(list)
         for _, source in ipairs(list) do
-            if (not IsUsableAction(BuildAction(source))) then
-                found = true;
-            elseif (source.key ~= nil and source.key ~= source.key) then
+            if (luatype(source) == "table" and source.key ~= nil and source.key ~= source.key) then
                 found = true;
             end
         end
@@ -1202,13 +1004,6 @@ function DebindStorage.PlanArrival(payload, options)
             -- key, and it is half of the group this action lands in.
             arrivalID = arrivalID or DebindPrivate.NextArrivalID();
             action.arrivalID = arrivalID;
-
-            -- **No key, no number.** The invariant the profile keeps (`ClearActionKey`), held
-            -- here as well so a hand-made string cannot walk one in: a number is a place among
-            -- the actions sharing a key, and there is no key to be a place in.
-            if (action.key == nil) then
-                action.seq = nil;
-            end
 
             -- **Nothing untranslated goes past here.** It is read only as the shape its source
             -- wrote, and a source this version does not know has no shape to read.

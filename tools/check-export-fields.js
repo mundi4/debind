@@ -1,52 +1,24 @@
-// Does the export leave any action field behind?
+// Does an account backup leave any option behind?
 //   npm run check:export-fields
 //
-// `KEYS_TO_SAVE` in `Profile.lua` is the one list of "fields that get saved", and `ACTION_FIELDS`
-// in `DebindStorage/Export.lua` is the list of "fields that go out on the wire". They may differ only
-// by the fields named in `EXPECTED_ONLY_IN_PROFILE` and `EXPECTED_ONLY_ON_WIRE` below, each with the
-// reason it belongs to one side.
+// The options an account backup carries (`OPTION_FIELDS` in `DebindStorage/Export.lua`) against
+// every option the settings tab's Defaults resets. The addon keeps no list of its options anywhere
+// else, and Defaults has to touch every one of them, so it is the list. An option missing from
+// `OPTION_FIELDS` is left out of every backup with nothing said.
 //
-// Why this exists: adding a field to only one of them raises **nothing anywhere**. The action saves
-// fine and the export quietly drops it, so it arrives on the far side as an action with one
-// condition missing - and a missing condition usually means "fires more often", which is the worst
-// direction for a keybinding addon to fail in. Neither the game nor the headless specs catch it:
-// a spec only looks at the fields it already knows about.
+// **Action fields are not compared here any more: there is one list.** The wire's `ACTION_FIELDS`
+// is read off `KEYS_TO_SAVE`, and conditions and `casting` read Debind's own tables, so a field
+// cannot be saved and left out of the export, or the other way round.
 //
-// `Export.lua` not reading `KEYS_TO_SAVE` directly is deliberate. That one is a local, and the
-// export lives in a separate addon that does not reach into `Profile.lua`. Keeping two copies of
-// the list is what this check pays for.
+// **`macro` and `setstate` are on the wire and no list names them.** Neither is a profile field:
+// they are what a local reference is rewritten into for the trip, and they are read and dropped on
+// arrival. `tests/import_spec.lua` covers those two.
 
 const fs = require("fs");
 const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const NL = String.fromCharCode(10);
-
-// Fields it is *correct* for the two lists to disagree on. Adding one means leaving a line saying why.
-const EXPECTED_ONLY_IN_PROFILE = {
-    // It counts *this* store's arrivals. Sending it would tell the far side that something they
-    // just received had already been received, and it would number their groups off a counter only
-    // this machine has ever run.
-    arrivalID: "which arrival put it here - meaningless in someone else's store",
-};
-
-// The other direction: a field that travels and is never saved. `CleanUpDB` takes anything not in
-// `KEYS_TO_SAVE` off a saved action, which is the guarantee these want.
-const EXPECTED_ONLY_ON_WIRE = {
-    // Another addon's value that waits in a payload until it is added, where it is translated or
-    // dropped (`importing-clique-profiles.md` §2). Left on a saved action it would mean nothing.
-    untranslated: "another addon's untranslated values - resolved when the payload is added",
-};
-
-// This list used to hold `key` and `seq` as well, under a format that carried the key on a group
-// layer above the action and renamed the ranking to `order` to keep it from colliding. Both are on
-// the wire under their own names now (`building-export-import.md`), which is also what let
-// the receiving side read the same whitelist instead of a blacklist of its own.
-//
-// **`macro` and `setstate` are on the wire and this check cannot see them.** Neither is a profile
-// field: they are what a local reference is rewritten into for the trip, and they are read and
-// dropped on arrival. Said here so the gap is a known one - a wire field that stopped being written
-// would go unnoticed here, and `tests/import_spec.lua` is what covers those two instead.
 
 /** Collects the keys inside the braces of `local NAME = { ... };`. */
 function readFieldTable(file, tableName) {
@@ -94,24 +66,6 @@ function readFieldTable(file, tableName) {
     return fields;
 }
 
-const saved = readFieldTable("Debind/Profile.lua", "KEYS_TO_SAVE");
-const exported = readFieldTable("DebindStorage/Export.lua", "ACTION_FIELDS");
-
-// Conditions live one level down (`action.conditions`), so the two lists above agree on the single
-// name `conditions` and say nothing about what may be inside it. That is a second contract with the
-// same failure mode: a condition named on one side and not the other saves fine and travels as
-// nothing, arriving as an action missing one condition - which usually means "fires more often".
-//
-// `Constants.CONDITION_FIELDS` is what the addon calls a condition; `CONDITION_TYPES` is what the
-// wire carries. `$`-prefixed names are deliberately only on the wire side: `IsConditionField`
-// answers for those by prefix rather than by name, so there is nothing to list.
-const conditions = readFieldTable("Debind/Constants.lua", "Constants.CONDITION_FIELDS");
-const conditionTypes = readFieldTable("DebindStorage/Export.lua", "CONDITION_TYPES");
-
-// The options an account backup carries (`OPTION_FIELDS`) against every option the settings tab's
-// Defaults resets. The addon keeps no list of its options anywhere else, and Defaults has to touch
-// every one of them, so it is the list. An option missing from `OPTION_FIELDS` is left out of every
-// backup with nothing said.
 function readResetOptions() {
     const file = "Debind/SettingsTab.lua";
     const source = fs.readFileSync(path.join(repoRoot, file), "utf8");
@@ -151,83 +105,12 @@ for (const field of optionFields) {
     );
 }
 
-for (const field of conditions) {
-    if (conditionTypes.has(field)) continue;
-    problems.push(
-        `조건인데 전송 포맷에 없다: ${field}` + NL +
-        `    Export.lua의 CONDITION_TYPES에 타입과 함께 넣을 것.`
-    );
-}
-
-for (const field of conditionTypes) {
-    if (conditions.has(field)) continue;
-    if (field.startsWith("$")) continue;
-    problems.push(
-        `전송 포맷은 싣는데 조건이 아니다: ${field}` + NL +
-        `    Constants.lua의 CONDITION_FIELDS에 없는 이름은 CleanUpDB가 conditions에서 걷어낸다.`
-    );
-}
-
-for (const field of saved) {
-    if (exported.has(field)) continue;
-    if (EXPECTED_ONLY_IN_PROFILE[field]) continue;
-    problems.push(
-        `저장은 되는데 익스포트가 안 한다: ${field}\n` +
-        `    Export.lua의 ACTION_FIELDS에 넣거나, 안 보내는 게 맞으면\n` +
-        `    tools/check-export-fields.js의 EXPECTED_ONLY_IN_PROFILE에 이유와 함께 적을 것.`
-    );
-}
-
-for (const field of exported) {
-    if (!saved.has(field) && !EXPECTED_ONLY_ON_WIRE[field]) {
-        problems.push(
-            `익스포트는 하는데 저장이 안 된다: ${field}\n` +
-            `    Profile.lua의 KEYS_TO_SAVE에 없는 필드는 CleanUpDB가 걷어내므로 늘 nil이다.`
-        );
-    }
-}
-
-for (const field of Object.keys(EXPECTED_ONLY_IN_PROFILE)) {
-    if (!saved.has(field)) {
-        problems.push(
-            `예외 명단에 있는데 KEYS_TO_SAVE에는 없다: ${field}\n` +
-            `    필드가 사라졌으면 EXPECTED_ONLY_IN_PROFILE에서도 지울 것.`
-        );
-    }
-    if (exported.has(field)) {
-        problems.push(
-            `예외 명단에 있는데 ACTION_FIELDS에도 있다: ${field}\n` +
-            `    둘 중 하나가 틀렸다.`
-        );
-    }
-}
-
-for (const field of Object.keys(EXPECTED_ONLY_ON_WIRE)) {
-    if (!exported.has(field)) {
-        problems.push(
-            `예외 명단에 있는데 ACTION_FIELDS에는 없다: ${field}\n` +
-            `    필드가 사라졌으면 EXPECTED_ONLY_ON_WIRE에서도 지울 것.`
-        );
-    }
-    if (saved.has(field)) {
-        problems.push(
-            `예외 명단에 있는데 KEYS_TO_SAVE에도 있다: ${field}\n` +
-            `    둘 중 하나가 틀렸다.`
-        );
-    }
-}
-
 if (problems.length > 0) {
     for (const problem of problems) {
         process.stderr.write(`  ${problem}\n`);
     }
-    process.stderr.write(`\n익스포트 필드 명단이 어긋난다 (${problems.length}건).\n`);
+    process.stderr.write(`\n계정 백업의 옵션 명단이 어긋난다 (${problems.length}건).\n`);
     process.exit(1);
 }
 
-process.stdout.write(
-    `익스포트 필드 ${exported.size}개가 KEYS_TO_SAVE와 맞는다 ` +
-    `(안 보내는 것 ${Object.keys(EXPECTED_ONLY_IN_PROFILE).length}개, 저장 안 하는 것 ` +
-    `${Object.keys(EXPECTED_ONLY_ON_WIRE).length}개 제외), 조건 ${conditions.size}개가 CONDITION_TYPES와, ` +
-    `옵션 ${optionFields.size}개가 설정 탭의 기본값과 맞는다.\n`
-);
+process.stdout.write(`옵션 ${optionFields.size}개가 설정 탭의 기본값과 맞는다.\n`);

@@ -478,6 +478,24 @@ return function(DebindPrivate)
             .. ": " .. tooltip:text());
     end);
 
+    --- **A Broken Action's row says what it was, and its tooltip what to do about it** (`SanitizeAction`,
+    --- §6-6 item 2 of `sanitizing-actions-with-one-function.md`). The sentence names the [Replace]
+    --- item; printed unfilled it would carry a bare `%s` onto the screen.
+    test("a broken action says what it was and what to do", function()
+        Bind({
+            { type = Constants.MACRO, value = 4, key = "F1", seq = 1 },
+        }, {});
+
+        local row = DebindPrivate.CollectActionsForKey("F1")[1];
+        check(row and row.action.type == Constants.INVALID, "the action did not load as a broken one");
+        local _, _, name = DebindPrivate.DebindUI.NameAndIconForAction(row.action);
+        check(name == LLL["TYPE_MACRO"] .. " 4", "the row's name: " .. name);
+        local sentence = LLL["BINDING_ERROR_INVALID_ACTION"]:format(LLL["REPLACE_ACTION"]);
+        local tooltip = shim.newTooltip();
+        DebindPrivate.AddIssueMarkToTooltip(tooltip, row.action);
+        check(tooltip:text():find(sentence, 1, true), "the sentence is missing: " .. tooltip:text());
+    end);
+
     --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.
     test("one Cast Options value changed draws that one line", function()
         Bind({

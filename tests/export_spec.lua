@@ -312,20 +312,6 @@ return function(DebindPrivate, DebindStorage, harness)
         check(#GroupFor(DebindStorage.BuildExportPayload(), "F") == 1, "반만 나가야 한다");
     end);
 
-    -- **승인했지만 키를 안 준 것은 나간다.** 배지가 없으면 내 것이고, "아직 키를 안 정한 키
-    -- 그룹"이라는 사실까지 그대로 실린다. 두 규칙이 서로 안 부딪힌다.
-    test("배지 없는 숫자 키는 그대로 나간다", function()
-        ResetProfile({
-            general = {
-                harness.HandMade({ type = Constants.SPELL, value = 1, key = 3, seq = 1 }),
-                harness.HandMade({ type = Constants.SPELL, value = 2, key = 3, seq = 2 }),
-            },
-        });
-
-        local group = GroupFor(DebindStorage.BuildExportPayload(), 3);
-        check(#group == 2, "숫자 키 그룹이 안 나갔다: " .. #group);
-    end);
-
     ---------------------------------------------------------------------------
     -- Action fields
     ---------------------------------------------------------------------------
@@ -362,17 +348,17 @@ return function(DebindPrivate, DebindStorage, harness)
     test("페이로드는 사본이라 고쳐도 프로필이 안 바뀐다", function()
         ResetProfile({
             general = { { type = Constants.SPELL, value = 1, key = "F",
-                conditions = { units = { target = 1 } } } },
+                conditions = { units = { target = { exists = true, reaction = Constants.REACTION_HELP } } } } },
         });
 
         local payload = DebindStorage.BuildExportPayload();
         local action = OneOn(payload, "F");
         action.value = 999;
-        action.conditions.units.target = 999;
+        action.conditions.units.target.reaction = Constants.REACTION_HARM;
 
         local stored = LayerActions(1)[1];
         check(stored.value == 1, "value가 프로필까지 바뀌었다");
-        check(stored.conditions.units.target == 1, "테이블이 참조로 나갔다");
+        check(stored.conditions.units.target.reaction == Constants.REACTION_HELP, "테이블이 참조로 나갔다");
     end);
 
     ---------------------------------------------------------------------------

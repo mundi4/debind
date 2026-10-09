@@ -153,6 +153,7 @@ function Talents.ListOf(entry, name)
 end
 
 local LIST_NAMES = { "taken", "notTaken" };
+Talents.LIST_NAMES = LIST_NAMES;
 
 --- Drops what says nothing from an action's `talents` condition: an empty list, an entry left with
 --- no list, and the table once no entry is left.

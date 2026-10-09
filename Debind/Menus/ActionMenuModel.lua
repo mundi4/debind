@@ -884,15 +884,7 @@ local function UnitConditionDeadIs(ctx, unit, value)
     end);
 end
 
---- 이 유닛 조건이 기억하고 있는 축이 하나라도 있는가.
----
---- **축이 하나 늘 때마다 여기 항이 하나 는다.** 빠뜨리면 그 축만 걸어둔 유닛이 [사용 안
---- 함]으로 옮기는 순간 기억되는 대신 지워진다. 소속을 넣을 때 실제로 그렇게 빠졌다. 두
---- 자리가 같은 물음을 하므로 값이 하나여야 한다(`SetUnitConditionMode`, `SetPlayerLife`).
-local function UnitConditionRemembersAxis(cond)
-    return cond.reaction ~= nil or cond.dead ~= nil or cond.role ~= nil or cond.group ~= nil
-        or cond.frameTypes ~= nil;
-end
+local UnitConditionRemembersAxis = DebindPrivate.UnitConditionRemembersAxis;
 
 --- What the three radios at the top write into one action. **It moves the mode and leaves the axes
 --- alone**: a reader who switches to [Disable] and back has to find the reaction and the life they

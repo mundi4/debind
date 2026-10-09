@@ -1,6 +1,6 @@
 # 액션을 sanitize 함수 하나로 바로잡기
 
-> 상태: 되감기를 했다(3-4). sanitize 함수는 아직 짜지 않았다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
+> 상태: 되감기를 했다(3-4). 7절 1번(함수와 `"invalid"`)까지 했고 다음은 2번이다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
 > 소유자가 더 정한 것(대기 액션, 계정 전체 페이로드는 사본만, 서랍, 클라이언트마다 다른 답)을 2-1·2-2에 넣었다. 2절에서
 > `debind-1b`가 덧붙인 줄에는 "(덧붙임)"을 달았다. 6절의 정답표도 다 정했다.
 > `checking-pasted-strings-and-keeping-actions-canonical.md`의 설계(가져오기 관문만 엄하게 하고, 접속 때는 아무것도 고치지
@@ -197,14 +197,16 @@
 | 자리 | 문제 | 하는 일 |
 |---|---|---|
 | 표에 없는 이름 | | 날린다 |
-| `type` | 문자열이 아님, 모르는 타입 | `"invalid"`로 바꾼다. 원래 타입은 문자열일 때만 남긴다(6-6의 2번) |
-| `value` | 그 타입의 모양(`VALUE_SHAPES`)과 다름, NaN | `type`을 `"invalid"`로 바꾼다. 값은 문자열·숫자일 때만 둔다(6-6의 2번) |
+| `type` | 문자열이 아님, 모르는 타입 | `"invalid"`로 바꾸고 원래 `type`·`value`를 `formerly`에 옮긴다(6-6의 2번) |
+| `value` | 그 타입의 모양(`VALUE_SHAPES`)과 다름, NaN | 위와 같다 |
+| `formerly` | `type`이 `"invalid"`가 아님 | 날린다 |
+| `formerly` | 표가 아님, 안에 `type`·`value` 말고 다른 이름, 문자열·숫자가 아닌 값, NaN | 표가 아니면 날리고, 안쪽은 그 칸만 날린다 |
 | `key` | 문자열이 아님, NaN, `ESCAPE` | 날린다. 키 없는 액션으로 남는다 |
 | `seq` | 숫자가 아님, NaN, 키 없는 액션 | 날린다. 키가 있으면 레이어에 들어갈 때 번호를 받는다(2-3) |
 | `name` | 문자열이 아님 | 날린다 |
 | `icon` | 숫자·문자열이 아님, NaN | 날린다 |
 | `unit` | 문자열이 아님 | 날린다 |
-| `unit` | 대상을 못 받는 액션(`ActionTakesUnit`) | 날린다 |
+| `unit` | 대상을 못 받는 액션(`ActionTakesUnit`) | 날린다. `"invalid"`는 남긴다. 원래 것이 대상을 받았을 수 있고, [바꾸기]로 그런 타입이 되면 대상도 돌아온다 |
 | `priority` | 숫자가 아님, NaN | 날린다 |
 | `priority` | 기본값 | nil로 접는다 |
 | `disabled` | 불리언이 아님 | 날린다 |
@@ -235,14 +237,14 @@
 | 표에 없는 이름, 문자열이 아닌 키 | | 날린다 |
 | `$` 이름 | 불리언이 아님 | 날린다 |
 | `combat` 등 불리언 조건 | 불리언이 아님 | 날린다 |
-| `groups`, `forms`, `bonusbars`, `bartakeover` | 숫자가 아님, NaN | 0으로 둔다 |
+| `groups`, `forms`, `bonusbars`, `bartakeover` | 숫자가 아님, NaN, 정수가 아니거나 음수 | 0으로 둔다 |
 | 같은 넷 | 범위 밖 비트 | `band(value, ALL)` |
 | `known` | 불리언·숫자·문자열이 아님, NaN, `false` | 날린다 |
 | `known` | 주문도 전문화 파생 타입도 아닌 액션 | 날린다 |
 | `known` | 전문화 파생 타입의 `true` | 날리고 `skipWhenUnusable = true` |
 | `specs` | 표가 아님 | `{}`로 둔다 |
 | `specs`의 칸 | 키가 숫자가 아님 | 그 칸을 날린다 |
-| `specs`의 칸 | 값이 숫자가 아님, NaN | 0으로 둔다 |
+| `specs`의 칸 | 값이 숫자가 아님, NaN, 정수가 아니거나 음수 | 0으로 둔다 |
 | `specs`의 칸 | 어느 클라이언트에도 없는 비트(전문화 번호 1~`INITIAL_SPEC_INDEX` 밖) | 그 다섯 비트로 `band`. 클라이언트와 상관없는 고정값이다 |
 | `specs`의 칸 | 0 | 그 칸을 날린다. 메뉴가 쓰는 모양이다. 다 날아가도 `{}`는 남긴다 |
 | `talents` | 표가 아님 | 날린다 |
@@ -257,14 +259,19 @@
 
 | 자리 | 문제 | 하는 일 |
 |---|---|---|
-| 행 이름 | `"@"`도 `UNIT_INFO`에도 없음 | 그 행을 날린다 |
-| 행 | 표가 아님 | 그 행을 날린다 |
+| 행 이름 | `"@"`도 메뉴의 유닛 목록(`SORTED_UNIT_LIST`에서 `none`을 뺀 것)에도 없음 | 그 행을 날린다 |
+| 행 | 옛 스칼라 넷(`true`, `false`, `"help"`, `"harm"`) | 그 행으로 옮긴다(`{ exists = true }` 등). 읽는 쪽이 아직 그 뜻으로 읽고(`UnitConditionForBinding`), 날리면 넓어진다. 옮기는 법은 사다리 4·6단계의 것이다 |
+| 행 | 그 밖의, 표가 아닌 값 | 그 행을 날린다 |
+| 행 이름 | 옛 이름 `hover` | `unitframe`으로 옮긴다. 둘 다 있으면 `unitframe`이 이긴다(사다리 6단계와 같다) |
 | 행 안 | 표에 없는 이름 | 날린다 |
 | `disabled`, `exists`, `dead` | 불리언이 아님 | 날린다 |
-| `reaction`, `group`, `role`, `frameTypes` | 숫자가 아님, NaN | 0으로 둔다. `role`도 같다(6-6의 4번) |
+| `disabled` | `false` | nil로 접는다 |
+| `disabled = true`인 행 | `exists`가 있음 | 날린다. 기억하는 축이 없으면 행을 날린다. 메뉴가 쓰는 모양이다(`WriteUnitConditionMode`) |
+| 표시 없는 행 | `disabled`도 `exists`도 없음 | `exists = true`. 읽는 쪽이 "있을 때"로 읽는다(`UnitConditionForBinding`). 날리면 넓어진다 |
+| `reaction`, `group`, `role`, `frameTypes` | 숫자가 아님, NaN, 정수가 아니거나 음수 | 0으로 둔다. `role`도 같다(6-6의 4번) |
 | 같은 넷 | 범위 밖 비트 | 각자의 ALL로 `band` |
 | 같은 넷 | ALL | nil로 접는다. 메뉴가 쓰는 모양이다 |
-| 빈 행, 빈 `units` | | 날린다 |
+| 빈 `units` | | 날린다 |
 
 ### 6-6. 논의한 것
 
@@ -281,15 +288,19 @@
      조건부로 본다(코드로 확인). 모르는 조건 이름이 유일한 조건이었다면, 날린 순간 그 액션의 발동 순서가 바뀐다.
 2. **`type`이나 `value`가 틀린 액션을 지우나.** 정했다: 지우지 않고 **`type`을 `"invalid"`로 바꾼다**(소유자가 낸 셋째
    방향, `debind-4b`도 같은 답). 프로필이든 가져오기든 같다.
-   - **원래 무엇이었는지 보여 준다.** 원래 `type`은 문자열일 때만 필드 하나에 남긴다. `value`는 문자열이나 숫자일 때만 둔다.
-     표 같은 값을 남기면 그것을 읽는 자리가 다시 터진다.
+   - **원래 무엇이었는지 `formerly = { type, value }`에 담는다**(소유자가 낸 안, 이름은 `debind-4b`). 목록의 이름은 대부분
+     `type`과 `value`로 그때그때 만들고(`ActionDisplay.lua`), 저장된 `name`을 쓰는 타입은 몇 안 된다. 그래서 이름만으로는 원래
+     것을 보여 줄 수 없다. 원래 값을 `value`에 그대로 두지 않는 것은, 타입을 묻지 않고 `value`를 읽는 자리가 깨진 값을 실행할
+     값으로 읽지 않게 하려는 것이다. `formerly` 안에는 문자열이나 숫자만 남긴다. 표 같은 값을 남기면 그것을 읽는 자리가 다시
+     터진다. `data`·`original`처럼 다른 뜻으로도 읽힐 이름은 피했다.
    - **키에서는 빠진다.** 이슈(`INVALID_ACTION`)로 경고 마크가 붙고 키에 오르지 않는다.
    - **무엇을 할지는 사용자가 정한다.** 이름을 보고 [바꾸기]로 제대로 된 액션으로 바꾸거나, 지우거나, 그냥 둔다. 그냥 두면
      지운 것과 효과가 같다. [바꾸기]는 `type`·`value`·`name`·`icon`만 덮고(`SetActionEntry`) 키, 키 안의 자리, 조건,
-     중요도, `casting`은 남기니, 그 줄에 걸린 설정을 잃지 않고 되살린다. 원래 타입을 담은 필드는 `type`이 `"invalid"`가
-     아니게 되면 `DropFieldsTheTypeCannotHold`가 지운다.
+     중요도, `casting`은 남기니, 그 줄에 걸린 설정을 잃지 않고 되살린다. `formerly`는 `type`이 `"invalid"`가 아니게 되면
+     `DropFieldsTheTypeCannotHold`가 지운다.
    - **내보내기는 다른 액션과 같다.** 받는 쪽에서도 `"invalid"`는 아는 타입이라 같은 모양으로 남는다.
-   - **함수는 아무것도 돌려주지 않는다.** 아래 "어떻게 가르나"의 `false` 갈래는 필요 없어졌다. 2026-08-18 규칙("만들 수 없는
+   - **함수가 돌려주는 것은 "이 액션을 지워라" 하나뿐이다.** 액션이 표가 아니거나 `arrivalID`가 틀린 때(3번)이고,
+     부르는 쪽은 늘 지운다. 아래 "어떻게 가르나"의 갈래는 필요 없어졌다. 2026-08-18 규칙("만들 수 없는
      액션이 하나면 문자열 전체를 거절한다")도 이것으로 대체된다.
    - 그 앞의 두 의견은 아래와 같았다.
    - `debind-4b`: 지운다. 그 액션은 아무것도 할 수 없다. `value`만 날리면 값 없는 액션이 되는데, 값 없는 `worldmarker`는
@@ -337,6 +348,31 @@
 1. **함수와 `"invalid"` 타입.** 6절 표대로 액션 하나를 고치는 함수를 세운다. 지금의 `FoldIntoStoredShape`와
    `DropFieldsTheTypeCannotHold`는 그 안으로 들어온다. `"invalid"` 타입, 원래 타입을 담는 필드, 이슈, 목록에 보일 이름을 함께
    더한다. 표의 줄마다 헤드리스 테스트를 두고, 고치기 전 코드에서 빨개지는 것을 본 뒤에 넘긴다.
+
+   했다(2026-10-09, `debind-4b`).
+   - **함수는 `Sanitize.lua`의 `SanitizeAction`이다.** `tests/sanitize_spec.lua`가 6절의 줄마다 넣은 값과 나와야 할 값을
+     든다. 함수가 없을 때 모두 빨갰고, 함수를 몇 군데 일부러 망가뜨려 해당 줄이 빨개지는 것도 봤다.
+   - **표는 Debind에 한 벌씩이다.** `KEYS_TO_SAVE`와 `Constants.CONDITION_FIELDS`가 값으로 타입을 들고,
+     `Constants.CASTING_FIELDS`, `UNIT_CONDITION_FIELDS`, `VALUE_SHAPES`, `CONDITION_MASKS`, `UNIT_CONDITION_MASKS`,
+     `SPEC_INDEX_ALL`을 새로 두었다. `DebindStorage`의 `CONDITION_TYPES`·`CASTING_TYPES`·`VALUE_SHAPES`는 이제 그것을 그대로
+     읽고, Judgment의 마스크 표와 메뉴의 `UnitConditionRemembersAxis`도 그쪽으로 옮겼다. 내보내기의 `ACTION_FIELDS`는
+     `KEYS_TO_SAVE`에서 `arrivalID`를 빼고 `untranslated`를 더해 만든다. 그래서 `check:export-fields`는 옵션 목록만 비교한다.
+   - **`FoldIntoStoredShape`는 없앴다.** 부르던 두 곳(`CleanUpDB`, 가져오기의 `BuildAction`)이 `SanitizeAction`을 부른다.
+     그래서 접속·로그아웃 때의 `CleanUpDB`가 이미 이 함수를 돈다(3번에서 자리를 다시 본다).
+   - **가져오기는 복사해서 `SanitizeAction`에 넘기기만 한다.** 앞에 따로 거르던 필터(`FieldAllowed`, `ConditionAllowed`)가
+     sanitize보다 먼저 값을 떼어, 같은 값이 붙여넣기와 불러오기에서 반대로 처리됐다(리뷰). 관문(`PayloadIsImpossible`)은
+     NaN 키만 거절한다. sanitize 전에 개수를 세는 쪽이 그 키를 표 키로 써서 터지기 때문이다. 키 없는 액션의 `seq`를
+     지우는 줄은 가져오기의 `Build`에서 걷었고, `CleanUpDB`의 것은 5번에서 걷는다.
+   - **`"invalid"`**: 이슈는 `INVALID_ACTION`이 맡고, 그 문장이 [바꾸기]를 가리킨다. 목록에는 "원래 타입 값 (깨진 행동)"으로
+     보인다.
+   - **구현하며 정답표를 고친 것.** 처음 표대로 옛 유닛 행 스칼라를 날렸더니 스펙 열일곱 건이 빨개졌다. 픽스처 199줄이 그 모양을
+     쓰고, 읽는 쪽도 아직 그 뜻으로 읽는다. 날리면 조건이 사라져 넓어지니 "복구할 수 있는 것은 복구"대로 옮기게 고쳤다(6-5).
+     `hover` 행 이름도 같다. `"invalid"`는 대상(`unit`)을 남긴다(6-2).
+   - **옛 결정을 옮겨 적던 테스트를 고쳤다.** 숫자 키 둘(키를 아직 안 정한 묶음, 사다리가 지우고 이제 만드는 곳이 없다),
+     읽을 수 없는 유닛 행 셋(이제 불러올 때 지워지니, 같은 성질을 `"invalid"` 액션으로 옮겨 묻는다), 문자열째 거절 일곱
+     (2026-08-18 규칙. `"invalid"`로 들어오는지를 묻게 바꿨고, 모르는 액션 버튼 명령은 그대로 들어와 표시되는지를 묻는다).
+     손으로 만든 모양이던 픽스처 셋(숫자인 유닛 행, 메뉴에 없는 유닛 이름, 배포된 적 없는 전문화 ID 집합)은 메뉴가 쓰는
+     모양으로 바꿨다. 역할 전체값 테스트는 sanitize를 거치지 않은 액션으로 읽는 쪽을 그대로 묻는다.
 2. **목록을 걷는 일.** 표가 아닌 원소 빼기(3-3의 15번)와 묶음마다 `seq` 다시 매기기(2-3). 액션 하나로는 못 하는 일이다.
 3. **부르는 자리.** 불러올 때(`MergePendingActions` 뒤, Legacy 가져오기 뒤), 로그아웃할 때, 계정 전체 페이로드의 사본,
    서랍에 넣을 때와 꺼낼 때(Clique 변환 포함), 레이어에 놓기 전. 로그아웃에서는 sanitize가 에러를 내도 저장 정리

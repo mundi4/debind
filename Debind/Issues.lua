@@ -428,10 +428,14 @@ end
 
 local EMPTY_CONDITIONS = {};
 
---- Whether the action holds a value no build writes (`INVALID_ACTION`): a target that is not a name,
+--- Whether the action is one nothing can run (`INVALID_ACTION`): an `INVALID` one, which is what
+--- `SanitizeAction` turns a broken type or value into, or one holding a target that is not a name
 --- or a unit condition `UnitConditionIsUnreadable` turns away. Whether the type uses the field does
 --- not matter.
 local function ActionIsInvalid(action)
+    if (action.type == Constants.INVALID) then
+        return true;
+    end
     if (action.unit ~= nil and type(action.unit) ~= "string") then
         return true;
     end

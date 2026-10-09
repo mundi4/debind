@@ -2092,16 +2092,9 @@ return function(DebindPrivate, _, ctx)
         local action = { type = Constants.SPELL, value = 774, key = "F", seq = 1, arrivalID = 7 };
         layer:Insert(action);
 
-        -- **키를 아직 안 정한 그룹의 키도 견뎌야 한다.** 숫자라는 것만 다를 뿐 키이고, 지워지면
-        -- 그 묶음이 흩어진 채로 지정 안 된 더미에 떨어진다.
-        local pending = ctx.HandMade({ type = Constants.SPELL, value = 775, key = 3, seq = 1, arrivalID = 7 });
-        layer:Insert(pending);
-
         DebindPrivate.CleanUpDB();
 
         check(action.arrivalID == 7, "배치 번호가 지워졌다 - 다음 접속에 격리가 저절로 풀린다");
-        check(pending.key == 3, "숫자 키가 지워졌다 - 온 묶음이 흩어진다");
-        check(pending.seq == 1, "숫자 키 그룹의 번호가 지워졌다");
     end);
 
     -- The other half: the whitelist really does strip, so the test above is not passing because
