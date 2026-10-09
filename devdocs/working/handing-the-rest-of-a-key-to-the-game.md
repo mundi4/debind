@@ -385,9 +385,9 @@ MMO 마우스 여분 버튼에 `CTRL-K`를 걸고 누른 것과 손으로 누른
      `DebindUIVars.tipsSeen`이 선례다.
    - 2-4의 옵션 줄은 설정 탭에 둔다. `ResetToDefaults`와 `OPTION_FIELDS`(공유)에도 든다.
 
-   **들어간 모양.** 명령 탭은 게임 명령 전체를 `COMMAND`로 내고, 액션 바 버튼의 명령은 `ACTIONBUTTON` 줄을 바로
-   앞에 하나 더 둔다. 둘 다 두는 것은 소유자가 정했다(2026-10-05). 두 줄은 아이콘과 툴팁으로 갈린다. `COMMAND`의
-   아이콘은 `UNUSED`와 같은 되돌리기 화살표이고, 예전처럼 `NPE_Icon`을 쓰면 `ACTIONBUTTON`과 같아진다. 팝업은
+   **들어간 모양.** 게임 명령 전체는 `COMMAND`로 WoW Bindings 탭(옛 명령 탭)에 서고, 액션 바 버튼의 명령은
+   `ACTIONBUTTON` 줄로 한 번 더 선다. 둘 다 두는 것은 소유자가 정했다(2026-10-05). `ACTIONBUTTON` 줄은 처음에
+   같은 명령 줄 바로 앞에 섰다가, 2026-10-10에 대상 지정·위치 표시기와 함께 특수 탭으로 옮겼다(소유자). 팝업은
    `StaticPopup`에 체크박스가 없어서 클라이언트의 `BankCleanUpConfirmationPopup`을 베낀 창(`DebindTailNotice`)이고,
    추가와 [바꾸기] 양쪽에서 뜬다.
 9. **매크로 변환 막기**(2-7). 두 타입에는 [사용자 지정 매크로로 변환] 항목이 서지 않는다. 다른 변환 못 하는 타입과

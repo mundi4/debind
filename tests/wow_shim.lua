@@ -552,6 +552,8 @@ function M.install()
     _G.BINDING_HEADER_RAID_TARGET = "Target Markers";
     _G.BINDING_HEADER_TARGETING = "Targeting";
     _G.BINDING_HEADER_VEHICLE = "Vehicle Controls";
+    -- A heading on the Special tab.
+    _G.OTHER = "Other";
     -- The spell list's unlearned rows, as enUS has them.
     _G.SPELLBOOK_AVAILABLE_AT = "Level %d";
     _G.TALENT = "Talent";

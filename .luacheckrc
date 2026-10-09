@@ -406,6 +406,7 @@ globals = {
 	"FULL_PLAYER_NAME",
 	"YES",
 	"NO",
+	"OTHER",
 	-- Per-class localized names, for saying which class a received string came from.
 	-- The drawer's rows carry the date a string arrived. **The client owns the field order** -
 	-- enUS puts the month first and koKR the year, and both are in its own globals.

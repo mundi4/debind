@@ -1402,11 +1402,6 @@
 							<Button parentKey="BindModePortrait" inherits="DebindPortraitTemplate">
 								<KeyValues>
 									<KeyValue key="layoutIndex" value="2" type="number"/>
-									<!--
-										The keycap the command actions already wear (`NameAndIconForAction`), so
-										"a key" is one picture across the window. Blizzard uses this atlas in a
-										portrait slot as well (Blizzard_TutorialKeyboardMouseFrame).
-									-->
 									<KeyValue key="PortraitTexture" value="A:NPE_Icon" type="string"/>
 									<!--
 										Both are rewritten per state by `UpdateBindModeButton`; these are what

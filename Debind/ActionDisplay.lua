@@ -438,13 +438,11 @@ local function NameAndIconForAction(action)
 		skipTypeName = true;
 	elseif (type == Constants.COMMAND) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
-		-- The giveback one's arrow: the key goes to WoW here too. Not the action button's icon, which
-		-- stands beside a command of the same name in the picker (`BuildBindingCommands`).
-		actionIcon = "A:common-icon-undo";
+		actionIcon = 136235;
 	elseif (type == Constants.ACTIONBUTTON) then
 		actionName = _G["BINDING_NAME_" .. value] or value;
 		skipTypeName = true;
-		actionIcon = "A:NPE_Icon";
+		actionIcon = 6383527;
 	elseif (type == Constants.TARGET) then
 		actionName = BINDING_TYPE_NAMES[Constants.TARGET];
 		actionIcon = 132212;
@@ -484,15 +482,11 @@ local function NameAndIconForAction(action)
 		actionName, actionIcon = DebindPrivate.GetFlyoutNameAndIcon(value, true);
 	elseif (type == Constants.GIVEBACK) then
 		actionName = BINDING_TYPE_NAMES[Constants.GIVEBACK];
-		-- **Giving back, not forbidding.** The red X reads as "blocks, does nothing", which is the
-		-- opposite of what the row does: the key works and does what WoW's own binding says. This is
-		-- the arrow the client draws for going back to the default (the Cooldown Viewer's undo, the
-		-- customization camera reset).
 		actionIcon = "A:common-icon-undo";
 		skipTypeName = true;
 	elseif (type == Constants.BLOCK) then
 		actionName = BINDING_TYPE_NAMES[Constants.BLOCK];
-		actionIcon = "INTERFACE\\BUTTONS\\UI-GroupLoot-Pass-Up";
+		actionIcon = "A:common-icon-yellowx";
 		skipTypeName = true;
 	elseif (type == Constants.INVALID) then
 		-- **The name is what it was**: the old type's own name where this build has one, its stored

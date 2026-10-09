@@ -171,9 +171,11 @@ return function(DebindPrivate)
     end
 
     -- **Every game command is offered as a command, and a bar button's once more as the action
-    -- button action** (`handing-the-rest-of-a-key-to-the-game.md` §5 step 8; 2026-10-05, owner). The
-    -- Special tab offers handing the key to WoW.
-    test("the Commands tab offers every game command and the Special tab offers giveback", function()
+    -- button action** (`handing-the-rest-of-a-key-to-the-game.md` §5 step 8; 2026-10-05, owner).
+    -- **The tab says who handles the press** (2026-10-10, owner): the WoW Bindings tab holds only
+    -- the commands WoW runs, and everything Debind does itself, pressing a bar button and handing
+    -- the key back included, is on the Special tab.
+    test("WoW commands are on the WoW Bindings tab and Debind's own actions on Special", function()
         local shim = require("wow_shim");
         shim.world.bindings = {
             { action = "ACTIONBUTTON1", keys = {} },
@@ -189,15 +191,23 @@ return function(DebindPrivate)
             if (category.source == "command" or category.source == "special") then
                 ActionCatalog.Invalidate(category.source);
                 for _, entry in ipairs(ActionCatalog.GetEntries(category)) do
-                    offered[entry.type .. ":" .. tostring(entry.value)] = true;
+                    offered[entry.type .. ":" .. tostring(entry.value)] = category.source;
                 end
             end
         end
         shim.world.bindings = {};
 
-        for _, want in ipairs({ "command:ACTIONBUTTON1", "command:TOGGLEWORLDMAP", "command:JUMP",
-                "actionbutton:ACTIONBUTTON1", "giveback:nil" }) do
-            check(offered[want], want .. " was not offered");
+        local want = {
+            ["command:ACTIONBUTTON1"] = "command",
+            ["command:TOGGLEWORLDMAP"] = "command",
+            ["command:JUMP"] = "command",
+            ["actionbutton:ACTIONBUTTON1"] = "special",
+            ["giveback:nil"] = "special",
+            ["target:nil"] = "special",
+            ["worldmarker:" .. tostring(WORLD_RAID_MARKER_ORDER[1])] = "special",
+        };
+        for key, source in pairs(want) do
+            check(offered[key] == source, key .. " came from " .. tostring(offered[key]));
         end
         check(not offered["actionbutton:JUMP"], "a command that presses no bar button came as one");
     end);

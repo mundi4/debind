@@ -1260,20 +1260,10 @@ ActionCatalog.RegisterSource({
 -- 소스: 명령
 --------------------------------------------------------------------------------
 
---- **Things a press makes happen**, from two places:
----
----   ours      target, focus, open the unit menu, world markers. Each takes a unit or a marker and
----             is its own type
----   the game  every binding command, as `Constants.COMMAND` with the command's name as the value
----             ("JUMP", "TOGGLEBACKPACK"), which hands the key to WoW for that command; and the ones
----             that press an action bar button once more as `Constants.ACTIONBUTTON`, which Debind
----             presses itself
----
---- **Ours come first**, since the game's run to a few hundred rows and would bury them.
----
---- Not on the Special tab: that one holds what exists only in this addon, and targeting and world
---- markers have bindings of the same kind in the game (`BINDING_HEADER_TARGETING`,
---- `BINDING_HEADER_RAID_TARGET`).
+--- **WoW's own binding commands and nothing else** (2026-10-10, owner): each as `Constants.COMMAND`
+--- with the command's name as the value ("JUMP", "TOGGLEBACKPACK"), which hands the key to WoW for
+--- that command. What Debind does itself, the targeting rows and pressing a bar button included, is
+--- on the Special tab, so the tab says who handles the press.
 ---
 --- **Names and icons are not made here.** `AddEntry` asks `NameAndIconForAction`, so the list and a
 --- bound action cannot show two different names.
@@ -1295,58 +1285,6 @@ local PREFERRED_BINDING_HEADERS = {
 	"BINDING_HEADER_MISC",
 };
 
---- 대상을 인자로 받는 우리 타입들. 머리글 하나에 유닛들이 붙는다.
-local UNIT_ACTION_TYPES = {
-	Constants.TARGET,
-	Constants.FOCUS,
-	Constants.TOGGLEMENU,
-};
-
---- 우리 명령들. 게임 목록보다 **먼저** 버킷에 들어간다.
----
---- 대상 지정 셋만 이름을 우리가 준다. `NameAndIconForAction`이 내는 이름은 타입 이름
---- 하나뿐이라(유닛이 안 들어간다) 유닛 열세 줄이 전부 같은 글자가 된다 - 머리글이 타입을
---- 말하고 행이 대상을 말하는 것으로 갈랐다. 아이콘은 그 함수 것을 그대로 쓴다.
-local function AddOwnCommands(Bucket)
-	local DebindUI = DebindPrivate.DebindUI;
-	local typeNames = DebindUI.BINDING_TYPE_NAMES;
-
-	-- 대상 지정 / 주시 대상 지정 / 메뉴 열기.
-	-- `UNIT_INFO[unit][type] == false`인 조합은 그 타입이 그 유닛을 못 받는다는 뜻이다
-	-- (가리킨 프레임에 메뉴 열기 등) - 드롭다운과 같은 판정을 쓴다.
-	for _, actionType in ipairs(UNIT_ACTION_TYPES) do
-		local typeName = typeNames[actionType];
-		local bucket = Bucket(typeName);
-		for _, unit in ipairs(DebindUI.SORTED_UNIT_LIST) do
-			local unitInfo = DebindUI.UNIT_INFO[unit];
-			if (unitInfo and unitInfo[actionType] ~= false) then
-				bucket[#bucket + 1] = {
-					type = actionType,
-					name = unitInfo.name,
-					-- 툴팁 제목만은 타입을 다시 붙인다. 행에는 대상만 적혀 있고
-					-- (머리글이 타입을 말한다) 툴팁은 머리글에서 떨어져 뜨므로,
-					-- 제목이 "주시 대상"이면 무엇을 하는 줄인지가 사라진다.
-					tooltipTitle = format(LLL["BINDING_TITLE"], typeName, unitInfo.name),
-					-- The body is the unit's own line, where it has one. A row is one unit, and what the
-					-- three types had to say was about the list rather than about the row.
-					tooltipText = unitInfo.tooltipTitle,
-					props = { unit = unit },
-				};
-			end
-		end
-	end
-
-	-- 공격대 표적. 게임의 `BINDING_HEADER_RAID_TARGET`과는 다른 물건이라 머리글을 따로 둔다 -
-	-- 저쪽은 대상에 아이콘을 찍는 것이고 이건 바닥에 놓는 표식이다.
-	local markerBucket = Bucket(typeNames[Constants.WORLDMARKER]);
-	for i = 1, NUM_WORLD_RAID_MARKERS do
-		markerBucket[#markerBucket + 1] = {
-			type = Constants.WORLDMARKER,
-			value = WORLD_RAID_MARKER_ORDER[i],
-		};
-	end
-end
-
 local function BuildBindingCommands(entries)
 	local seen = {};
 
@@ -1360,8 +1298,6 @@ local function BuildBindingCommands(entries)
 		end
 		return bucket;
 	end
-
-	AddOwnCommands(Bucket);
 
 	for _, key in ipairs(PREFERRED_BINDING_HEADERS) do
 		local group = _G[key];
@@ -1400,15 +1336,6 @@ local function BuildBindingCommands(entries)
 				end
 
 				local bucket = Bucket(group);
-				-- **A bar button's command is offered twice** (2026-10-05, owner): Debind pressing
-				-- that button, and the key handed to WoW's own binding for it. Side by side, so the
-				-- reader sees the two together; the icon and the tooltip tell them apart.
-				if (Constants.ACTION_BUTTON_COMMANDS[action]) then
-					bucket[#bucket + 1] = {
-						type = Constants.ACTIONBUTTON,
-						value = action,
-					};
-				end
 				bucket[#bucket + 1] = {
 					type = Constants.COMMAND,
 					value = action,
@@ -1444,15 +1371,12 @@ ActionCatalog.RegisterSource({
 -- 소스: 특수
 --------------------------------------------------------------------------------
 
---- **What exists only in this addon**, so there is nowhere else for it: custom targets, setting a
---- switch, taking a key for nothing and handing it to WoW. A hand-written list of fixed length.
+--- **What Debind does with the press itself** (2026-10-10, owner): targeting, custom targets, the
+--- unit menu, world markers, setting a switch, handing the key back or taking it for nothing, and
+--- pressing a bar button. The WoW Bindings tab holds the rest, the commands WoW runs.
 ---
---- **Not "Other".** Two things kept out of it draw the line:
----
----   spells outside the spellbook   the random favourite mount and the like. They are spells, so they
----                                  go to the Spells tab's extra group (`AddExtraSpellEntries`)
----   targeting and world markers    the game has bindings of the same kind, so they go to the
----                                  Commands tab (`AddOwnCommands`)
+--- Spells outside the spellbook stay out, the random favourite mount and the like: they are spells,
+--- so they go to the Spells tab's extra group (`AddExtraSpellEntries`).
 ---
 --- It had twenty rows once, fifteen of them three verbs times five switches. Lifting the switch
 --- count made that one row (§6-C); the concept still stands, and which switch is the action menu's
@@ -1466,7 +1390,34 @@ ActionCatalog.RegisterSource({
 --- so the two cannot drift.
 local function BuildSpecialActions(entries)
 	local seen = {};
-	local typeNames = DebindPrivate.DebindUI.BINDING_TYPE_NAMES;
+	local DebindUI = DebindPrivate.DebindUI;
+	local typeNames = DebindUI.BINDING_TYPE_NAMES;
+
+	-- One row per unit, under the type's name. **The name is given here**: `NameAndIconForAction`
+	-- names the type alone, which would make every unit's row read the same. A combination with
+	-- `UNIT_INFO[unit][type] == false` is one the type cannot take (the unit menu on the hovered
+	-- frame), the same test the dropdown uses.
+	local function AddUnitRows(actionType)
+		local typeName = typeNames[actionType];
+		for _, unit in ipairs(DebindUI.SORTED_UNIT_LIST) do
+			local unitInfo = DebindUI.UNIT_INFO[unit];
+			if (unitInfo and unitInfo[actionType] ~= false) then
+				AddEntry(entries, seen, {
+					type = actionType,
+					name = unitInfo.name,
+					group = typeName,
+					-- 툴팁 제목만은 타입을 다시 붙인다. 행에는 대상만 적혀 있고
+					-- (머리글이 타입을 말한다) 툴팁은 머리글에서 떨어져 뜨므로,
+					-- 제목이 "주시 대상"이면 무엇을 하는 줄인지가 사라진다.
+					tooltipTitle = format(LLL["BINDING_TITLE"], typeName, unitInfo.name),
+					-- The body is the unit's own line, where it has one. A row is one unit, and what the
+					-- three types had to say was about the list rather than about the row.
+					tooltipText = unitInfo.tooltipTitle,
+					props = { unit = unit },
+				});
+			end
+		end
+	end
 
 	-- 지정 대상 1·2.
 	local setCustomGroup = typeNames[Constants.SETCUSTOM];
@@ -1505,21 +1456,48 @@ local function BuildSpecialActions(entries)
 		helpPage = "switches",
 	});
 
+	AddEntry(entries, seen, {
+		type = Constants.GIVEBACK,
+		group = OTHER,
+		tooltipText = LLL["TYPE_GIVEBACK_DESC"],
+	});
+
 	-- Taking a key and doing nothing with it. It stores no value, and what makes it worth a row is
 	-- the conditions that go on it afterwards: they are what turn it into "not in this case".
 	AddEntry(entries, seen, {
 		type = Constants.BLOCK,
-		group = typeNames[Constants.BLOCK],
+		group = OTHER,
 		tooltipText = LLL["TYPE_BLOCK_DESC"],
 	});
 
-	-- Handing the rest of the key to WoW. **A heading of its own even alone**: the grid draws group
-	-- edges only with headings, and without one this row reads as part of the group above it.
-	AddEntry(entries, seen, {
-		type = Constants.GIVEBACK,
-		group = typeNames[Constants.GIVEBACK],
-		tooltipText = LLL["TYPE_GIVEBACK_DESC"],
-	});
+	AddUnitRows(Constants.TARGET);
+	AddUnitRows(Constants.FOCUS);
+	AddUnitRows(Constants.TOGGLEMENU);
+
+	-- 공격대 표적. 게임의 `BINDING_HEADER_RAID_TARGET`과는 다른 물건이라 머리글을 따로 둔다 -
+	-- 저쪽은 대상에 아이콘을 찍는 것이고 이건 바닥에 놓는 표식이다.
+	local markerGroup = typeNames[Constants.WORLDMARKER];
+	for i = 1, NUM_WORLD_RAID_MARKERS do
+		AddEntry(entries, seen, {
+			type = Constants.WORLDMARKER,
+			value = WORLD_RAID_MARKER_ORDER[i],
+			group = markerGroup,
+		});
+	end
+
+	-- **Walked in the client's binding order** rather than over `ACTION_BUTTON_COMMANDS`, which is a hash and would scramble the bars.
+	-- A command the client names nothing for is left out, as on the WoW Bindings tab.
+	local actionButtonGroup = typeNames[Constants.ACTIONBUTTON];
+	for bindingIndex = 1, GetNumBindings() do
+		local action = GetBinding(bindingIndex);
+		if (action and Constants.ACTION_BUTTON_COMMANDS[action] and _G["BINDING_NAME_" .. action]) then
+			AddEntry(entries, seen, {
+				type = Constants.ACTIONBUTTON,
+				value = action,
+				group = actionButtonGroup,
+			});
+		end
+	end
 end
 
 --- 특수는 **맨 끝이다.** 등록 순서가 곧 탭 순서인데, 앞의 탭들이 "이미 가진 것"이라

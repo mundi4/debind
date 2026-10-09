@@ -1135,7 +1135,10 @@ L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
 -- (`COLLECTIONS_MICRO_BUTTON_SPEC_TUTORIAL` names those four). Only two of them can carry a
 -- key, so the tab takes the word rather than the client's full "Warband Collections".
 L["SPELL_PICKER_TAB_COLLECTIBLE"] = "Collections"
-L["SPELL_PICKER_TAB_COMMAND"] = "Commands"
+-- **The plural of what each row adds** (`TYPE_COMMAND`), as Spells, Macros and Items are. The
+-- client's `SETTINGS_KEYBINDINGS_LABEL` names the same list, but would put a second name on these
+-- rows in one window.
+L["SPELL_PICKER_TAB_COMMAND"] = "WoW Bindings"
 L["SPELL_PICKER_TAB_ITEM"] = "Items"
 L["SPELL_PICKER_TAB_MACRO"] = "Macros"
 L["SPELL_PICKER_TAB_SPECIAL"] = "Special"
