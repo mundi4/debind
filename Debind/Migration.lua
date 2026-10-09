@@ -6,12 +6,18 @@ local _, DebindPrivate = ...;
 --
 -- **What it does not do: judge a value no build wrote** (owner, 2026-10-10). A value a hand put in
 -- -- the wrong type, a name nobody knows, a combination no build made -- is `SanitizeAction`'s to
--- throw away, and that runs at every door after the ladder. Toward such a value the ladder has one
--- duty: not to raise on it, because a received string rides the ladder with whatever types it came
--- with and a raise refuses the whole string (`DecodeExportString`). A step that meets one beside an
--- old shape moves the shape as it would anyway and adds no branch for the broken value's sake.
--- **What that value comes to is not decided here**, and a finding about it belongs to
--- `SanitizeAction`, not to a step.
+-- throw away. A step that meets one beside an old shape moves the shape as it would anyway and adds
+-- no branch for the broken value's sake. **What that value comes to is not decided here**, and a
+-- finding about it belongs to `SanitizeAction`, not to a step.
+--
+-- **But no step may raise on such a value**: keeping a hand-made value from leaving the addon
+-- unusable is what `SanitizeAction` exists for. It runs after the ladder, so a broken value meets
+-- the ladder first, and a raise there is caught only as a whole: a received string is refused
+-- (`DecodeExportString`), a drawer entry is not raised (`Vars`), and a stored profile is kept as it
+-- was while the whole addon stands down (`TryMigrateDB`). The last is
+-- not recovered from: `dbver` stays put, the same step raises at every login, and nothing in the
+-- game can reach the value. So a step guards what it reads against the wrong type, and the guard
+-- only keeps it from raising: it gives the value no meaning.
 
 local Constants           = DebindPrivate.Constants;
 local luatype             = type;

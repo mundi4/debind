@@ -41,27 +41,47 @@
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
 
-## 18. 받은 문자열의 깨진 값에서 6 -> 7 단계가 터진다
+## 18. A broken value in a received string can make the 6 -> 7 step raise
 
-찾은 곳: 7 -> 8 단계의 리뷰(2026-10-10, `debind-af`). 그 일의 diff 밖이라 여기 둔다.
+Found by the review of the 7 -> 8 step (2026-10-10, `debind-af`). It is outside that change, so it is kept here.
 
-**규칙:** 페이로드가 닿는 단계는 받은 값이 무엇이든 터지면 안 된다(`Migration.lua` 머리주석,
-`sanitizing-actions-with-one-function.md` 7절 3번). 깨진 값을 어떻게 할지는 sanitize가 정한다. 사다리가 깨진 값에
-대해 지는 의무는 터지지 않는 것 하나뿐이다.
+**What the problem is.** What becomes of a broken value a hand put in is `SanitizeAction`'s to decide; the
+ladder makes no judgment about it (`Migration.lua`'s header). But the ladder runs **before** `SanitizeAction`,
+so a broken value can make a ladder step raise before `SanitizeAction` ever sees it. The only question here is
+that raise, not what the value should become.
 
-**지금:** 5판·6판 문자열이 6 -> 7 단계를 탄다. 페이로드의 판은 5 아래로 내려가지 않는다(`OLDEST_PAYLOAD_DBVER`). 그
-단계에는 타입을 묻지 않고 값을 쓰는 자리가 다섯 있다. 손으로 고친 문자열이 그 자리에 깨진 값을 들고 오면 터진다.
-애드온이 멈추지는 않는다. `DecodeExportString`의 `pcall`이 받아서 문자열 전체를 `BAD_PAYLOAD`로 거절하고 에러를
-알린다. 그 액션은 sanitize까지 가지 못한다. 서랍 항목도 같은 단계를 탄다(`Vars`가 항목마다 `pcall`).
+**The raise has to be prevented.** That is not a choice made here; it is what `SanitizeAction` was built for. A
+broken value a hand put in must never leave the addon unusable (`sanitizing-actions-with-one-function.md` §1), and
+a step that raises on one does exactly that before `SanitizeAction` gets to it. The step still gives the broken
+value no meaning; it only keeps from raising on it.
 
-- 번호 다시 매기기의 옛 비교자(`OlderOrder`)가 `priority`와 `seq`를 `<`로 비교한다. 숫자가 아니면 터지고, NaN이면
-  `sort`가 터질 수 있다.
-- 같은 자리의 묶음 이름이 `action.key .. "\0"`이다. `key`가 불리언이나 표면 터진다.
-- `conditions`와 `conditions.units`를 표인지 묻지 않고 인덱싱하거나 `pairs`에 넘긴다. `exists` 채우기, `pet` 옮기기,
-  프레임 마스크 옮기기, `HasAnyCondition`, Cast Options 변환 앞의 `UnitConditionAt7` 호출이 그 자리다.
-- `known` 변환이 `C_Spell.GetSpellName`에 `action.value`를 타입 검사 없이 넘긴다. `conditions`가 표가 아니면
-  `conditions.known`에서 먼저 터진다.
-- Cast Options 변환과 번호 다시 매기기가 `casting`을 표인지 묻지 않고 읽고 쓴다.
+**What happens when a step raises.** No data is lost, since the raise is caught where the ladder is called, but
+what is caught is the whole of it:
+- a received string is refused as `BAD_PAYLOAD` and the error is reported (`DecodeExportString`);
+- a drawer entry is left un-raised (`Vars`, one `pcall` per entry);
+- a stored profile is kept as it was and the addon stands down with the failure dialog (`TryMigrateDB`). **This
+  is the one that cannot be recovered**: `dbver` stays where it was, so the same step raises again at every login,
+  and nothing in the game can reach the value to fix it. The addon stays unusable until someone edits the
+  SavedVariables file by hand.
 
-**고칠 때:** 각 자리에서 터지지만 않게 막는다. 깨진 값에 뜻을 주는 갈래는 더하지 않는다. 4판 이하의 단계는
-페이로드가 닿지 않으므로 대상이 아니다.
+**Which steps are in scope: all of them.** A received string rides the steps from 5 up, since a payload's version
+never goes below 5 (`OLDEST_PAYLOAD_DBVER`). A stored profile rides every step from its own version, so for an old
+install the steps at 4 and below are in scope too. The places below are the ones the review found in the 6 -> 7
+step; the fix starts with reading every step for the same thing.
+
+**An element of a list that is not a table** raises in every step: each loop reads `layerTbl[i]` as an action
+straight away (`action.type`, `action.conditions`).
+
+**Where the 6 -> 7 step can raise** on a value of the wrong type:
+- The renumbering's old comparator (`OlderOrder`) compares `priority` and `seq` with `<`. A value that is not a
+  number raises; a NaN can make `sort` raise.
+- The same renumbering names a group `action.key .. "\0"`, which raises on a boolean or table `key`.
+- `conditions` and `conditions.units` are indexed or handed to `pairs` without asking whether they are tables: the
+  `exists` fill-in, the `pet` move, the frame mask move, `HasAnyCondition`, and the `UnitConditionAt7` call ahead
+  of the Cast Options conversion.
+- The `known` conversion hands `action.value` to `C_Spell.GetSpellName` unchecked, and indexes `conditions.known`
+  when `conditions` may not be a table.
+- The Cast Options conversion and the renumbering read and write `casting` without asking whether it is a table.
+
+**How to fix:** guard each place so it does not raise, and add no branch that gives the broken value a meaning.
+What the value becomes stays `SanitizeAction`'s.
