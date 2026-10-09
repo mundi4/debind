@@ -71,11 +71,9 @@
 	-->
 	<Button name="DebindSpellPickerAddRowTemplate" inherits="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerAddRowMixin" registerForClicks="LeftButtonUp" virtual="true"/>
 
-	<!-- The delete button is the storage list's (`DebindStorageEntryRowTemplate`). -->
 	<Button name="DebindSpellPickerUserRowTemplate" inherits="DebindSpellPickerRowTemplate" mixin="DebindSpellPickerUserRowMixin" virtual="true">
 		<Frames>
-			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
-				<Size x="24" y="24"/>
+			<Button parentKey="DeleteButton" inherits="DebindRowDeleteButtonTemplate">
 				<Anchors>
 					<Anchor point="RIGHT" x="-6" y="0"/>
 				</Anchors>

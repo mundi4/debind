@@ -5,6 +5,18 @@
 	<Script file="StorageUI.lua"/>
 
 	<!--
+		**Deleting one row of a list, drawn the way the client draws it**: the Edit Mode layout menu's
+		(`MenuVariants.CancelButtonTexture`) at its 16px, with the chat channel list's highlight. The
+		red square with the gold X (`UIPanelCloseButton`) is the client's window close button, not its
+		delete.
+	-->
+	<Button name="DebindRowDeleteButtonTemplate" virtual="true">
+		<Size x="16" y="16"/>
+		<NormalTexture file="Interface\Buttons\UI-GroupLoot-Pass-Up"/>
+		<HighlightTexture file="Interface\Buttons\UI-GroupLoot-Pass-Up" alpha="0.5" alphaMode="ADD"/>
+	</Button>
+
+	<!--
 		One entry: whose it is, how much is in it, and when it turned up.
 
 		Same row art as everywhere else this addon draws a list, so the column reads as part of the
@@ -34,14 +46,7 @@
 				clear-out the drawer does not perform. Both are gone until there is one, and it will
 				have to ask rather than sweep (`devdocs/building-export-import.md`).
 			-->
-			<!--
-				**The same margin the text keeps on the other side.** `RedButton-Exit` fills its 24px
-				square with no transparent border of its own, so the offset here is the whole of the
-				gap - at the -2 it inherited from the three-line layout it sat all but flush against
-				the row's edge while the left side kept 10.
-			-->
-			<Button parentKey="DeleteButton" inherits="UIPanelCloseButtonNoScripts">
-				<Size x="24" y="24"/>
+			<Button parentKey="DeleteButton" inherits="DebindRowDeleteButtonTemplate">
 				<Anchors>
 					<Anchor point="RIGHT" x="-10" y="0"/>
 				</Anchors>
