@@ -1368,11 +1368,23 @@ return function(DebindPrivate, DebindStorage, harness)
         check(DecodeWithVersion(0) == "PAYLOAD_TOO_OLD", "단계 없는 옛 판");
     end);
 
-    -- **v1 매니페스트도 같은 단계가 받는다.** 3.2가 이 표를 실어 보냈으므로 v1 문자열이
-    -- 남의 노트에 옛 모양으로 앉아 있다. 아직 매니페스트를 읽는 쪽은 없지만 단계는 한 번
-    -- 쓰면 얼어붙어서, 읽는 쪽이 생기는 날 붙일 자리가 여기 말고는 없다.
-    -- **The modes it writes are version 6's**, so the live table is swapped while it runs
-    -- (`MigrateLayer`'s header in `Migration.lua`).
+    -- **The pointed frame's unit is renamed in a computed switch's expression on the way in.**
+    test("a dbver 6 payload's switch expression names unitframe", function()
+        local payload = DebindStorage.BringPayloadForward({
+            v = DebindStorage.PAYLOAD_VERSION, dbver = 6, layers = {},
+            switches = { account = { GENERAL = { [0] = {
+                ["$a"] = { mode = "expr", expr = "[@hover,harm][@hovertarget]" },
+            } } } },
+        });
+        check(payload, "refused");
+        local row = payload.switches.account.GENERAL[0]["$a"];
+        check(row.expr == "[@unitframe,harm][@unitframetarget]", "the expression: " .. tostring(row.expr));
+    end);
+
+    -- **A v1 manifest rides the same step.** 3.2 sent this table, so v1 strings sit in other people's
+    -- notes in the old shape. Nothing reads a manifest yet, but a step freezes once written, and the
+    -- day something does there is no other place to add it. **The modes it writes are version 6's**,
+    -- so the live table is swapped while it runs (`MigrateLayer`'s header in `Migration.lua`).
     test("v1 매니페스트의 정의도 새 이름으로 올라온다", function()
         local liveModes = Constants.SWITCH_MODES;
         Constants.SWITCH_MODES = { MANUAL = "not a mode", EXPR = "not a mode" };

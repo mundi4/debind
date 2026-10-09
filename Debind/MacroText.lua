@@ -675,52 +675,6 @@ do
             end
         end
     end
-
-    --- The same body with every `@<from>` unit token pointed at `@<to>`, suffix kept.
-    ---
-    --- **Written for the migration that renames a unit, and it cannot go through
-    --- `ParseMacroText`.** That parser finds a unit token by asking `Constants.SPECIAL_UNITS`, and
-    --- a step renaming a unit runs in a build where the old name has already left that table -- so
-    --- the token it has to rewrite is exactly the one the parser has stopped recognising. The step
-    --- hands the old name in, the way every frozen step in `Migration.lua` holds its own literals.
-    ---
-    --- **Whole tokens inside `[...]`, never substrings.** `@hovering` is not the unit `hover`, and
-    --- `/say [@hover]` outside a condition position is text -- the same boundary
-    --- `StripSwitchConditions` keeps, for the same reason. A suffix the parser accepts
-    --- (`@hovertarget`) is part of the token and rides across onto the new name.
-    function DebindPrivate.RenameUnitInMacroText(str, from, to)
-        if (type(str) ~= "string" or not strfind(str, "@" .. from, 1, true)) then
-            return str;
-        end
-        return (str:gsub("%[([^%[%]]*)%]", function(body)
-            local touched = false;
-            local tokens = { strsplit(",", body) };
-            for i = 1, #tokens do
-                local token = tokens[i];
-                local trimmed = strtrim(token);
-                if (strsub(trimmed, 1, 1) == "@") then
-                    local rest = strsub(trimmed, 2);
-                    local suffix;
-                    if (rest == from) then
-                        suffix = "";
-                    elseif (strsub(rest, 1, from:len()) == from
-                            and UNIT_SUFFIXES[strsub(rest, from:len() + 1)]) then
-                        suffix = strsub(rest, from:len() + 1);
-                    end
-                    if (suffix) then
-                        -- The spacing around the token is the user's and is kept. Only the name moves.
-                        tokens[i] = (strmatch(token, "^%s*") or "") .. "@" .. to .. suffix
-                            .. (strmatch(token, "%s*$") or "");
-                        touched = true;
-                    end
-                end
-            end
-            if (not touched) then
-                return nil;
-            end
-            return "[" .. table.concat(tokens, ",") .. "]";
-        end));
-    end
 end
 
 

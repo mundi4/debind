@@ -3364,6 +3364,16 @@ return function(DebindPrivate, _, ctx)
             "a version 1 check on hover was not moved: " .. Show(list[1]));
     end);
 
+    -- Version 5 called a turned-off row `off`, so a turned-off row on the pointed frame adds nothing
+    -- to the old hover pair it is folded with.
+    test("the 4 -> 5 step reads a turned-off row by version 5's name", function()
+        local list = { { type = "spell", value = 1, hover = true, reactions = 2,
+            checkedUnits = { hover = { off = true, reaction = 1 } } } };
+        DebindPrivate.MigrateLayer(list, 4, 5);
+        local row = list[1].checkedUnits and list[1].checkedUnits.hover;
+        check(row and row.reaction == 2, "got " .. Show(list[1]));
+    end);
+
     test("the 5 -> 6 step names a switch by version 6's index", function()
         local list = { { type = "setstate", value = 0x100 + 3 } };
         WithLive("SWITCH_NAMES", {}, function()
@@ -3416,6 +3426,38 @@ return function(DebindPrivate, _, ctx)
         check(list[1].type == "setswitch_toggle", "got " .. Show(list[1]));
     end);
 
+    -- **What the swaps above cannot see**: a step that took today's function into a local at the top
+    -- of the file, where swapping the field at run time no longer reaches it. So the source is read,
+    -- and what its code takes from `Constants` and `DebindPrivate` is held to what a step may read.
+    -- `CanonicalSpellID` reads the client, by the owner's decision (`MigrateDB`'s comment), and the
+    -- rest are the ladder's own definitions.
+    test("the ladder's code reads nothing of today's but what is allowed", function()
+        local ALLOWED = {
+            ["Constants.DB_VERSION"] = true,
+            ["DebindPrivate.Constants"] = true, ["DebindPrivate.CanonicalSpellID"] = true,
+            ["DebindPrivate.MigrateLayer"] = true, ["DebindPrivate.MigrateSwitches"] = true,
+            ["DebindPrivate.MigrateDB"] = true, ["DebindPrivate.TryMigrateDB"] = true,
+            ["DebindPrivate.RenameUnitInMacroTextAt7"] = true,
+        };
+        local source = assert(ctx.readFile(ctx.root .. "/../Debind/Migration.lua"));
+        local found = {};
+        for line in (source .. "\n"):gmatch("([^\n]*)\n") do
+            local code = line:gsub("%-%-.*$", "");
+            for name in code:gmatch("Constants%.[%w_]+") do
+                if (not code:find("DebindPrivate." .. name, 1, true) and not ALLOWED[name]) then
+                    found[#found + 1] = name;
+                end
+            end
+            for name in code:gmatch("DebindPrivate%.[%w_]+") do
+                if (not ALLOWED[name]) then
+                    found[#found + 1] = name;
+                end
+            end
+        end
+        check(#found == 0, "Migration.lua reads today's " .. table.concat(found, ", ")
+            .. " (MigrateLayer's header: a step holds its own version's values and rules)");
+    end);
+
     test("the rank pass in MigrateDB reads version 8's spell type", function()
         local spells = DebindPrivate.CamelotSpells;
         DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
@@ -3453,7 +3495,7 @@ return function(DebindPrivate, _, ctx)
     -- **The whole layer ladder, with every value its steps used to read from `Constants` swapped for
     -- a wrong one.** A step that reads one of them again comes out different from the run with the
     -- real values, whichever step it is and whether it reads or writes the value.
-    test("the layer ladder does not move with today's constants", function()
+    test("the layer ladder does not move with today's constants or rules", function()
         local function Old()
             return {
                 { type = "spell", value = 1, unit = "hover", checkUnitExists = true, key = "F1" },
@@ -3468,6 +3510,12 @@ return function(DebindPrivate, _, ctx)
                 { type = "spell", value = 5, pinRank = true, key = "F9" },
                 { type = "spell", value = 10, key = "F10", priority = 2 },
                 { type = "spell", value = 11, key = "F10" },
+                { type = "spell", value = 12, hover = true, reactions = 1, key = "F12" },
+                { type = "spell", value = 13, hover = false, key = "F13" },
+                -- A turned-off row is no condition, so the 6 -> 7 renumber leaves the second of these
+                -- behind the first. Read as a condition, it would move ahead.
+                { type = "spell", value = 15, key = "F14" },
+                { type = "spell", value = 14, key = "F14", checkedUnits = { target = { off = true, reaction = 1 } } },
             };
         end
         local real = Old();
@@ -3481,14 +3529,27 @@ return function(DebindPrivate, _, ctx)
             SPEC_RESOLVED_TYPES = {}, ACTION_BUTTON_COMMANDS = {}, SWITCH_NAMES = {},
             BASIC_UNITS = {}, SPECIAL_UNITS = {},
         };
-        local saved = {};
+        -- Today's readers of a unit condition and of macro text, too: a step asking one of them
+        -- reads a value of its own version by today's rules.
+        local function Wrong() return "not an answer"; end
+        local WRONG_FUNCTIONS = {
+            UnitConditionForBinding = Wrong, UnitFrameConditionFromLegacy = Wrong,
+        };
+        local saved, savedFunctions = {}, {};
         for name, value in pairs(WRONG) do
             saved[name] = Constants[name];
             Constants[name] = value;
         end
+        for name, fn in pairs(WRONG_FUNCTIONS) do
+            savedFunctions[name] = DebindPrivate[name];
+            DebindPrivate[name] = fn;
+        end
         local ok, err = pcall(DebindPrivate.MigrateLayer, swapped, 1, Constants.DB_VERSION);
         for name in pairs(WRONG) do
             Constants[name] = saved[name];
+        end
+        for name in pairs(WRONG_FUNCTIONS) do
+            DebindPrivate[name] = savedFunctions[name];
         end
         check(ok, "raised: " .. tostring(err));
         for i = 1, #real do

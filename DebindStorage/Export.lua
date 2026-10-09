@@ -1021,7 +1021,7 @@ local function BringPayloadDataForward(payload)
         -- the payload ride the profile's own ladder below and are already covered.
         ForEachPayloadSwitchRow(payload, function(definition)
             if (luatype(definition.expr) == "string") then
-                definition.expr = DebindPrivate.RenameUnitInMacroText(
+                definition.expr = DebindPrivate.RenameUnitInMacroTextAt7(
                     definition.expr, "hover", "unitframe");
             end
         end);

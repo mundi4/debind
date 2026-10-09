@@ -2,7 +2,7 @@ local _, DebindPrivate = ...;
 
 local Constants           = DebindPrivate.Constants;
 local luatype             = type;
--- One caller: the `dbver` 5 step that opens the old `setstate` bitpack.
+-- The `dbver` 5 step that opens the old `setstate` bitpack, and version 5's hover fold.
 local band                = bit.band;
 
 -- Each step's own version's values (`MigrateLayer`'s header), built once rather than per list.
@@ -34,6 +34,141 @@ for i = 1, 10 do
     ACTION_BUTTON_COMMANDS_AT_7["BONUSACTIONBUTTON" .. i] = true;
     ACTION_BUTTON_COMMANDS_AT_7["SHAPESHIFTBUTTON" .. i] = true;
 end
+
+--- **A step's rules are its version's too, not only its values.** A step that asked today's reader
+--- of a unit condition or of macro text would read an old value by today's rules: one still valid in
+--- its version could be read away before the step that retires it, which is the only step that may
+--- (owner, 2026-10-09). The readers below are what those versions ran.
+
+--- A stored unit condition read the way version 5 read it: nil for none or turned off, which that
+--- version called `off`; `false` for [when there is none]; a table of the axes otherwise.
+local function UnitConditionAt5(value)
+    if (value == nil) then
+        return nil;
+    elseif (value == true) then
+        return {};
+    elseif (value == false) then
+        return false;
+    elseif (value == "help") then
+        return { reaction = 1 };
+    elseif (value == "harm") then
+        return { reaction = 2 };
+    elseif (luatype(value) ~= "table") then
+        return false;
+    end
+    if (value.off) then
+        return nil;
+    elseif (value.exists == false) then
+        return false;
+    end
+    return { reaction = value.reaction, dead = value.dead, role = value.role, group = value.group,
+        frameTypes = value.frameTypes };
+end
+
+--- The same as version 7 read it: the turned-off row is `disabled` from there on (the `dbver <= 6`
+--- step renames it). A scalar is one of the four that came before tables; anything else reads as
+--- [when there is none].
+local function UnitConditionAt7(value)
+    if (value == nil) then
+        return nil;
+    elseif (value == true) then
+        return {};
+    elseif (value == false) then
+        return false;
+    elseif (value == "help") then
+        return { reaction = 1 };
+    elseif (value == "harm") then
+        return { reaction = 2 };
+    elseif (luatype(value) ~= "table") then
+        return false;
+    end
+    if (value.disabled) then
+        return nil;
+    elseif (value.exists == false) then
+        return false;
+    end
+    return { reaction = value.reaction, dead = value.dead, role = value.role, group = value.group,
+        frameTypes = value.frameTypes };
+end
+
+--- Version 5's fold of the old `hover`/`reactions` pair into the pointed frame's row. `existing` is
+--- that row as `UnitConditionAt5` reads it (the step has just made it a table). **Intersects** rather
+--- than overwrites, since dropping either side would widen a binding; where the two do not overlap
+--- the answer is `reaction = 0`, a row no unit satisfies.
+local function UnitFrameConditionAt5(hover, reactions, existing)
+    if (hover == false) then
+        if (existing == nil or existing == false) then
+            return false;
+        end
+        return { reaction = 0 };
+    end
+    if (existing == false) then
+        return { reaction = 0 };
+    end
+    local reaction = reactions;
+    if (reaction == 7) then
+        reaction = nil;
+    end
+    local folded = luatype(existing) == "table" and existing or {};
+    if (reaction == nil) then
+        reaction = folded.reaction;
+    elseif (folded.reaction ~= nil) then
+        reaction = band(reaction, folded.reaction);
+    end
+    folded.reaction = reaction;
+    return folded;
+end
+
+--- The unit suffixes version 7's macro parser took after a unit name.
+local UNIT_SUFFIXES_AT_7 = {
+    target = true, targettarget = true, targettargettarget = true, targettargettargettarget = true,
+    pet = true, pettarget = true, pettargettarget = true, pettargettargettarget = true,
+};
+
+--- `from` renamed to `to` wherever a macro body's conditions aim at it, as version 7 did it. Both
+--- `dbver <= 6` steps call it, and so does the payload's own (`Export.lua`).
+---
+--- **It cannot go through `ParseMacroText`.** That parser finds a unit token by asking
+--- `Constants.SPECIAL_UNITS`, and the old name has already left that table, so the token to
+--- rewrite is exactly the one the parser stopped recognising.
+---
+--- **Whole tokens inside `[...]`, never substrings.** `@hovering` is not the unit `hover`, and
+--- `/say [@hover]` outside a condition position is text -- the boundary `StripSwitchConditions`
+--- keeps, for the same reason. A suffix the parser accepted (`@hovertarget`) rides across onto the
+--- new name, and the spacing around the token is the user's.
+local function RenameUnitInMacroTextAt7(str, from, to)
+    if (luatype(str) ~= "string" or not strfind(str, "@" .. from, 1, true)) then
+        return str;
+    end
+    return (str:gsub("%[([^%[%]]*)%]", function(body)
+        local touched = false;
+        local tokens = { strsplit(",", body) };
+        for i = 1, #tokens do
+            local token = tokens[i];
+            local trimmed = strtrim(token);
+            if (strsub(trimmed, 1, 1) == "@") then
+                local rest = strsub(trimmed, 2);
+                local suffix;
+                if (rest == from) then
+                    suffix = "";
+                elseif (strsub(rest, 1, from:len()) == from
+                        and UNIT_SUFFIXES_AT_7[strsub(rest, from:len() + 1)]) then
+                    suffix = strsub(rest, from:len() + 1);
+                end
+                if (suffix) then
+                    tokens[i] = (strmatch(token, "^%s*") or "") .. "@" .. to .. suffix
+                        .. (strmatch(token, "%s*$") or "");
+                    touched = true;
+                end
+            end
+        end
+        if (not touched) then
+            return nil;
+        end
+        return "[" .. table.concat(tokens, ",") .. "]";
+    end));
+end
+DebindPrivate.RenameUnitInMacroTextAt7 = RenameUnitInMacroTextAt7;
 
 --- Raises one layer's array of actions from `dbver` to `Constants.DB_VERSION`.
 ---
@@ -69,7 +204,9 @@ end
 --- frozen once written and a profile meets it once; what `Constants` holds is today's, and moves. A
 --- value read from there stops matching the old data the day it changes, and a value written from
 --- there skips the later step that would have moved it. **Do not tidy these back into
---- `Constants`.**
+--- `Constants`.** The same holds for the rules a step reads by: a value valid in its version goes
+--- on up the ladder as it is, and only the step into the version that retires it may drop or change
+--- it (owner, 2026-10-09).
 local function MigrateLayer(layerTbl, dbver, to)
     if (layerTbl == nil) then
         return;
@@ -191,9 +328,10 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
         end
 
-        -- Then the hover condition moves in beside those units. The folding rule is
-        -- `UnitFrameConditionFromLegacy`'s (`Units.lua`): building a binding has to raise a profile
-        -- the migration has not reached by the same rule, and written twice that rule would part.
+        -- Then the hover condition moves in beside those units, by version 5's fold
+        -- (`UnitFrameConditionAt5`). `Units.lua`'s `UnitFrameConditionFromLegacy` is the binding
+        -- builder's for a profile the ladder has not reached; the two are meant to part when today's
+        -- rule moves, since this one says what version 5 meant.
         --
         -- `frameTypes`/`ignoreHoverUnit` are not moved here; **the `dbver <= 6` step below** takes
         -- both. The mask goes inside the same row (the pointed frame's unit is a unit, so the mask
@@ -205,11 +343,12 @@ local function MigrateLayer(layerTbl, dbver, to)
             local action = layerTbl[i];
             if (action.hover ~= nil) then
                 action.checkedUnits = action.checkedUnits or {};
-                -- 접기는 바인딩 모양 위에서 돈다. 넣기 전에 한 번 통과시키고, 나온 것을 다시
-                -- 저장 모양으로 돌린다 - `false`(없을 때)만 표가 되면 되고, 나머지는 그대로다.
-                local folded = DebindPrivate.UnitFrameConditionFromLegacy(
+                -- The fold runs on the row as version 5 read it (`UnitConditionAt5`), and what comes
+                -- out goes back in the stored shape: only `false` (when there is none) has to become
+                -- a table, and the rest is stored as it is.
+                local folded = UnitFrameConditionAt5(
                     action.hover, action.reactions,
-                    DebindPrivate.UnitConditionForBinding(action.checkedUnits.hover));
+                    UnitConditionAt5(action.checkedUnits.hover));
                 if (folded == false) then
                     folded = { exists = false };
                 end
@@ -516,7 +655,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- spelling comes back meaning something else.
         --
         -- **The step hands the old name in** rather than asking `ParseMacroText`, which cannot see
-        -- it any more (`MacroText.lua`'s `RenameUnitInMacroText` says why).
+        -- it any more (`RenameUnitInMacroTextAt7` says why).
         --
         -- Running twice is safe: nothing carries the old spelling once this has passed.
         for i = 1, #layerTbl do
@@ -537,7 +676,7 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
 
             if (action.type == MACROTEXT_AT_7 and luatype(action.value) == "string") then
-                action.value = DebindPrivate.RenameUnitInMacroText(action.value, "hover", "unitframe");
+                action.value = RenameUnitInMacroTextAt7(action.value, "hover", "unitframe");
                 -- **A whole token after the frame name**, the way `/click` reads it and the way
                 -- `renameClickedSwitch` reads the switch in the same position. A pre-rename body
                 -- already says `DebindCustom` here: `Legacy.lua` repairs its copies before the
@@ -670,7 +809,7 @@ local function MigrateLayer(layerTbl, dbver, to)
                         return true;
                     end
                     for _, stored in pairs(value) do
-                        if (DebindPrivate.UnitConditionForBinding(stored) ~= nil) then
+                        if (UnitConditionAt7(stored) ~= nil) then
                             return true;
                         end
                     end
@@ -681,7 +820,7 @@ local function MigrateLayer(layerTbl, dbver, to)
             for _, group in pairs(groups) do
                 for j = 1, #group do
                     local action = group[j].action;
-                    local folded = DebindPrivate.UnitConditionForBinding(
+                    local folded = UnitConditionAt7(
                         action.conditions and action.conditions.units
                         and action.conditions.units.unitframe);
                     -- **Or what the step below turned that condition into**, which is the same
@@ -746,7 +885,7 @@ local function MigrateLayer(layerTbl, dbver, to)
 
             if (casting == nil or (casting.hoverCast == nil and casting.hoverCastMode == nil)) then
                 local units = action.conditions and action.conditions.units;
-                local folded = DebindPrivate.UnitConditionForBinding(units and units.unitframe);
+                local folded = UnitConditionAt7(units and units.unitframe);
                 if (folded ~= nil and folded ~= false) then
                     casting = casting or {};
                     casting.hoverCastMode = "unitframe";
@@ -755,8 +894,8 @@ local function MigrateLayer(layerTbl, dbver, to)
                         casting.hoverCast = "usual";
                     end
                     casting.normalCast = false;
-                    -- 빈 [올렸을 때]였나. `UnitConditionForBinding`이 낸 표에 축이 하나도 없으면
-                    -- 그것이 [올렸을 때]뿐인 조건이다.
+                    -- Was it a bare [when one is pointed at]? With no axis in what `UnitConditionAt7`
+                    -- handed back, that is all the condition said.
                     if (next(folded) == nil) then
                         units.unitframe = nil;
                         if (next(units) == nil) then
@@ -1284,7 +1423,7 @@ local function MigrateSwitches(db, dbver, to)
         -- Running twice is safe: nothing carries the old spelling once this has passed.
         local function RenameUnitInRow(row)
             if (luatype(row) == "table" and luatype(row.expr) == "string") then
-                row.expr = DebindPrivate.RenameUnitInMacroText(row.expr, "hover", "unitframe");
+                row.expr = RenameUnitInMacroTextAt7(row.expr, "hover", "unitframe");
             end
         end
         for _, definition in pairs(db.switches or {}) do
