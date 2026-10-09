@@ -1,6 +1,6 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 3, 9, 12, 13, 14, 15. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
+> 상태: 미착수. 항목 3, 9, 12, 14, 15. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
 > 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다. 4(키트의 Tail 시험
 > 넷이 beat와 리빌드를 못 가름)도 같은 날 넷 다 `WaitOnBeat`로 바꿔서 뺐다. 6(`macrotext_spec`이 `EmitMacroTextArg`를
 > 베껴 잼)도 같은 날 `BuildMacroTextEntries`가 내는 글을 직접 재게 바꾸고 `bakeFixed`를 지워서 뺐다. 이것도 같은 규칙을
@@ -14,6 +14,10 @@
 > 10(메뉴의 "끄기" 칸이 `disabled = false`를 씀)도 2026-10-09에 고쳐서 뺐다. 메뉴의 `ActionValues.Set`이 `disabled`의
 > `false`를 nil로 접고, 확인 장치(`tests/canonical.lua`)도 이제 그 값을 잡는다(`sanitizing-actions-with-one-function.md`
 > 7절 4번, `debind-6c`).
+> 13(옛 설정을 가져오는 접속에서 합쳐 둔 대기 액션이 사라짐)은 2026-10-09에 다루지 않기로 하고 뺐다(소유자). 첫 접속에
+> 가져오기가 실패하고(`Debounce` 애드온이 꺼져 있거나, 옛 데이터의 사다리가 실패), 그 사이 Debind를 쓰다가, 나중 접속에서
+> 가져오기가 성공할 때만 생긴다. `MergeLayers`(`Legacy.lua`)가 칸을 통째로 갈아 끼우니, 그 사이 직접 만든 액션도 같은
+> 칸이면 같이 갈려 나간다.
 >
 > 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 9는 `debind-3e`
 > (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 10~12는 `debind-32`
@@ -52,15 +56,6 @@
 
 `tests/canonical.lua`의 `Sweep`은 `GetProfileLayer(1..)`만 훑는다. 도착한 액션을 다른 직업의 칸처럼 불러오지 않은 곳에 놓으면
 (`PlaceArrivedActions`의 `StoredActionsAt`) 그 액션은 장치가 보지 못한다. `DebindVars.layers`의 모든 칸을 훑도록 넓혀야 한다.
-
-## 13. 처음 옛 설정을 가져오는 접속에서 합쳐 둔 대기 액션이 사라진다
-
-찾은 곳: `sanitizing-actions-with-one-function.md` 7절 3번(2026-10-09, `debind-6c`가 코드로 확인했다).
-
-`InitDB`의 `MergePendingActions`가 이 캐릭터의 대기 액션을 불러온 레이어로 옮기고 공유 칸에서는 지운다. 그 뒤
-`PLAYER_LOGIN`의 `RunLegacyMigration`이 `MergeLayers`로 `into[class][spec]`을 통째로 갈아 끼우고, `LoadProfile`이 갈아 낀
-칸을 불러온다. 합쳐 둔 대기 액션은 갈려 나간 옛 칸에만 남아 있다가 사라진다. sanitize 작업 전부터 그랬다. 대기 칸이 있는
-캐릭터가 바로 그 접속에서 처음 옛 설정(`Debounce`)을 가져와야 생긴다.
 
 ## 14. 계정을 걷는 함수가 다른 캐릭터 칸의 표 아닌 목록과 원소를 그대로 넘긴다
 
