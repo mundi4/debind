@@ -1103,9 +1103,10 @@ return function(DebindPrivate, _, ctx)
             "두 번째에 뭉개짐");
     end);
 
+    -- Stops at 7: the 7 -> 8 step spreads the scalar, which is the step after this one.
     test("dbver 7 leaves a scalar it cannot read alone", function()
         local layer = unitCond("help");
-        MigrateLayer(layer, 6);
+        MigrateLayer(layer, 6, 7);
         check(layer[1].conditions.units.target == "help", "스칼라를 건드렸다");
     end);
 
@@ -1513,10 +1514,6 @@ return function(DebindPrivate, _, ctx)
         return DebindPrivate.GetBindingInfoForAction(action);
     end
 
-    local function stateFor(action)
-        return bindingFor(action).unitStates;
-    end
-
     --- 축별 조건이 기대한 것과 같은가.
     ---
     --- `nil`은 "조건이 아예 안 실렸다"(꺼진 조건), `false`는 "없을 때"다. 둘은 다른 답이고
@@ -1536,7 +1533,8 @@ return function(DebindPrivate, _, ctx)
         return ("{reaction=%s,dead=%s}"):format(tostring(value.reaction), tostring(value.dead));
     end
 
-    --- One stored unit condition, and the answer both consumers see for it.
+    --- One stored unit condition as a version 4 profile held it, and the answer a binding gives for it
+    --- once the ladder has raised it.
     ---
     --- The four old scalars are what the `dbver <= 1` step in `Migration.lua` carried across from
     --- `checkedUnitValue` unchanged, so values from that era are in here too. The table shapes are
@@ -1600,16 +1598,9 @@ return function(DebindPrivate, _, ctx)
             label, when, describe(wantCond), describe(gotCond)));
     end
 
-    test("a stored unit condition means one fixed thing to both consumers", function()
-        for _, case in ipairs(UNIT_CONDITION_CASES) do
-            checkUnitConditionCase(case, { type = Constants.SPELL, value = 100,
-                checkedUnits = { target = copy(case[2]) } }, "(마이그레이션 전)");
-        end
-    end);
-
-    -- 같은 표를 마이그레이션 뒤에도 그대로 요구한다. 옛 스칼라는 여기서 표가 되고, 이미 표인
-    -- 것은 안 건드려져야 한다. **답을 두 번 계산해 맞대는 것이 아니라 같은 리터럴에 두 번
-    -- 맞추는 것**이라, 두 경로가 같은 방향으로 틀리면 두 쪽 다 빨개진다.
+    -- **Held to the literal, not to a second computation**: what the binding reads off the ladder's
+    -- output has to be the answer written in the table. The old scalars become tables on the way,
+    -- and a table already there is not touched.
     test("dbver 5 leaves that meaning exactly where it was", function()
         for _, case in ipairs(UNIT_CONDITION_CASES) do
             local layer = { { key = "A", type = Constants.SPELL, value = 100,
@@ -1718,12 +1709,6 @@ return function(DebindPrivate, _, ctx)
         return action;
     end
 
-    test("the old hover pair means one fixed thing to both consumers", function()
-        for _, case in ipairs(HOVER_CASES) do
-            checkHoverCase(case, hoverAction(case), "(마이그레이션 전)");
-        end
-    end);
-
     test("dbver 5 leaves the hover condition's meaning exactly where it was", function()
         for _, case in ipairs(HOVER_CASES) do
             local layer = { hoverAction(case) };
@@ -1752,20 +1737,15 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
-    -- 모르는 값이 섞여 있어도 **뜻이 뒤집히면 안 된다.** 옛 버전이 쓴 값을 우리가 모를 수
-    -- 있고, 그때 조용히 "없을 때"로 읽히면 걸려 있던 바인딩이 정반대로 동작한다.
+    -- **The ladder gives a value nobody wrote no meaning of its own.** Written as [when there is
+    -- none] on the way up, an action that held a condition would run the opposite way. So it is
+    -- carried up as it is, and what version 8 does with it is `SanitizeAction`'s (the row goes).
     test("dbver 5 does not change what an unknown value means", function()
-        local before = stateFor({
-            type = Constants.SPELL, value = 100,
-            checkedUnits = { target = "somethingWeNeverWrote" },
-        });
-
         local layer = { { key = "A", type = Constants.SPELL, value = 100,
             checkedUnits = { target = "somethingWeNeverWrote" } } };
         MigrateLayer(layer, 4);
-        local after = stateFor(layer[1]);
-
-        check(before.target == after.target, "모르는 값의 뜻이 마이그레이션으로 바뀜");
+        local row = layer[1].conditions and layer[1].conditions.units and layer[1].conditions.units.target;
+        check(row == "somethingWeNeverWrote", "the ladder rewrote it to " .. tostring(row));
     end);
 
     ---------------------------------------------------------------------------
@@ -3335,6 +3315,214 @@ return function(DebindPrivate, _, ctx)
         for _, name in ipairs({ "checkUnitExists", "checkedUnit", "checkedUnitValue", "reactions" }) do
             check(list[1][name] == nil, name .. " stayed: " .. tostring(list[1][name]));
         end
+    end);
+
+    ---------------------------------------------------------------------------
+    -- The 7 -> 8 step's last pass: old shapes a version 7 profile still held
+    --
+    -- **Version 7's readers took each of these as a live condition**, so the step moves it by the
+    -- meaning version 7 gave it rather than dropping it. Where version 7 did not read one, because
+    -- today's place was already filled, it goes. Each input is version 7 data the earlier steps did
+    -- not leave and only a hand could have written; the step still has to bring it to version 8.
+    ---------------------------------------------------------------------------
+
+    local function Raised(action)
+        local list = { action };
+        DebindPrivate.MigrateLayer(list, 7);
+        return list[1];
+    end
+
+    local function Spell(fields)
+        local action = { type = "spell", value = 585, key = "F1", seq = 1 };
+        for k, v in pairs(fields) do
+            action[k] = v;
+        end
+        return action;
+    end
+
+    test("7 -> 8 moves a top-level checkedUnits into conditions.units", function()
+        local got = Raised(Spell({ checkedUnits = { target = { exists = true, reaction = 2 } } }));
+        check(same(got, Spell({ conditions = { units = { target = { exists = true, reaction = 2 } } } })),
+            "got " .. Show(got));
+    end);
+
+    -- Version 7 read `conditions.units` first and looked at `checkedUnits` only without it.
+    test("7 -> 8 drops a top-level checkedUnits that version 7 did not read", function()
+        local got = Raised(Spell({ checkedUnits = { focus = { exists = true } },
+            conditions = { units = { target = { exists = false } } } }));
+        check(same(got, Spell({ conditions = { units = { target = { exists = false } } } })),
+            "got " .. Show(got));
+    end);
+
+    --- `{ hover, reactions, the pointed frame's row before, the row after }`. Version 7 folded the pair
+    --- into the row as it read it: a turned-off row as none, `exists = false` as [when there is none].
+    local HOVER_PAIRS = {
+        { true, 1, nil, { exists = true, reaction = 1 } },
+        { true, 7, nil, { exists = true } },
+        { true, nil, nil, { exists = true } },
+        { false, nil, nil, { exists = false } },
+        { true, 3, { exists = true, reaction = 2, dead = false }, { exists = true, reaction = 2, dead = false } },
+        { true, 1, { exists = true, role = 2 }, { exists = true, reaction = 1, role = 2 } },
+        { true, 1, { disabled = true, reaction = 2 }, { exists = true, reaction = 1 } },
+        { false, nil, { exists = true }, { exists = true, reaction = 0 } },
+        { false, nil, { exists = false }, { exists = false } },
+        { true, 1, { exists = false }, { exists = true, reaction = 0 } },
+    };
+    test("7 -> 8 folds the old hover pair into the pointed frame's row as version 7 read it", function()
+        local wrong = {};
+        for _, case in ipairs(HOVER_PAIRS) do
+            local conditions = case[3] and { units = { unitframe = case[3] } } or nil;
+            local got = Raised(Spell({ hover = case[1], reactions = case[2], conditions = conditions }));
+            local want = Spell({ conditions = { units = { unitframe = case[4] } } });
+            if (not same(got, want)) then
+                wrong[#wrong + 1] = ("hover=%s reactions=%s row=%s: got %s"):format(
+                    tostring(case[1]), tostring(case[2]), Show(case[3]), Show(got));
+            end
+        end
+        check(#wrong == 0, table.concat(wrong, "; "));
+    end);
+
+    test("7 -> 8 renames the pointed frame's row, and the new name wins over the old", function()
+        local got = Raised(Spell({ conditions = { units = { hover = { exists = false } } } }));
+        check(same(got, Spell({ conditions = { units = { unitframe = { exists = false } } } })),
+            "a lone old name: " .. Show(got));
+        got = Raised(Spell({ conditions = { units = {
+            hover = { exists = false }, unitframe = { exists = true } } } }));
+        check(same(got, Spell({ conditions = { units = { unitframe = { exists = true } } } })),
+            "both names: " .. Show(got));
+    end);
+
+    -- Version 7 put on the binding only a row that read as a condition, so beside a turned-off
+    -- `unitframe` row the `hover` row was the live one.
+    test("7 -> 8 keeps the old row name where the new one is turned off", function()
+        local got = Raised(Spell({ conditions = { units = {
+            unitframe = { disabled = true, reaction = 2 }, hover = { exists = true, reaction = 1 } } } }));
+        check(same(got, Spell({ conditions = { units = { unitframe = { exists = true, reaction = 1 } } } })),
+            "got " .. Show(got));
+    end);
+
+    -- Version 7 read the four scalars, and a row with no mode as [when there is one]. Any other value
+    -- is no old shape but a broken one, and stays for `SanitizeAction`.
+    test("7 -> 8 spreads the old unit scalars and gives a row with no mode its mode", function()
+        local got = Raised(Spell({ conditions = { units = {
+            target = true, focus = false, pet = "help", player = "harm", mouseover = "someday",
+            tank = { reaction = 1 } } } }));
+        check(same(got, Spell({ conditions = { units = {
+            target = { exists = true }, focus = { exists = false },
+            pet = { exists = true, reaction = 1 }, player = { exists = true, reaction = 2 },
+            mouseover = "someday", tank = { exists = true, reaction = 1 } } } })),
+            "got " .. Show(got));
+    end);
+
+    --- `{ the mask's field, its value, the pointed frame's row before, the row after }`. Version 7 put
+    --- the mask on a row that held a condition and had none of its own, top-level first, and nowhere
+    --- else; on every other row it had no effect.
+    local FRAME_MASKS = {
+        { "top", 8, { exists = true }, { exists = true, frameTypes = 8 } },
+        { "conditions", 8, { exists = true }, { exists = true, frameTypes = 8 } },
+        { "top", 127, { exists = true }, { exists = true } },
+        { "top", 8, { exists = true, frameTypes = 4 }, { exists = true, frameTypes = 4 } },
+        { "top", 8, { disabled = true }, { disabled = true } },
+        { "top", 8, { exists = false }, { exists = false } },
+        { "top", 8, nil, nil },
+        { "top", "eight", { exists = true }, { exists = true } },
+    };
+    test("7 -> 8 moves the old frame type mask only where version 7 applied it", function()
+        local wrong = {};
+        for _, case in ipairs(FRAME_MASKS) do
+            local conditions = { combat = true };
+            if (case[3]) then
+                conditions.units = { unitframe = case[3] };
+            end
+            local action = Spell({ conditions = conditions });
+            if (case[1] == "top") then
+                action.frameTypes = case[2];
+            else
+                conditions.frameTypes = case[2];
+            end
+            local got = Raised(action);
+            local want = Spell({ conditions = { combat = true,
+                units = case[4] and { unitframe = case[4] } or nil } });
+            if (not same(got, want)) then
+                wrong[#wrong + 1] = ("%s %s on %s: got %s"):format(
+                    case[1], tostring(case[2]), Show(case[3]), Show(got));
+            end
+        end
+        check(#wrong == 0, table.concat(wrong, "; "));
+    end);
+
+    test("7 -> 8 takes the top-level mask ahead of the one under conditions, as version 7 did", function()
+        local got = Raised(Spell({ frameTypes = 8,
+            conditions = { frameTypes = 16, units = { unitframe = { exists = true } } } }));
+        check(same(got, Spell({ conditions = { units = { unitframe = { exists = true, frameTypes = 8 } } } })),
+            "got " .. Show(got));
+    end);
+
+    test("7 -> 8 renames an action aimed at the pointed frame's unit", function()
+        local got = Raised(Spell({ unit = "hover" }));
+        check(same(got, Spell({ unit = "unitframe" })), "got " .. Show(got));
+    end);
+
+    -- **Only what version 8 uses is left**, at every level, and a payload's own field with it.
+    test("7 -> 8 leaves only the names version 8 uses", function()
+        local got = Raised(Spell({ bogus = 1, untranslated = { spec1 = true },
+            casting = { selfCastKey = "SHIFT", bogus = true },
+            conditions = { combat = true, ["$s1"] = true, bogus = 1, off = true,
+                units = { target = { exists = true, bogus = 1, off = true }, arena1 = { exists = true },
+                    ["@"] = { exists = true } } } }));
+        check(same(got, Spell({ untranslated = { spec1 = true }, casting = { selfCastKey = "SHIFT" },
+            conditions = { combat = true, ["$s1"] = true,
+                units = { target = { exists = true }, ["@"] = { exists = true } } } })),
+            "got " .. Show(got));
+    end);
+
+    test("7 -> 8 takes off a table it left empty", function()
+        local got = Raised(Spell({ casting = { bogus = true },
+            conditions = { bogus = 1, units = { arena1 = { exists = true } } } }));
+        check(same(got, Spell({})), "got " .. Show(got));
+    end);
+
+    -- A drawer entry is raised in place and can meet this step twice.
+    test("7 -> 8 brings the old shapes to the same place when run twice", function()
+        local function Old()
+            return Spell({ hover = true, reactions = 3, frameTypes = 8, unit = "hover", bogus = 1,
+                checkedUnits = { target = true, hover = { exists = true, reaction = 1 } } });
+        end
+        local once = Raised(Old());
+        local list = { Old() };
+        DebindPrivate.MigrateLayer(list, 7);
+        DebindPrivate.MigrateLayer(list, 7);
+        check(same(list[1], once), "once " .. Show(once) .. ", twice " .. Show(list[1]));
+        check(same(once, Spell({ unit = "unitframe", conditions = { units = {
+            target = { exists = true }, unitframe = { exists = true, reaction = 1, frameTypes = 8 } } } })),
+            "got " .. Show(once));
+    end);
+
+    -- **A broken value is not this step's to judge**: `SanitizeAction` throws it away. A received
+    -- string rides the step with whatever types it came with, so all that is asked here is that
+    -- the step does not raise on one, wherever it sits beside an old shape.
+    test("7 -> 8 does not raise on old shapes beside broken values", function()
+        local inputs = {
+            { hover = "yes", reactions = "all", frameTypes = {}, checkedUnits = "target", unit = 5,
+                conditions = { frameTypes = true, units = 3 } },
+            -- The pair is intersected with a row's reaction, which is where a mask that is no number
+            -- would reach `band`.
+            { hover = true, reactions = "all", conditions = { units = { unitframe = { exists = true, reaction = 1 } } } },
+            { hover = true, reactions = 1, conditions = { units = { unitframe = { exists = true, reaction = "x" } } } },
+            { hover = true, reactions = 1, conditions = { units = { unitframe = { exists = true, reaction = {} } } } },
+            { hover = true, reactions = 1, conditions = { units = { unitframe = { disabled = true, reaction = "x" } } } },
+            { hover = false, conditions = { units = { unitframe = "someday" } } },
+            { hover = true, conditions = { units = { hover = "someday" } } },
+            { checkedUnits = { target = { exists = true } }, conditions = { units = false } },
+        };
+        local raised = {};
+        for i, fields in ipairs(inputs) do
+            local ok, err = pcall(Raised, Spell(fields));
+            if (not ok) then
+                raised[#raised + 1] = ("input %d: %s"):format(i, tostring(err));
+            end
+        end
+        check(#raised == 0, table.concat(raised, "; "));
     end);
 
     ---------------------------------------------------------------------------

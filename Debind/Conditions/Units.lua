@@ -4,62 +4,43 @@ local Constants = DebindPrivate.Constants;
 local band      = bit.band;
 local bor       = bit.bor;
 
-local UNIT_SCALAR_TO_STATE = {
-    [true]    = Constants.UNITSTATE_EXISTS,
-    [false]   = Constants.UNITSTATE_NONE,
-    ["help"]  = Constants.UNITSTATE_HELP,
-    ["harm"]  = Constants.UNITSTATE_HARM,
-};
-
 local REACTION_TO_UNIT_STATE = {
     [Constants.REACTION_HELP]  = Constants.UNITSTATE_HELP,
     [Constants.REACTION_HARM]  = Constants.UNITSTATE_HARM,
     [Constants.REACTION_OTHER] = Constants.UNITSTATE_OTHER,
 };
 
---- 저장된 유닛 조건 -> 바인딩이 읽는 모양. 조건이 꺼져 있으면 `nil`.
+--- A stored unit condition -> the shape a binding reads. `nil` where the condition is off.
 ---
---- **저장과 바인딩은 다른 모양이고, 이 함수가 그 이음매다.**
+--- **Storage and binding are different shapes, and this is the seam.** Storage is what the reader
+--- edits, so it remembers what is switched off: moving the radio to [Disabled] or [When there is
+--- none] keeps the reaction and life picked, and turning it back does not ask for them again.
+--- Turning an option off is not deleting it.
 ---
---- 저장은 사용자가 편집하는 것이라 **끈 값을 기억한다.** 라디오를 [사용 안 함]이나
---- [없을 때]로 옮겼다고 골라둔 반응·생사를 지우면, 되돌렸을 때 처음부터 다시 골라야 한다.
---- **옵션을 끄는 것이지 지우는 것이 아니다.**
+---     { exists = true, ... }       when there is one; each axis narrows it
+---     { exists = false, ... }      when there is none; the axes are only remembered
+---     { disabled = true, ... }     no condition on this unit; the axes are only remembered
 ---
----     { exists = true, ... }       있을 때. 축이 붙으면 그만큼 좁아진다
----     { exists = false, ... }      없을 때. 축은 기억만 한다
----     { disabled = true, ... }     이 유닛에 조건 없음. 축은 기억만 한다
+--- A binding carries no memory, so `IsConditionalBinding`, the issue check and the emitter never
+--- meet a switched-off axis.
 ---
---- **표시가 하나도 없는 표는 옛 값이고, "있을 때"로 읽는다.** `dbver <= 6` 단계가 그것을
---- `exists = true`로 올리므로 저장에는 안 남는다. 아직 안 옮겨진 프로필과 페이로드가 그
---- 모양으로 오는데, 그것을 "조건 없음"으로 읽으면 걸어둔 조건이 조용히 사라져 바인딩이 제 것
---- 아닌 키까지 가져간다. 좁아지는 쪽이 안전하다.
----
---- 바인딩은 판정에 쓰는 것이라 기억을 안 들고 간다. 그래야 `IsConditionalBinding`도, 이슈
---- 검사도, 런타임 방출도 "꺼진 축"이라는 경우를 몰라도 된다.
----
---- 옛 스칼라도 여기서 받는다. 가져오기 도중이거나 손으로 고친 프로필, 테스트가 만든 액션이
---- 그 모양으로 온다 - **여기서 끝나야** 하류가 타입 검사를 안 한다.
+--- **A table with no mode reads as [when there is one]**, the narrower of the two. Read as no
+--- condition, one written that way by hand would vanish and the binding would take keys that are
+--- not its own.
 local function UnitConditionForBinding(value)
     if (value == nil) then
         return nil;
-    elseif (value == true) then
-        return {};
-    elseif (value == false) then
-        return false;
-    elseif (value == "help") then
-        return { reaction = Constants.REACTION_HELP };
-    elseif (value == "harm") then
-        return { reaction = Constants.REACTION_HARM };
     elseif (type(value) ~= "table") then
-        -- **A value no build writes** (`UnitConditionIsUnreadable`), and its action is left out by
-        -- `INVALID_ACTION`. `false` is for the readers that still draw it: the tooltip and the
-        -- condition menu pick one of three radios and have no fourth.
+        -- **Only a value set with `/run` in this session gets here.** The ladder carries a broken row
+        -- up as it is, and every door then drops a row that is not a table (`SanitizeAction`) before
+        -- anything reads it: the load sanitizes before the first rebuild, and a payload is sanitized
+        -- going into the drawer and coming out. Its action is left out by `INVALID_ACTION`
+        -- (`UnitConditionIsUnreadable`). `false` rather than reading it, so the rebuild does not
+        -- raise on it, and because the tooltip and the condition menu pick one of three radios and
+        -- have no fourth.
         return false;
     end
 
-    -- **The old name `off` is not read here.** `dbver <= 6` renames it in profiles and payloads
-    -- alike -- a payload goes through `MigrateLayer` too (`Export.lua`'s
-    -- `BringPayloadDataForward`) -- and nothing stored stays below that.
     if (value.disabled) then
         return nil;
     elseif (value.exists == false) then
@@ -69,61 +50,17 @@ local function UnitConditionForBinding(value)
         frameTypes = value.frameTypes };
 end
 
---- The old `hover` / `reactions` pair -> the unit condition they became.
----
---- The pointed frame's unit is a unit, so it is stored as one: `units["unitframe"]`
---- (`Migration.lua`'s `dbver <= 4` step). Kept in its own pair of fields it was one unit described
---- by two columns, meeting only in `BuildUnitStates` -- which meant two runtime paths measuring
---- the same thing about the same unit.
----
---- `existing` is whatever that key already holds, from the days both menus were live. This
---- **intersects** rather than overwrites: dropping either side would widen a binding past what
---- was set. Where the two do not overlap the answer is `reaction = 0` -- exists, and in none of
---- the three reactions, which no unit satisfies. That is not a new marker: `GetBindingIssue`
---- already reads a zero mask that way, and the pair was already an issue before it was folded.
---- **`existing`도 돌려주는 값도 바인딩 모양이다**(`UnitConditionForBinding`이 내는 것). 저장
---- 모양을 넣지 말 것 - 부르는 쪽이 먼저 통과시킨다. 접기는 "꺼진 축을 기억한다"는 편집 쪽
---- 사정과 아무 상관이 없고, 두 모양을 다 받게 만들면 어느 쪽인지 매번 물어야 한다.
-local function UnitFrameConditionFromLegacy(hover, reactions, existing)
-    if (hover == false) then
-        -- "Not over a frame" against any condition that needs the unit there. Nothing is both.
-        -- Spelled out rather than `and false or` -- that idiom cannot return `false`.
-        if (existing == nil or existing == false) then
-            return false;
-        end
-        return { reaction = 0 };
-    end
-    if (existing == false) then
-        return { reaction = 0 };
-    end
-
-    local reaction = reactions;
-    if (reaction == Constants.REACTION_ALL) then
-        reaction = nil;
-    end
-
-    local folded = type(existing) == "table" and existing or {};
-    if (reaction == nil) then
-        reaction = folded.reaction;
-    elseif (folded.reaction ~= nil) then
-        reaction = band(reaction, folded.reaction);
-    end
-    folded.reaction = reaction;
-    return folded;
-end
-
-DebindPrivate.UnitFrameConditionFromLegacy = UnitFrameConditionFromLegacy;
 DebindPrivate.UnitConditionForBinding = UnitConditionForBinding;
 
---- Whether a stored unit condition is a value no build writes: neither a table nor one of the four
---- old scalars. **Only hand-made data holds one**, a SavedVariables or a share string edited by
---- hand: every build since `dbver` 4 writes a table, and the import copies the inside of `units`
---- without looking. Read as [when there is none] it would cover a real [when there is none] binding
---- and the solver would delete that one, so its action is left out (`INVALID_ACTION`).
+--- Whether a stored unit condition is a value no build writes, which is any value that is not a
+--- table. Every door drops such a row (`SanitizeAction`), so only a value set with `/run` in this
+--- session is asked about here. Read as [when there is none] (`UnitConditionForBinding`), it would
+--- cover a real [when there is none] binding and the solver would delete that one, so its action is
+--- left out (`INVALID_ACTION`).
 ---
 --- Asked per stored row on every issue check, so it allocates nothing.
 function DebindPrivate.UnitConditionIsUnreadable(value)
-    return value ~= nil and type(value) ~= "table" and UNIT_SCALAR_TO_STATE[value] == nil;
+    return value ~= nil and type(value) ~= "table";
 end
 
 --- Does this stored unit row remember any axis? Asked when a row is turned off: one that remembers
@@ -142,26 +79,11 @@ function DebindPrivate.UnitConditionRemembersAxis(cond)
     return false;
 end
 
---- The unit frame condition stored on this action. **The old spelling is read as well.**
----
---- `dbver <= 6` moves a stored `units.hover` to `units.unitframe`, but **a place that reads the raw
---- action also meets what the ladder has not reached**: a hand-edited profile, and the same cases
---- `FillBinding` takes a flat `checkedUnits` for. Looking at one name only drops that condition in
---- silence, and **a binding that lost a condition is wider and takes somebody else's key.**
----
---- The raw action is read here for `ActionUnitFrameIsOn` and in the same order by
---- `ActionTooltip.lua`, and only this function knows the old name. It makes no table, so a call
---- per row allocates nothing.
+--- The unit frame condition stored on this action, as stored. It makes no table, so a call per row
+--- allocates nothing.
 function DebindPrivate.StoredUnitFrameCondition(action)
     local units = action.conditions and action.conditions.units;
-    if (units == nil) then
-        return nil;
-    end
-    local value = units.unitframe;
-    if (value == nil) then
-        value = units.hover;
-    end
-    return value;
+    return units and units.unitframe;
 end
 
 --- One stored unit condition -> a mask on the unit axis.
@@ -176,12 +98,6 @@ end
 local function UnitConditionToState(value)
     if (value == false) then
         return Constants.UNITSTATE_NONE;
-    end
-    if (type(value) ~= "table") then
-        -- An old scalar the ladder has not reached. A value no build writes reads as the absent
-        -- point, as `UnitConditionForBinding` reads it, and its action never reaches the solver
-        -- (`INVALID_ACTION`).
-        return UNIT_SCALAR_TO_STATE[value] or Constants.UNITSTATE_NONE;
     end
 
     local mask;

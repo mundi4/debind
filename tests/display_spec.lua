@@ -454,7 +454,7 @@ return function(DebindPrivate)
     test("the bare click with the pointed unit [none] says so at the key and at the unit", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON1", seq = 1,
-                conditions = { units = { unitframe = false } } },
+                conditions = { units = { unitframe = { exists = false } } } },
         }, {});
 
         local row = DebindPrivate.CollectActionsForKey("BUTTON1")[1];
@@ -528,21 +528,6 @@ return function(DebindPrivate)
         check(not text:find(LLL["CASTING_NORMAL"], 1, true), "an unchanged row was drawn: " .. text);
         check(not Says(row, "LINE_TOOLTIP_CASTING_NONE_LEFT"), "a reason with presses left: " .. text);
         check(row.castingOff == nil, "a reason with presses left: " .. tostring(row.castingOff));
-    end);
-
-    --- **The tooltip walks the raw action's condition table**, so it meets the pre-rename key on a
-    --- profile the ladder has not reached. Skipping it loses the condition off the screen; drawing
-    --- it under its stored name raises instead, because `UNIT_INFO` has no row for it.
-    test("a unit frame condition saved under the old name still draws its line", function()
-        Bind({
-            { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-                conditions = { units = { hover = {} } } },
-        }, {});
-
-        local row = DebindPrivate.CollectActionsForKey("F1")[1];
-        check(row, "the action is not on the key");
-        check(Says(row, "UNIT_HOVER"),
-            "the unit frame line is missing: " .. Tooltip(row));
     end);
 
 

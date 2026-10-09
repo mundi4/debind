@@ -265,17 +265,14 @@ return function(DebindPrivate)
     case("the player's row stays", withUnits({ player = { exists = true, dead = true } }),
         withUnits({ player = { exists = true, dead = true } }));
     case("a row that is not a table goes", withUnits({ target = "x" }), spell());
-    case("the old scalar for there being one becomes its row", withUnits({ target = true }),
-        withUnits({ target = { exists = true } }));
-    case("the old scalar for there being none becomes its row", withUnits({ target = false }),
-        withUnits({ target = { exists = false } }));
-    case("the old friendly scalar becomes its row", withUnits({ target = "help" }),
-        withUnits({ target = { exists = true, reaction = Constants.REACTION_HELP } }));
-    case("the old hostile scalar becomes its row", withUnits({ target = "harm" }),
-        withUnits({ target = { exists = true, reaction = Constants.REACTION_HARM } }));
-    case("the pointed frame's old name moves to unitframe", withUnits({ hover = { exists = false } }),
-        withUnits({ unitframe = { exists = false } }));
-    case("both names at once keep the new one", withUnits({ hover = { exists = false }, unitframe = { exists = true } }),
+    -- **The old scalars and the old row name go like any value version 8 has no reading for**
+    -- (§6-1). Moving them is the ladder's, which every profile meets before this.
+    case("the old scalar for there being one goes", withUnits({ target = true }), spell());
+    case("the old scalar for there being none goes", withUnits({ target = false }), spell());
+    case("the old friendly scalar goes", withUnits({ target = "help" }), spell());
+    case("the old hostile scalar goes", withUnits({ target = "harm" }), spell());
+    case("the pointed frame's old row name goes", withUnits({ hover = { exists = false } }), spell());
+    case("the old row name goes beside the new one", withUnits({ hover = { exists = false }, unitframe = { exists = true } }),
         withUnits({ unitframe = { exists = true } }));
     case("a row name nobody knows inside goes", withUnits({ target = { exists = true, notAnAxis = 1 } }),
         withUnits({ target = { exists = true } }));

@@ -546,8 +546,7 @@ local function CreateCastingMenu(parentDescription, ctx)
             end
         end,
         -- **Read off what is stored, not off `HoverCastChoiceOf`**, which answers the pointed unit for
-        -- the bare click whatever is stored and would paint that row as set. A stored `"usual"` is the
-        -- default under its older spelling and reads as nothing set.
+        -- the bare click whatever is stored and would paint that row as set.
         isActive = function()
             return AnyAction(ctx, function(action)
                 local casting = action.casting;

@@ -217,36 +217,36 @@ return function(DebindPrivate)
     -- 않은 유닛의 니블이 0이 되어 상자가 퇴화했음.
     test("서로 다른 유닛 조건은 독립", function()
         expectSurvives({
-            { name = "t", units = { target = true } },
-            { name = "f", units = { focus = true } },
+            { name = "t", units = { target = {} } },
+            { name = "f", units = { focus = {} } },
         }, "f");
     end);
 
     test("같은 유닛의 더 좁은 조건은 덮임", function()
         expectRemoved({
-            { name = "exists", units = { target = true } },
-            { name = "help",   units = { target = "help" } },
+            { name = "exists", units = { target = {} } },
+            { name = "help",   units = { target = { reaction = Constants.REACTION_HELP } } },
         }, "help");
     end);
 
     test("우호 조건은 존재 조건을 못 덮음", function()
         expectSurvives({
-            { name = "help",   units = { target = "help" } },
-            { name = "exists", units = { target = true } },
+            { name = "help",   units = { target = { reaction = Constants.REACTION_HELP } } },
+            { name = "exists", units = { target = {} } },
         }, "exists");
     end);
 
     test("우호 조건은 적대 조건을 못 덮음", function()
         expectSurvives({
-            { name = "help", units = { target = "help" } },
-            { name = "harm", units = { target = "harm" } },
+            { name = "help", units = { target = { reaction = Constants.REACTION_HELP } } },
+            { name = "harm", units = { target = { reaction = Constants.REACTION_HARM } } },
         }, "harm");
     end);
 
     test("유닛 조건 두 개를 합치면 하나를 덮음", function()
         expectRemoved({
-            { name = "t",   units = { target = true } },
-            { name = "tf",  units = { target = true, focus = true } },
+            { name = "t",   units = { target = {} } },
+            { name = "tf",  units = { target = {}, focus = {} } },
         }, "tf");
     end);
 
@@ -307,7 +307,7 @@ return function(DebindPrivate)
     -- (조건을 무시하면 실제보다 넓어 보여서 남을 잘못 덮는다)
     test("해석 불가능한 @ 조건은 판정에서 제외", function()
         local s = survivors({
-            { name = "at",     units = { ["@"] = true } },
+            { name = "at",     units = { ["@"] = {} } },
             { name = "always" },
         });
         check(s["at"] and s["always"], "opaque 바인딩이 관여한 판정이 일어남");
@@ -382,6 +382,30 @@ return function(DebindPrivate)
     -- 2. 무차별 대조
     ---------------------------------------------------------------------------
 
+    --- A target condition in the shape a binding carries (`UnitConditionForBinding`), by the name the
+    --- sweep gives it, and back. The sweep keeps names so the reference matcher reads them.
+    local TARGET_SHAPES = {
+        exists = function() return {}; end,
+        absent = function() return false; end,
+        help = function() return { reaction = Constants.REACTION_HELP }; end,
+        harm = function() return { reaction = Constants.REACTION_HARM }; end,
+    };
+    local function TargetCondition(name)
+        return TARGET_SHAPES[name]();
+    end
+    local function TargetLabel(cond)
+        if (cond == nil) then
+            return nil;
+        elseif (cond == false) then
+            return "absent";
+        elseif (cond.reaction == Constants.REACTION_HELP) then
+            return "help";
+        elseif (cond.reaction == Constants.REACTION_HARM) then
+            return "harm";
+        end
+        return "exists";
+    end
+
     -- 열거 가능한 작은 조건 공간. 아래 축들만 쓰는 바인딩을 만든다.
     local POINTS = {};
     do
@@ -418,9 +442,9 @@ return function(DebindPrivate)
         if (b["$state1"] ~= nil and (b["$state1"] and true or false) ~= p.s1) then return false; end
         if (b["$state2"] ~= nil and (b["$state2"] and true or false) ~= p.s2) then return false; end
 
-        local cond = b.units and b.units.target;
+        local cond = TargetLabel(b.units and b.units.target);
         if (cond ~= nil) then
-            if (cond == true) then
+            if (cond == "exists") then
                 if (p.target == false) then return false; end
             elseif (cond == "help") then
                 if (p.target ~= "help") then return false; end
@@ -477,7 +501,7 @@ return function(DebindPrivate)
             end
         end
         if (b.units and b.units.target ~= nil) then
-            parts[#parts + 1] = "target=" .. tostring(b.units.target);
+            parts[#parts + 1] = "target=" .. TargetLabel(b.units.target);
         end
         if (b.known ~= nil) then
             parts[#parts + 1] = "known(" .. tostring(b.value) .. ")=" .. tostring(b.known);
@@ -523,7 +547,7 @@ return function(DebindPrivate)
     end
 
     local TRI = { "nil", true, false };
-    local TARGET_CONDS = { "nil", true, false, "help", "harm" };
+    local TARGET_CONDS = { "nil", "exists", "absent", "help", "harm" };
     local KNOWN_SPELLS = { 100, 200 };
 
     local function randomBinding(name)
@@ -534,7 +558,7 @@ return function(DebindPrivate)
         end
         local target = pick(TARGET_CONDS);
         if (target ~= "nil") then
-            b.units = { target = target };
+            b.units = { target = TargetCondition(target) };
         end
         local known = pick(TRI);
         if (known ~= "nil") then b.known = known; end
@@ -773,12 +797,12 @@ return function(DebindPrivate)
     test("hover 반응과 @ 유닛 조건이 같은 축에 얹힌다", function()
         expectRemoved({
             { name = "byReaction", units = { unitframe = { reaction = Constants.REACTION_HELP } } },
-            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = "help" } },
+            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = { reaction = Constants.REACTION_HELP } } },
         }, "byUnit");
 
         -- and the other way round, so this is an identity rather than one side widening
         expectRemoved({
-            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = "help" } },
+            { name = "byUnit",     unit = "unitframe", units = { unitframe = {}, ["@"] = { reaction = Constants.REACTION_HELP } } },
             { name = "byReaction", units = { unitframe = { reaction = Constants.REACTION_HELP } } },
         }, "byReaction");
     end);

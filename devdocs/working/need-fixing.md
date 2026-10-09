@@ -1,6 +1,6 @@
 # 고칠 것
 
-> 상태: 남은 항목 없음. 17(바인딩 쪽이 옛 저장 모양을 읽음)은 2026-10-10에
+> 상태: 미착수. 항목 18. 17(바인딩 쪽이 옛 저장 모양을 읽음)은 2026-10-10에
 > `cleaning-up-old-shapes-in-the-unreleased-step.md`로 옮겼다(`debind-af`). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
 > 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다. 4(키트의 Tail 시험
 > 넷이 beat와 리빌드를 못 가름)도 같은 날 넷 다 `WaitOnBeat`로 바꿔서 뺐다. 6(`macrotext_spec`이 `EmitMacroTextArg`를
@@ -37,6 +37,30 @@
 > (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 10~12는 `debind-32`
 > (세션 ID `01cfef58-000e-45b7-b719-95b834c3e734`). 13~15는 `debind-4b`가 `debind-6c`의 보고에서 옮겼다
 > (세션 ID `606704f4-0b90-4e5a-93e4-cdefc063f074`). 16·17은 `debind-6c`(세션 ID `21c5d56d-a7ef-49e7-b1df-24fc109c27b2`). 17은 `debind-af`
-> (세션 ID `d9fbd825-1a2a-44c4-98fa-a5173c039ed5`)가 고쳐 썼다.
+> (세션 ID `d9fbd825-1a2a-44c4-98fa-a5173c039ed5`)가 고쳐 썼고, 18도 썼다.
 
 다른 일을 하다 찾은 결함이다. 그 일의 범위가 아니라 여기 따로 둔다.
+
+## 18. 받은 문자열의 깨진 값에서 6 -> 7 단계가 터진다
+
+찾은 곳: 7 -> 8 단계의 리뷰(2026-10-10, `debind-af`). 그 일의 diff 밖이라 여기 둔다.
+
+**규칙:** 사다리는 받은 값이 무엇이든 터지면 안 된다(`Migration.lua` 머리주석, `sanitizing-actions-with-one-function.md`
+7절 3번). 깨진 값을 어떻게 할지는 sanitize가 정한다. 사다리가 할 일은 터지지 않는 것뿐이다.
+
+**지금:** 5판·6판 문자열이 6 -> 7 단계를 탄다. 페이로드의 판은 5 아래로 내려가지 않는다(`OLDEST_PAYLOAD_DBVER`). 그
+단계에는 타입을 묻지 않고 값을 쓰는 자리가 다섯 있다. 손으로 고친 문자열이 그 자리에 깨진 값을 들고 오면 터진다.
+애드온이 멈추지는 않는다. `DecodeExportString`의 `pcall`이 받아서 문자열 전체를 `BAD_PAYLOAD`로 거절하고 에러를
+알린다. 그 액션은 sanitize까지 가지 못한다. 서랍 항목도 같은 단계를 탄다(`Vars`가 항목마다 `pcall`).
+
+- 번호 다시 매기기의 옛 비교자(`OlderOrder`)가 `priority`와 `seq`를 `<`로 비교한다. 숫자가 아니면 터지고, NaN이면
+  `sort`가 터질 수 있다.
+- 같은 자리의 묶음 이름이 `action.key .. "\0"`이다. `key`가 불리언이나 표면 터진다.
+- `conditions`와 `conditions.units`를 표인지 묻지 않고 인덱싱하거나 `pairs`에 넘긴다. `exists` 채우기, `pet` 옮기기,
+  프레임 마스크 옮기기, `HasAnyCondition`, Cast Options 변환 앞의 `UnitConditionAt7` 호출이 그 자리다.
+- `known` 변환이 `C_Spell.GetSpellName`에 `action.value`를 타입 검사 없이 넘긴다. `conditions`가 표가 아니면
+  `conditions.known`에서 먼저 터진다.
+- Cast Options 변환과 번호 다시 매기기가 `casting`을 표인지 묻지 않고 읽고 쓴다.
+
+**고칠 때:** 각 자리에서 터지지만 않게 막는다. 깨진 값에 뜻을 주는 갈래는 더하지 않는다. 4판 이하의 단계는
+페이로드가 닿지 않으므로 대상이 아니다.

@@ -305,7 +305,7 @@ return function(DebindPrivate)
             } },
             { what = "a focus and none", judges = false, actions = {
                 spell({ key = "F1", conditions = { units = { focus = {} } } }),
-                spell({ key = "F1", conditions = { units = { focus = false } } }),
+                spell({ key = "F1", conditions = { units = { focus = { exists = false } } } }),
             } },
             { what = "a manual switch on and off", judges = false,
                 switches = { ["$x"] = { mode = Constants.SWITCH_MODES.MANUAL } }, actions = {
@@ -319,7 +319,7 @@ return function(DebindPrivate)
             } },
             { what = "a friendly focus and none", judges = true, actions = {
                 spell({ key = "F1", conditions = { units = { focus = { reaction = Constants.REACTION_HELP } } } }),
-                spell({ key = "F1", conditions = { units = { focus = false } } }),
+                spell({ key = "F1", conditions = { units = { focus = { exists = false } } } }),
             } },
             { what = "combat and not", judges = false, actions = {
                 spell({ key = "F1", conditions = { combat = true } }),

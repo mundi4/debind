@@ -5,7 +5,6 @@ local band                         = bit.band;
 local bor                          = bit.bor;
 
 local UnitConditionForBinding      = DebindPrivate.UnitConditionForBinding;
-local UnitFrameConditionFromLegacy = DebindPrivate.UnitFrameConditionFromLegacy;
 local BuildUnitStates              = DebindPrivate.BuildUnitStates;
 local RoleLeavesNothing            = DebindPrivate.RoleLeavesNothing;
 
@@ -179,15 +178,6 @@ do
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
             entry, branch)
         local twin = castModifier ~= nil;
-        -- **The pre-rename spelling of the target, for the profiles the ladder has not reached.**
-        -- `dbver <= 6` renames a stored `unit = "hover"` alongside the condition; the unit table
-        -- below carries the same shim for the same reason. Left as it is, `binding.unit` holds a
-        -- name nothing answers to any more: the click path does not recognise it
-        -- (`KeyRecords.lua`'s `isClickCast`) and the emitter finds it in neither
-        -- `SPECIAL_UNITS` nor `BASIC_UNITS`, so the action goes out with no unit at all.
-        if (aimedUnit == "hover") then
-            aimedUnit = "unitframe";
-        end
         binding.type, binding.value = action.type, action.value;
         binding.pinnedSpell = action.pinnedSpell;
         binding.resolvedSpellID = action.resolvedSpellID;
@@ -267,30 +257,9 @@ do
         -- 쓰는 자리가 여럿이라(이슈 검사, `IsConditionalBinding`), 빈 표는 조건이 하나도
         -- 없는 액션을 조건부로 만든다.
         conditions.units = nil;
-        -- **평면 `action.checkedUnits`도 받는다.** 나간 적 있는 프로필이 그 모양이고
-        -- (`dbver <= 5`가 옮기기 전), 바로 아래 옛 `hover`/`reactions` 쌍이 같은 이유로
-        -- 여기 있다. 한쪽만 받으면 마이그레이션이 아직 안 닿은 액션의 유닛 조건만 조용히
-        -- 사라지는데, **조건이 사라진 바인딩은 넓어져서 남의 키를 가져간다.**
-        --
-        -- 나머지 축은 안 받는다. 그것들은 값이 스칼라라 중첩 여부가 뜻을 안 바꾸고,
-        -- 액션 최상단을 한 번 더 훑는 값이 리빌드마다 붙는다.
-        -- **옛 이름을 `rawget`으로 읽는다.** 마이그레이션 전 프로필의 최상단 이름은
-        -- `checkedUnits`다(`dbver <= 5`가 옮기면서 `units`로 바꾼다). 최상단에서 조건
-        -- 이름을 읽으면 DEBUG 함정이 터지는데(`Profile.lua`의 `ArmAction`), 여기는 그 옛
-        -- 자리를 **일부러** 보는 유일한 자리다. 함정을 우회하는 것이 아니라, 함정이 잡으려는
-        -- 실수가 아니라는 표시다.
-        local storedUnits = (action.conditions and action.conditions.units)
-            or rawget(action, "checkedUnits");
+        local storedUnits = action.conditions and action.conditions.units;
         if (storedUnits) then
             for unit, value in pairs(storedUnits) do
-                -- **The pre-rename spelling is read here too.** A profile the ladder has not
-                -- reached yet calls the pointed frame's unit `hover`, and the legacy lift just
-                -- below writes `unitframe` -- so left alone, one unit arrives as two columns,
-                -- which is the split the fold exists to remove. `dbver <= 6` renames what is
-                -- stored; this is the same rule on the copy, for the profiles it has not met.
-                if (unit == "hover") then
-                    unit = "unitframe";
-                end
                 -- A value no build writes reads as `false` here, and its action is left out by
                 -- `INVALID_ACTION` before any binding of it reaches the key.
                 local condition = UnitConditionForBinding(value);
@@ -298,34 +267,6 @@ do
                     conditions.units = conditions.units or {};
                     conditions.units[unit] = condition;
                 end
-            end
-        end
-
-        -- Same idea for the old hover pair. It is raised **onto the copy**, never onto the
-        -- action: `Migration.lua` owns rewriting what is stored, and an action this
-        -- reached first would otherwise be rewritten by whoever read it.
-        if (action.hover ~= nil) then
-            conditions.units = conditions.units or {};
-            conditions.units.unitframe = UnitFrameConditionFromLegacy(
-                action.hover, action.reactions, conditions.units.unitframe);
-        end
-
-        -- The frame type mask, likewise raised onto the copy. It was a condition of its own until
-        -- the pointed frame's unit became an ordinary unit (`dbver <= 6`); a profile the ladder has
-        -- not reached carries it at the action's top level or right under `conditions`, and both
-        -- have to be cleared off the binding or the name sits there as a condition nothing reads --
-        -- which is enough to make an unconditional action rank as a conditional one
-        -- (`IsConditionalBinding`).
-        --
-        -- **Only onto a condition that is a table.** Nothing else can hold an axis: the absent
-        -- point is not a frame, and with no `unitframe` condition at all there is no frame to have
-        -- a type. The mask is dropped there rather than inventing a condition nobody set.
-        local legacyFrameTypes = action.frameTypes or conditions.frameTypes;
-        conditions.frameTypes = nil;
-        if (legacyFrameTypes ~= nil and legacyFrameTypes ~= Constants.FRAMETYPE_ALL) then
-            local row = conditions.units and conditions.units.unitframe;
-            if (type(row) == "table" and row.frameTypes == nil) then
-                row.frameTypes = legacyFrameTypes;
             end
         end
 
@@ -646,8 +587,7 @@ do
     --- (`"usual"`, the default), or out of the pointed press (`"skip"`). Never nil.
     ---
     --- **The usual target is the default and is stored as nothing** (2026-10-04, owner): a reader who
-    --- never thinks about Hover Cast gets the action everywhere, at its usual target. A stored
-    --- `"usual"` is the same value under the spelling it had while off was the default.
+    --- never thinks about Hover Cast gets the action everywhere, at its usual target.
     ---
     --- **The bare left and right click answer `"cast"` whatever is stored** (§7). The only press
     --- those keys can serve is a click on a unit frame, so any other value would leave the action
@@ -1217,9 +1157,6 @@ end
 --- **Public because two places ask it and must agree**: whether `BuildKeyMap` puts the key in
 --- `KeysOnLiveLayers`, which is held with nothing to run while `giveBackWhenNoActionRuns` is off, and
 --- whether a mouse button carries cast key twins (`KeyTakesCastKeyTwins`).
----
---- A profile the migration has not reached (`action.hover`) answers what `UnitFrameConditionFromLegacy`
---- would, and a stored condition wins over it.
 function DebindPrivate.ActionUnitFrameIsOn(action)
     -- **The bare left and right click run over a frame or not at all** (§7). With Hover Cast skipped
     -- nothing is left, and that is still nothing off a frame.
@@ -1243,7 +1180,7 @@ function DebindPrivate.ActionUnitFrameIsOn(action)
 
     local condition = DebindPrivate.StoredUnitFrameCondition(action);
     if (condition == nil) then
-        return action.hover == true;
+        return false;
     end
     -- **Folded, not read raw.** The stored table keeps a condition that is turned off, and
     -- `{ exists = false }` or `{ disabled = true }` is a table all the same.

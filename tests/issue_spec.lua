@@ -52,12 +52,26 @@ return function(DebindPrivate)
         action.conditions = conditions;
         return action;
     end
+    --- A stored row by the name these cases give it: `true` there, `false` none, `"help"`/`"harm"`
+    --- there and friendly/hostile.
+    local function Row(value)
+        if (value == true) then
+            return { exists = true };
+        elseif (value == false) then
+            return { exists = false };
+        elseif (value == "help") then
+            return { exists = true, reaction = Constants.REACTION_HELP };
+        elseif (value == "harm") then
+            return { exists = true, reaction = Constants.REACTION_HARM };
+        end
+        return value;
+    end
     local function issueFor(atValue, unitValue)
         local action = {
             type = Constants.SPELL,
             value = 100,
             unit = "target",
-            units = { ["@"] = atValue, target = unitValue },
+            units = { ["@"] = Row(atValue), target = Row(unitValue) },
         };
         return GetBindingIssue(nest(action), "units");
     end
@@ -110,26 +124,23 @@ return function(DebindPrivate)
     test("\"@\"만 걸린 액션은 모순이 아님", function()
         local action = nest({
             type = Constants.SPELL, value = 100, unit = "target",
-            units = { ["@"] = true },
+            units = { ["@"] = Row(true) },
         });
         check(GetBindingIssue(action, "units") == nil, "오탐 - 비교 상대가 없다");
     end);
 
     ---------------------------------------------------------------------------
-    -- hover 조건 x 유닛 조건
+    -- The pointed frame's condition x a unit condition
     --
-    -- 대상이 `@hover`면 hover 조건과 `"@"` 조건이 같은 유닛을 두고 말한다. 값이 서로
-    -- 다른 필드에 앉아 있어서(`reactions` 대 `units`) 조합을 손으로 나열하던
-    -- 시절에는 비교 대상조차 아니었다. 두 조건이 한 축에 접히면서 따로가 아니게 됐다.
+    -- Aimed at the pointed frame's unit, its own row and `"@"` speak of the same unit. While the
+    -- frame condition sat in fields of its own (`hover`/`reactions`) the two were never compared;
+    -- folded onto one axis they are.
     ---------------------------------------------------------------------------
 
-    --- `hover`/`reactions`는 최상단 그대로 둔다. `dbver <= 4`가 저장에서 없앤 짝이고,
-    --- 지금 모양으로 접는 것은 `GetBindingInfoForAction`이 한다. 조건 이름만 `nest`가 내린다.
     local function hoverAction(reactions, atValue)
         return nest({
             type = Constants.SPELL, value = 100, unit = "unitframe",
-            hover = true, reactions = reactions,
-            units = { ["@"] = atValue },
+            units = { unitframe = { exists = true, reaction = reactions }, ["@"] = Row(atValue) },
         });
     end
 
@@ -306,7 +317,7 @@ return function(DebindPrivate)
 
     test("the bare left and right click run over a frame with no condition", function()
         check(unitFrameIsOn(nil, "BUTTON1") == true, "BUTTON1 read as running off a frame");
-        check(unitFrameIsOn({ units = { unitframe = false } }, "BUTTON2") == true,
+        check(unitFrameIsOn({ units = { unitframe = { exists = false } } }, "BUTTON2") == true,
             "BUTTON2 read as running off a frame");
         check(unitFrameIsOn() == false, "BUTTON3 with no condition read as running over a frame");
     end);
@@ -320,7 +331,7 @@ return function(DebindPrivate)
     -- [when there is none] is not the condition being on. A mouse button fires where the cursor
     -- already is, so that condition never takes a frame click.
     test("[when there is none] does not run the action over a frame", function()
-        check(unitFrameIsOn({ units = { unitframe = false } }) == false, "false was read as on");
+        check(unitFrameIsOn({ units = { unitframe = { exists = false } } }) == false, "false was read as on");
     end);
 
     -- A turned-off condition stays in storage as a table. Read as on because it is a table, the
@@ -367,19 +378,6 @@ return function(DebindPrivate)
         check(DebindPrivate.IsKeyInvalidForAction(nest({
             type = Constants.SPELL, value = 100, key = "META-BUTTON4",
         }), "META-BUTTON4") == nil, "개체창을 안 타는 META 클릭에 이슈가 났다");
-    end);
-
-    test("an old hover the migration has not reached gives the same answer", function()
-        check(unitFrameIsOn({ hover = true }) == true, "the old shape was not read");
-        check(unitFrameIsOn({ hover = false }) == false, "the old false was not read");
-    end);
-
-    -- **A condition stored under the name before the rename answers the same.** This reads the
-    -- action itself, and a profile `dbver <= 6` has not reached still keys it `hover`.
-    test("a unit frame condition stored under the old name runs the action over a frame", function()
-        check(unitFrameIsOn({ units = { hover = {} } }) == true, "the old name was not read");
-        check(unitFrameIsOn({ units = { hover = { exists = false } } }) == false,
-            "\"when there is none\" under the old name was read as on");
     end);
 
     ---------------------------------------------------------------------------
@@ -894,7 +892,7 @@ return function(DebindPrivate)
 
         -- **The condition allows the unit to be absent.** [When there is no tank] while solo is
         -- exactly true, and this is the case the whole check has to step around.
-        local absent = soloAction("tank", false);
+        local absent = soloAction("tank", { exists = false });
         check(GetBindingIssue(absent) == nil,
             "a condition that wants the unit gone was reported: " .. tostring(GetBindingIssue(absent)));
 
@@ -1286,7 +1284,7 @@ return function(DebindPrivate)
     --- nothing is wrong with it (S5 #48).
     test("the bare click with the pointed unit [none] is told at the key and at the unit", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
-            conditions = { units = { unitframe = false } } };
+            conditions = { units = { unitframe = { exists = false } } } };
         check(GetBindingIssue(action) == KEY_RULED_OUT,
             "reported: " .. tostring(GetBindingIssue(action)));
         local labels = {};
@@ -1311,7 +1309,7 @@ return function(DebindPrivate)
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
                 casting = { hoverCastMode = mode },
-                conditions = { units = { mouseover = false } } };
+                conditions = { units = { mouseover = { exists = false } } } };
             check(GetBindingIssue(action) == KEY_RULED_OUT,
                 mode .. ": " .. tostring(GetBindingIssue(action)));
             check(GetBindingIssue(action, "units", nil, "mouseover") == NEVER_ON_KEY,
@@ -1325,7 +1323,7 @@ return function(DebindPrivate)
     test("the same condition on a keyboard key is no issue", function()
         for _, unit in ipairs({ "unitframe", "mouseover" }) do
             local action = { type = Constants.SPELL, value = 585, key = "F1",
-                conditions = { units = { [unit] = false } } };
+                conditions = { units = { [unit] = { exists = false } } } };
             check(GetBindingIssue(action) == nil, unit .. ": " .. tostring(GetBindingIssue(action)));
         end
     end);
@@ -1337,7 +1335,7 @@ return function(DebindPrivate)
             local action = { type = Constants.SPELL, value = 585, key = "F1",
                 casting = { normalCast = false, hoverCastMode = mode, hoverCast = "cast",
                     selfCastKey = "skip", focusCastKey = "skip" },
-                conditions = { units = { [mode] = false } } };
+                conditions = { units = { [mode] = { exists = false } } } };
             check(GetBindingIssue(action) == NEVER, mode .. ": " .. tostring(GetBindingIssue(action)));
             check(GetBindingIssue(action, "casting") == NEVER, mode .. ": Cast Options is not told");
             check(GetBindingIssue(action, "units", nil, mode) == NEVER, mode .. ": the unit row is not told");
@@ -1532,17 +1530,28 @@ return function(DebindPrivate)
                 .. tostring(issues[2] and issues[2].code));
     end);
 
-    --- Every value this addon has ever written stays valid. Without this half the test above cannot
-    --- tell its check from one that marks every unit condition.
+    --- Every row version 8 writes is valid. Without this half the test above cannot tell its check
+    --- from one that marks every unit condition.
     test("every value a build writes is a valid one", function()
-        for _, value in ipairs({ true, false, "help", "harm", {}, { exists = false },
-                { reaction = Constants.REACTION_HELP }, { disabled = true } }) do
+        for _, value in ipairs({ { exists = true }, { exists = false },
+                { exists = true, reaction = Constants.REACTION_HELP }, { disabled = true } }) do
             local action = { type = Constants.SPELL, value = 585, key = "T",
                 conditions = { units = { target = value } } };
             check(GetBindingIssue(action) ~= INVALID, tostring(value) .. " was marked invalid");
         end
         check(GetBindingIssue({ type = Constants.SPELL, value = 585, key = "T", unit = "focus" }) ~= INVALID,
             "a target by name was marked invalid");
+    end);
+
+    -- **An old scalar row is no version 8 value.** The ladder spreads one into a table and every door
+    -- drops one, so only `/run` puts one in front of the rebuild. Read as anything it would run the
+    -- action under a condition nobody set, so it is invalid like any other value that is not a table.
+    test("an old scalar row is marked invalid", function()
+        for _, value in ipairs({ true, false, "help", "harm" }) do
+            local action = { type = Constants.SPELL, value = 585, key = "T",
+                conditions = { units = { target = value } } };
+            check(GetBindingIssue(action) == INVALID, tostring(value) .. " was not marked invalid");
+        end
     end);
 
     return T;

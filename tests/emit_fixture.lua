@@ -182,7 +182,7 @@ return function(DebindPrivate, shim)
             action({ type = Constants.SPELL, value = 774, key = "CTRL-F10",
                 conditions = { units = { focus = { reaction = Constants.REACTION_HARM } } } }),
             action({ type = Constants.SPELL, value = 774, key = "CTRL-F11",
-                conditions = { units = { pet = false } } }),
+                conditions = { units = { pet = { exists = false } } } }),
             --- The group axis. **Stored as the three overlapping boxes and emitted as the four
             --- cells**, so the golden is where that translation is pinned. The second one is the
             --- pair that has no single box: `PARTY` and `RAID` share the "in the raid, in my own

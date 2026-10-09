@@ -119,6 +119,11 @@ return function(DebindPrivate, _, ctx)
         end
     end
 
+    --- Which shape each action of the last generated layer was given, by `value`. **Kept beside the
+    --- actions, not on them**: the 7 -> 8 step takes every name version 8 does not store off an
+    --- action, so a field of the corpus's own would be gone by the time the migrated layer is read.
+    local shapeOf = {};
+
     --- One layer in v3.5.2 storage shape. Each action gets a unique `value`, which is how a
     --- failure names it and how the two orders are compared without holding on to table identity
     --- across the migration.
@@ -127,6 +132,7 @@ return function(DebindPrivate, _, ctx)
     --- stored profile looks like after `RenumberKeyGroup`, and it is what keeps both comparators
     --- total (see the header).
     local function GenerateLayer(rnd, count)
+        shapeOf = {};
         local groups = {};
         local layer = {};
         for i = 1, count do
@@ -148,8 +154,8 @@ return function(DebindPrivate, _, ctx)
                 arrivalID = arrivalID,
                 priority = IMPORTANCE[rnd(#IMPORTANCE)],
                 conditions = shape.make(),
-                shapeName = shape.name,
             };
+            shapeOf[action.value] = shape.name;
             group[#group + 1] = action;
             layer[#layer + 1] = action;
         end
@@ -247,14 +253,13 @@ return function(DebindPrivate, _, ctx)
         return table.concat(parts, ",");
     end
 
-    --- What each action was, for a failure message. The shape name is put on the action by the
-    --- generator and rides through the migration untouched.
+    --- What each action was, for a failure message.
     local function Describe(layer)
         local parts = {};
         for i = 1, #layer do
             local a = layer[i];
             parts[i] = string.format("%d[%s %s%s seq=%s pri=%s]", a.value, tostring(a.key),
-                a.shapeName, a.arrivalID and " arrival" or "", tostring(a.seq),
+                shapeOf[a.value], a.arrivalID and " arrival" or "", tostring(a.seq),
                 tostring(a.priority));
         end
         return table.concat(parts, " ");
@@ -292,7 +297,7 @@ return function(DebindPrivate, _, ctx)
                 if (bareSeen) then
                     dead[oldValues[i]] = true;
                 end
-                if (action.shapeName == "frame") then
+                if (shapeOf[action.value] == "frame") then
                     bareSeen = true;
                 end
             end
@@ -404,7 +409,8 @@ return function(DebindPrivate, _, ctx)
             local rnd = Rng(seed * 7919 + 13);
             local layer = GenerateLayer(rnd, 2 + (seed % 7));
             for i = 1, #layer do
-                seen[layer[i].shapeName] = (seen[layer[i].shapeName] or 0) + 1;
+                local name = shapeOf[layer[i].value];
+                seen[name] = (seen[name] or 0) + 1;
             end
         end
         for i = 1, #CONDITIONS do

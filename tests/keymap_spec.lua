@@ -312,7 +312,7 @@ return function(DebindPrivate)
     test("the key is laid out in tiers", function()
         Bind({
             { type = Constants.SPELL, value = 1, key = "F1", seq = 1,
-                conditions = { units = { unitframe = false }, stealth = true } },
+                conditions = { units = { unitframe = { exists = false } }, stealth = true } },
             { type = Constants.SPELL, value = 2, key = "F1", seq = 2, conditions = { combat = true } },
         }, nil, nil, true);
 
@@ -604,7 +604,7 @@ return function(DebindPrivate)
     -- The negative half: [no unit frame] keeps the original off the frame path.
     test("on a mouse button an original that rules the frame out holds the key only", function()
         for _, fields in ipairs({
-            { conditions = { units = { unitframe = false } } },
+            { conditions = { units = { unitframe = { exists = false } } } },
             { casting = { hoverCast = "skip" } },
         }) do
             local action = { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 };

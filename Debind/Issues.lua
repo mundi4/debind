@@ -320,23 +320,15 @@ local function LookingForWorse(issue)
     return issue == nil or IssueOutcome(issue) ~= Constants.ISSUE_OUTCOME_OMIT;
 end
 
---- The stored unit rows, under the pre-migration name too, the way `FillBinding` reads them.
 local function StoredUnitRows(action)
-    return (action.conditions and action.conditions.units) or rawget(action, "checkedUnits");
-end
-
-local function RowUnitName(key)
-    if (key == "hover") then
-        return "unitframe";
-    end
-    return key;
+    return action.conditions and action.conditions.units;
 end
 
 local function PickedUnitOf(action)
     if (not DebindPrivate.ActionHasPickedUnit(action)) then
         return nil;
     end
-    return RowUnitName(action.unit);
+    return action.unit;
 end
 
 --- Whether role and frame types count on this stored row **for every binding the action makes**: a
@@ -347,7 +339,7 @@ local function RowCarriesFrameAxes(action, key)
     if (key == "@") then
         return FrameAxesOn(PickedUnitOf(action));
     end
-    return FrameAxesOn(RowUnitName(key));
+    return FrameAxesOn(key);
 end
 
 --- The frame types every stored row that carries them asks for together (`RowCarriesFrameAxes`).
@@ -408,7 +400,7 @@ local function HasEmptyUnitRow(action, unit, axis)
     local rows = StoredUnitRows(action);
     if (rows) then
         for key, value in pairs(rows) do
-            if ((unit == nil or RowUnitName(key) == unit)
+            if ((unit == nil or key == unit)
                     and (select(axis, EmptyUnitRow(action, key, value, rows)))) then
                 return true;
             end
@@ -770,8 +762,8 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     end
 
     -- **The binding issue reads the list `BuildKeyMap` binds**
-    -- (`rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row, no
-    -- `casting` and no old `hover` pair, no binding can be empty and none can be dropped, so the
+    -- (`rewriting-evaluate-issues.md` §2-1, §2-4). With no unit row and no
+    -- `casting`, no binding can be empty and none can be dropped, so the
     -- list is not made: that is most rows the window draws. **A resurrection is the exception**: its
     -- branches carry conditions of their own, so a combat condition alone can rule them all out.
     --
@@ -779,8 +771,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
     -- `BuildKeyMap` asks `key` of every action, and nothing else there has a list to make.
     if (Looking() and (not category or BINDING_CATEGORIES[category])
             and (category ~= "key" or DebindPrivate.IsBareWorldClick(action.key))
-            and (StoredUnitRows(action) or action.casting or action.hover ~= nil
-                or action.type == Constants.RESURRECT)) then
+            and (StoredUnitRows(action) or action.casting or action.type == Constants.RESURRECT)) then
         local list = DebindPrivate.GetBindingsForAction(action);
         -- **The key and one condition, neither of them wrong on its own** (S5 #48, #49). Told before
         -- the list is looked at, because `mouseover` [when there is none] does not empty the list:
@@ -793,7 +784,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                 Report(Constants.BINDING_ISSUE_KEY_RULED_OUT, "KEY");
             end
             if ((not category or (category == "units"
-                        and (arg == nil or RowUnitName(arg) == impossible)))
+                        and (arg == nil or arg == impossible)))
                     and notCategory ~= "units") then
                 Report(Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY, "CONDITION_UNITS");
             end
@@ -823,7 +814,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
                     Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, sideLabel);
                 end
                 if ((not category or (category == "units"
-                            and (arg == nil or RowUnitName(arg) == ContradictionRow(action))))
+                            and (arg == nil or arg == ContradictionRow(action))))
                         and notCategory ~= "units") then
                     Report(Constants.BINDING_ISSUE_CONDITIONS_NEVER, "CONDITION_UNITS");
                 end

@@ -1436,7 +1436,7 @@ return function(DebindPrivate, _, ctx)
         shim.world.spells[585] = { name = "Renew" };
         shim.world.spells[774] = { name = "Rejuvenation" };
         local function noFrame()
-            return { units = { unitframe = false } };
+            return { units = { unitframe = { exists = false } } };
         end
         Bind({
             action({ value = 585, key = "F1", conditions = noFrame() }),
@@ -1975,24 +1975,24 @@ return function(DebindPrivate, _, ctx)
             Expect(5, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);
         Row(6, function()
-            Bind({ A({ conditions = { units = { unitframe = false } } }) });
+            Bind({ A({ conditions = { units = { unitframe = { exists = false } } } }) });
             PointFrame();
             Expect(6, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(7, function()
-            Bind({ A({ conditions = { units = { unitframe = false } } }) });
+            Bind({ A({ conditions = { units = { unitframe = { exists = false } } } }) });
             PointNothing();
             Expect(7, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
         end);
         Row(8, function()
-            Bind({ A({ conditions = { units = { mouseover = false } } }) }, nil, MOUSEOVER);
+            Bind({ A({ conditions = { units = { mouseover = { exists = false } } } }) }, nil, MOUSEOVER);
             PointWorld();
             Expect(8, { Press("F1", nil, "mouseover") }, {});
         end);
         --- **[when there is none] is a condition, so it reaches every press**, the held ones too.
         --- Taking the pointed press away and leaving the held ones is `"skip"`'s (#52).
         Row(9, function()
-            local subject = A({ conditions = { units = { unitframe = false } },
+            local subject = A({ conditions = { units = { unitframe = { exists = false } } },
                 casting = { hoverCast = "cast" } });
             Bind({ subject });
             PointFrame(ENEMY);
@@ -2030,7 +2030,7 @@ return function(DebindPrivate, _, ctx)
             Expect(14, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(15, function()
-            Bind({ A({ conditions = { units = { unitframe = false } } }) }, nil, MOUSEOVER);
+            Bind({ A({ conditions = { units = { unitframe = { exists = false } } } }) }, nil, MOUSEOVER);
             PointWorld();
             Expect(15, { Press("F1", nil, "mouseover") }, { "A", "mouseover", "hover" });
         end);
@@ -2290,7 +2290,7 @@ return function(DebindPrivate, _, ctx)
         --- **The bare click ignores Hover Cast, so [when there is none] is what empties it**, and
         --- that is the key and a condition disagreeing rather than a reason.
         Row(48, function()
-            local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = false } } });
+            local subject = A({ key = "BUTTON1", conditions = { units = { unitframe = { exists = false } } } });
             Bind({ subject });
             check((_G.GetBindingAction("BUTTON1", true) or "") == "",
                 "#48: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
@@ -2408,11 +2408,11 @@ return function(DebindPrivate, _, ctx)
         end);
         Row(63, function()
             Contradicts(63, A({ casting = { normalCast = false },
-                conditions = { units = { unitframe = false } } }), "unitframe", PointFrame, "unitframe", "@");
+                conditions = { units = { unitframe = { exists = false } } } }), "unitframe", PointFrame, "unitframe", "@");
         end);
         Row(67, function()
             Contradicts(67, A({ casting = { normalCast = false },
-                conditions = { units = { ["@"] = false } } }), "unitframe", PointFrame, "@", "unitframe");
+                conditions = { units = { ["@"] = { exists = false } } } }), "unitframe", PointFrame, "@", "unitframe");
         end);
 
         --- A frame click a tail wins, through the wrapper the frame really runs, on both edges:

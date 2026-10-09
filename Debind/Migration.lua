@@ -1,5 +1,18 @@
 local _, DebindPrivate = ...;
 
+-- **What this file does: it moves a shape an old version stored into the shape the next version
+-- stores, by the meaning that old version gave it**, one version at a time up to `DB_VERSION`
+-- (`MigrateDB`, `MigrateLayer`). Stored profiles and received strings both ride it.
+--
+-- **What it does not do: judge a value no build wrote** (owner, 2026-10-10). A value a hand put in
+-- -- the wrong type, a name nobody knows, a combination no build made -- is `SanitizeAction`'s to
+-- throw away, and that runs at every door after the ladder. Toward such a value the ladder has one
+-- duty: not to raise on it, because a received string rides the ladder with whatever types it came
+-- with and a raise refuses the whole string (`DecodeExportString`). A step that meets one beside an
+-- old shape moves the shape as it would anyway and adds no branch for the broken value's sake.
+-- **What that value comes to is not decided here**, and a finding about it belongs to
+-- `SanitizeAction`, not to a step.
+
 local Constants           = DebindPrivate.Constants;
 local luatype             = type;
 -- The `dbver` 5 step that opens the old `setstate` bitpack, and version 5's hover fold.
@@ -33,6 +46,46 @@ end
 for i = 1, 10 do
     ACTION_BUTTON_COMMANDS_AT_7["BONUSACTIONBUTTON" .. i] = true;
     ACTION_BUTTON_COMMANDS_AT_7["SHAPESHIFTBUTTON" .. i] = true;
+end
+
+--- **The names version 8 stores, at each level of an action.** The 7 -> 8 step leaves nothing else
+--- (owner, 2026-10-10). `untranslated` is a payload's field, not a profile's: a received string rides
+--- this step before its arrival takes the field off (`Import.lua`'s `Build`). A condition named `$...`
+--- is a switch and is kept apart from this list.
+local ACTION_FIELDS_AT_8 = {
+    type = true, value = true, key = true, name = true, icon = true, unit = true, conditions = true,
+    priority = true, seq = true, arrivalID = true, disabled = true, skipWhenUnusable = true,
+    noTargetMassRez = true, battleRezOutOfCombat = true, casting = true, pinnedSpell = true,
+    resolvedSpellID = true, formerly = true, untranslated = true,
+};
+local CONDITION_FIELDS_AT_8 = {
+    units = true, groups = true, specs = true, talents = true, forms = true, bonusbars = true,
+    bartakeover = true, extrabar = true, combat = true, stealth = true, known = true, mounted = true,
+    indoors = true, flyable = true, advflyable = true, flying = true, skyriding = true,
+};
+local CASTING_FIELDS_AT_8 = {
+    selfCastKey = true, focusCastKey = true, hoverCast = true, hoverCastMode = true, normalCast = true,
+    autoSelfCast = true, autoUnshift = true, autoDismount = true, autoDismountFlying = true,
+};
+--- The rows `conditions.units` may hold: the units the condition menu lists, and `"@"`.
+local UNIT_ROWS_AT_8 = {
+    ["@"] = true, player = true, pet = true, target = true, focus = true, mouseover = true, tank = true,
+    healer = true, maintank = true, mainassist = true, custom1 = true, custom2 = true, unitframe = true,
+};
+local UNIT_ROW_FIELDS_AT_8 = {
+    disabled = true, exists = true, reaction = true, dead = true, group = true, role = true,
+    frameTypes = true,
+};
+
+--- Clearing a field while `pairs` walks the table is allowed in Lua 5.1; adding one is not, and
+--- nothing here adds. The `$` test is version 8's switch-name rule, held here like the other `_AT_8`
+--- values rather than shared with an older step's.
+local function KeepOnly(tbl, keep, switches)
+    for name in pairs(tbl) do
+        if (not keep[name] and not (switches and luatype(name) == "string" and name:sub(1, 1) == "$")) then
+            tbl[name] = nil;
+        end
+    end
 end
 
 --- **A step's rules are its version's too, not only its values.** A step that asked today's reader
@@ -196,8 +249,10 @@ DebindPrivate.RenameUnitInMacroTextAt7 = RenameUnitInMacroTextAt7;
 --- **A step leaves its version's stored shape and nothing else** (owner, 2026-10-09). Whatever it
 --- moves or retires it removes in the same pass, and it counts on nothing after it to tidy up: the
 --- drawer keeps a payload in the shape the ladder leaves it, so a field one step leaves is there for
---- good. A step that needs a clean-up pass of its own has a conversion that is wrong. The last
---- pass of the `dbver <= 7` step is the one exception, clearing out once what came before this.
+--- good. A step that needs a clean-up pass of its own has a conversion that is wrong. The last two
+--- passes of the `dbver <= 7` step are the one exception: no release has shipped version 8, so
+--- every profile a release wrote meets them once, and they settle there what came before this (the
+--- old shapes version 7 still read, then every name version 8 does not store).
 ---
 --- **A step holds its own version's values**: the type names it compares and writes, the tables it
 --- asks, the bits it writes, as literals or as a local named for the version (`_AT_N`). A step is
@@ -329,9 +384,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         end
 
         -- Then the hover condition moves in beside those units, by version 5's fold
-        -- (`UnitFrameConditionAt5`). `Units.lua`'s `UnitFrameConditionFromLegacy` is the binding
-        -- builder's for a profile the ladder has not reached; the two are meant to part when today's
-        -- rule moves, since this one says what version 5 meant.
+        -- (`UnitFrameConditionAt5`).
         --
         -- `frameTypes`/`ignoreHoverUnit` are not moved here; **the `dbver <= 6` step below** takes
         -- both. The mask goes inside the same row (the pointed frame's unit is a unit, so the mask
@@ -1072,15 +1125,135 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
         end
 
+        -- **Old shapes a version 7 profile still held move by the meaning version 7 gave them**
+        -- (owner, 2026-10-10). The earlier steps took each of these off what a shipped build wrote,
+        -- so only a hand puts one in front of this step. But version 7's binding builder still read
+        -- them as live conditions (`FillBinding` in 4.1.2, for profiles it took the ladder not to have
+        -- reached), and version 8 reads none of them. This is the one place a version 7 profile, hand
+        -- edits and all, passes on the way to version 8, so it is where they are settled.
+        --
+        -- What version 7 read, in the order it read it:
+        --   - `conditions.units`, or the top-level `checkedUnits` where there was none;
+        --   - each row as `UnitConditionAt7` reads it, a row named `hover` as `unitframe` where the
+        --     `unitframe` row beside it read as no condition (none, or turned off). Where both read
+        --     as one, version 7's answer hung on `pairs` order; the `unitframe` row is kept;
+        --   - the top-level `hover`/`reactions` pair folded into that row, the same fold version 5 ran
+        --     (`UnitFrameConditionAt5`; 4.1.2's `UnitFrameConditionFromLegacy` is it line for line);
+        --   - the frame type mask, top-level ahead of the one under `conditions`, onto a row that held
+        --     a condition and no mask of its own, and nowhere else;
+        --   - `unit = "hover"` as the pointed frame's unit.
+        --
+        -- **Where version 7 did not read one, it goes rather than moving**: a `checkedUnits` beside
+        -- `units`, a `hover` row beside `unitframe`, a mask with no row to land on.
+        --
+        -- **A broken value is not this step's** (owner, 2026-10-10): throwing it away is what
+        -- `SanitizeAction` is for. This step moves the shapes above and only keeps a broken value
+        -- from making it raise, since a received payload rides it with whatever types it came with. A
+        -- row that is not a table has nothing to fold the pair into, and the pair is not folded into
+        -- a row whose reaction is no number, where `band` would raise.
+        --
+        -- **These lines repeat the 6 -> 7 step's renames and its `exists` fill-in, and are not shared
+        -- with it.** They say what version 7's reader did, and the 6 -> 7 step is frozen with what it
+        -- did; sharing one function would make a fix to either move the other.
+        --
+        -- Running twice is safe: nothing it reads is left after the first pass.
+        local FRAMETYPE_ALL_AT_7 = 127;
+        for i = 1, #layerTbl do
+            local action = layerTbl[i];
+            local conditions = action.conditions;
+            local checkedUnits = action.checkedUnits;
+            action.checkedUnits = nil;
+            if (luatype(checkedUnits) == "table"
+                    and (luatype(conditions) ~= "table" or not conditions.units)) then
+                if (luatype(conditions) ~= "table") then
+                    conditions = {};
+                    action.conditions = conditions;
+                end
+                conditions.units = checkedUnits;
+            end
+
+            local units = luatype(conditions) == "table" and conditions.units;
+            if (luatype(units) == "table") then
+                if (units.hover ~= nil) then
+                    if (UnitConditionAt7(units.unitframe) == nil) then
+                        units.unitframe = units.hover;
+                    end
+                    units.hover = nil;
+                end
+                for unit, value in pairs(units) do
+                    if (luatype(value) == "table") then
+                        if (not value.disabled and value.exists == nil) then
+                            value.exists = true;
+                        end
+                    elseif (value == true or value == false or value == "help" or value == "harm") then
+                        local read = UnitConditionAt7(value);
+                        units[unit] = read and { exists = true, reaction = read.reaction }
+                            or { exists = false };
+                    end
+                end
+            end
+
+            local hover, reactions = action.hover, action.reactions;
+            action.hover, action.reactions = nil, nil;
+            if (hover ~= nil) then
+                if (luatype(reactions) ~= "number") then
+                    reactions = nil;
+                end
+                if (luatype(conditions) ~= "table") then
+                    conditions = {};
+                    action.conditions = conditions;
+                end
+                if (luatype(conditions.units) ~= "table") then
+                    conditions.units = {};
+                end
+                local existing;
+                if (luatype(conditions.units.unitframe) == "table") then
+                    existing = UnitConditionAt7(conditions.units.unitframe);
+                end
+                if (not (luatype(existing) == "table" and existing.reaction ~= nil
+                        and luatype(existing.reaction) ~= "number")) then
+                    -- `existing` is `UnitConditionAt7`'s copy or nil, so `folded` is a table of its own.
+                    local folded = UnitFrameConditionAt5(hover, reactions, existing);
+                    if (folded == false) then
+                        folded = { exists = false };
+                    else
+                        folded.exists = true;
+                    end
+                    conditions.units.unitframe = folded;
+                end
+            end
+
+            local mask = action.frameTypes;
+            action.frameTypes = nil;
+            if (luatype(conditions) == "table") then
+                if (mask == nil) then
+                    mask = conditions.frameTypes;
+                end
+                conditions.frameTypes = nil;
+                local row = luatype(conditions.units) == "table" and conditions.units.unitframe;
+                if (luatype(mask) == "number" and mask ~= FRAMETYPE_ALL_AT_7
+                        and luatype(row) == "table" and not row.disabled and row.exists ~= false
+                        and row.frameTypes == nil) then
+                    row.frameTypes = mask;
+                end
+            end
+
+            if (action.unit == "hover") then
+                action.unit = "unitframe";
+            end
+        end
+
         -- **What every earlier step and every shipped writer left behind goes, once** (owner,
-        -- 2026-10-09). Each rule answers something a shipped build left in a profile, a string or a
-        -- drawer entry, and nothing else: a value only a hand could have made is `SanitizeAction`'s,
-        -- which runs after every ladder. It takes most of these off as well; why the step keeps its
-        -- own copy is the paragraph below.
+        -- 2026-10-09), **and then every name version 8 does not store** (owner, 2026-10-10: once this
+        -- step is done, only the fields version 8 uses are left). No name is left for
+        -- `SanitizeAction` to find: every profile a release wrote meets this step once, since no
+        -- release has shipped version 8, and the drawer keeps an entry in the shape the ladder leaves
+        -- it. A profile a development build already stamped 8 does not meet it again; its leftovers
+        -- are `SanitizeAction`'s.
         --
         --   - the old unit fields, which the 1 -> 2 step moves only from a version 1 profile and only
         --     when it can read them (1.11 to 1.15 wrote them at version 2), and `reactions`, which the
-        --     4 -> 5 step takes only beside `hover`;
+        --     4 -> 5 step takes only beside `hover`, go with the names version 8 does not store;
         --   - an empty `conditions`, which the 6 -> 7 step leaves when the condition it takes off
         --     was the only one;
         --   - a talent list left empty, which 4.x kept on disk while the other list was not;
@@ -1104,10 +1277,28 @@ local function MigrateLayer(layerTbl, dbver, to)
         local TALENT_LISTS_AT_8 = { "taken", "notTaken" };
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            action.checkUnitExists = nil;
-            action.checkedUnit = nil;
-            action.checkedUnitValue = nil;
-            action.reactions = nil;
+            KeepOnly(action, ACTION_FIELDS_AT_8);
+            if (luatype(action.casting) == "table") then
+                KeepOnly(action.casting, CASTING_FIELDS_AT_8);
+                if (next(action.casting) == nil) then
+                    action.casting = nil;
+                end
+            end
+            if (luatype(action.conditions) == "table") then
+                KeepOnly(action.conditions, CONDITION_FIELDS_AT_8, true);
+                local units = action.conditions.units;
+                if (luatype(units) == "table") then
+                    KeepOnly(units, UNIT_ROWS_AT_8);
+                    for _, row in pairs(units) do
+                        if (luatype(row) == "table") then
+                            KeepOnly(row, UNIT_ROW_FIELDS_AT_8);
+                        end
+                    end
+                    if (next(units) == nil) then
+                        action.conditions.units = nil;
+                    end
+                end
+            end
 
             if (action.key == "ESCAPE") then
                 action.key = nil;

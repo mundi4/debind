@@ -203,12 +203,6 @@ local SWITCH_CLICK_TARGET = "DebindSwitch";
 --- `[@focus]` goes to the focus whatever is held, and the condition has to follow it there. A body
 --- with no unit in it aims the way the action did, and its `"@"` already resolves the same way:
 --- moving it to `target` would keep the press with nothing held and break every held one.
----
---- **But the binding reads units from two places and only one of them can be written back to.**
---- Where `conditions.units` is absent it falls back to the flat pre-`dbver` 6 `checkedUnits`, so a
---- live `"@"` can sit somewhere `conditions.units` has never heard of. Reaching into that shape
---- here would make this the second place that knows the old one; the caller refuses the conversion
---- instead, and it comes back once migration has run.
 local function AimedUnitKeyForMacroText(action, binding)
     local live = binding.conditions.units;
     if (live == nil or live["@"] == nil) then
@@ -221,11 +215,7 @@ local function AimedUnitKeyForMacroText(action, binding)
         return nil;
     end
 
-    local stored = action.conditions and action.conditions.units;
-    if (stored == nil or stored["@"] == nil) then
-        return unit, nil;
-    end
-    return unit, stored;
+    return unit, action.conditions.units;
 end
 
 --- `"@"` and the row already stored under `unit`, folded the way the binding folds them
@@ -294,9 +284,6 @@ local function ConditionsSurviveMacroText(action)
 
     local unit, units = AimedUnitKeyForMacroText(action, binding);
     if (unit) then
-        if (units == nil) then
-            return false;
-        end
         local taken = units[unit];
         if (taken == nil) then
             return true;
@@ -462,7 +449,7 @@ function DebindPrivate.ConvertToMacroText(action)
     end
 
     if (macrotext) then
-        if (atUnit and atUnits) then
+        if (atUnit) then
             local folded = FoldStoredUnitConditions(atUnit, atUnits["@"], atUnits[atUnit]);
             if (folded == nil) then
                 return false;

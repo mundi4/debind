@@ -260,7 +260,7 @@ return function(DebindPrivate)
     test("겨누려는 유닛에 [없을 때]가 걸려 있으면 쌍둥이가 없다", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
             local action = inMode(mode, { unit = "target",
-                conditions = { units = { [mode] = false } } });
+                conditions = { units = { [mode] = { exists = false } } } });
             check(twinOf(action) == nil, mode .. ": 모순인데 쌍둥이가 생겼다");
         end
     end);
@@ -270,7 +270,7 @@ return function(DebindPrivate)
     --- 월드 유닛과 명판 위에서는 나간다.
     test("개체창에 [없을 때]를 건 액션도 Mouseover 모드에서는 쌍둥이가 있다", function()
         local twin = twinOf(inMode("mouseover", { unit = "target",
-            conditions = { units = { unitframe = false } } }));
+            conditions = { units = { unitframe = { exists = false } } } }));
         check(twin ~= nil, "쌍둥이가 없다");
         check(states(twin, "unitframe") == NONE,
             "개체창 축이 " .. tostring(states(twin, "unitframe")));
@@ -389,7 +389,7 @@ return function(DebindPrivate)
     --- the same without counting.
     test("[when there is none] on the pointed unit is a condition and counts in the order", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do
-            local action = spell({ conditions = { units = { [mode] = false } } });
+            local action = spell({ conditions = { units = { [mode] = { exists = false } } } });
             action.casting = { hoverCastMode = mode, hoverCast = "cast" };
             local list = bindingsOf(action);
             check(list[2] == nil, mode .. ": 쌍둥이가 생겼다");
@@ -494,7 +494,7 @@ return function(DebindPrivate)
     --- (`TwinUnitFor`). The reader skipped nothing, so it is not a reason to give; asked only about the
     --- mode, it would pass with nothing said and the row would claim a neighbour covered it.
     test("an action whose twin has nowhere to stand is a contradiction", function()
-        local action = spell({ conditions = { units = { unitframe = false } } });
+        local action = spell({ conditions = { units = { unitframe = { exists = false } } } });
         action.casting = {
             normalCast = false,
             hoverCastMode = "unitframe",

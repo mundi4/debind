@@ -68,6 +68,21 @@ return function(DebindPrivate)
         return normalize(nest(action), true);
     end
 
+    --- A stored row by the name a case gives it: `true` there, `false` none, `"help"`/`"harm"` there
+    --- and friendly/hostile.
+    local function Row(value)
+        if (value == true) then
+            return { exists = true };
+        elseif (value == false) then
+            return { exists = false };
+        elseif (value == "help") then
+            return { exists = true, reaction = Constants.REACTION_HELP };
+        elseif (value == "harm") then
+            return { exists = true, reaction = Constants.REACTION_HARM };
+        end
+        return value;
+    end
+
     ---------------------------------------------------------------------------
     -- 조건부 판정
     --
@@ -116,7 +131,7 @@ return function(DebindPrivate)
     end);
 
     test("저장된 호버 조건이 false면 부재로 파생된다", function()
-        local b = spell({ units = { unitframe = false } });
+        local b = spell({ units = { unitframe = Row(false) } });
         check(b.conditions.units.unitframe == false, "false가 안 남음 - nil과 다른 답이다");
         check(b.unitStates["unitframe"] == Constants.UNITSTATE_NONE, "부재로 안 좁혀짐");
     end);
@@ -170,90 +185,12 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- Raising the old `hover`/`reactions`
-    --
-    -- A profile the migration has not reached yet (mid-import, or edited by hand) arrives here.
-    -- The raise happens **on the binding's copy only** and leaves the action alone. Rewriting what
-    -- is stored is `Migration.lua`'s job.
+    -- The pointed frame's row carries its axes onto the binding
     ---------------------------------------------------------------------------
-
-    test("옛 hover/reactions가 같은 답을 낸다", function()
-        local action = { type = Constants.SPELL, value = 100,
-            hover = true, reactions = Constants.REACTION_HELP };
-        local b = normalize(action, true);
-        check(b.unitStates["unitframe"] == Constants.UNITSTATE_HELP, "새 모양과 답이 다름");
-        check(action.hover == true, "액션이 고쳐졌다 - 들어올림은 사본에만 일어나야 한다");
-        check(action.units == nil, "액션에 units가 생겼다");
-    end);
-
-    -- 두 메뉴가 다 살아 있던 시절의 프로필이면 같은 유닛에 조건이 둘 있을 수 있다. 덮으면
-    -- 걸어둔 것보다 넓어지므로 교집합하고, 안 겹치면 어떤 유닛도 못 드는 조건이 된다.
-    test("옛 hover가 같은 유닛의 조건과 교집합된다", function()
-        local b = normalize(nest({ type = Constants.SPELL, value = 100,
-            hover = true, reactions = Constants.REACTION_HELP,
-            units = { unitframe = { reaction = Constants.REACTION_HARM } } }), true);
-        check(b.unitStates["unitframe"] == 0, "안 겹치는 두 조건이 0이 안 됨");
-    end);
-
-    test("옛 hover=false가 존재 조건과 만나면 0이 된다", function()
-        local b = normalize(nest({ type = Constants.SPELL, value = 100,
-            hover = false, units = { unitframe = {} } }), true);
-        check(b.unitStates["unitframe"] == 0, "부재와 존재가 0이 안 됨");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- hover가 꺼져 있으면 hover에 딸린 것들은 뜻이 없다
-    --
-    -- 이 셋은 "마우스를 올린 프레임"에 대한 이야기라, 그 조건 자체가 없으면 말할 대상이
-    -- 없다. 남겨두면 solver가 없는 축을 좁히고, 사용자는 끄고 나서도 예전 값에 걸린다.
-    ---------------------------------------------------------------------------
-
-    test("hover가 없으면 반응과 frameTypes가 사라진다", function()
-        local b = spell({
-            reactions = Constants.REACTION_HELP,
-            frameTypes = Constants.FRAMETYPE_PLAYER,
-        });
-        -- 옛 `reactions`는 `hover`가 있을 때만 읽힌다. 혼자 오면 호버 조건이 안 선다.
-        check(b.conditions.units == nil or b.conditions.units.unitframe == nil, "호버 조건이 남음");
-        check(b.conditions.frameTypes == nil, "frameTypes가 남음");
-    end);
-
-    -- `false`는 "호버 중이 **아닐** 때"라는 진짜 조건이다. 그래도 반응·프레임종류는
-    -- 여전히 말할 대상이 없다 - 올라간 프레임이 없으니까.
-    test("hover가 false여도 딸린 것들은 사라진다", function()
-        local b = spell({
-            hover = false,
-            reactions = Constants.REACTION_HELP,
-            frameTypes = Constants.FRAMETYPE_PLAYER,
-        });
-        -- 안 올렸을 때와 반응은 같이 설 수 없다. 접기가 조건을 `false` 하나로 만든다.
-        check(b.conditions.units.unitframe == false, "반응이 조건으로 남음");
-        check(b.conditions.frameTypes == nil, "frameTypes가 남음");
-    end);
-
-    ---------------------------------------------------------------------------
-    -- 전부 고른 마스크는 조건이 아니다
-    --
-    -- 같은 조건이 두 형태(nil과 전체비트)로 저장되면 solver가 서로 다른 상자로 본다.
-    ---------------------------------------------------------------------------
-
-    test("hover 반응을 전부 고르면 nil로 접힌다", function()
-        local b = spell({ hover = true, reactions = Constants.REACTION_ALL });
-        check(b.conditions.units.unitframe.reaction == nil, "전체 비트가 안 접힘");
-    end);
-
-    test("hover 프레임종류를 전부 고르면 nil로 접힌다", function()
-        local b = spell({ hover = true, frameTypes = Constants.FRAMETYPE_ALL });
-        check(b.conditions.units.unitframe.frameTypes == nil, "전체 비트가 안 접힘");
-        check(b.unitFrameTypes == nil, "축이 좁아짐");
-    end);
 
     test("일부만 고른 마스크는 그대로 남는다", function()
-        local b = spell({
-            hover = true,
-            reactions = Constants.REACTION_HELP,
-            frameTypes = Constants.FRAMETYPE_PLAYER,
-        });
+        local b = spell({ units = { unitframe = { exists = true,
+            reaction = Constants.REACTION_HELP, frameTypes = Constants.FRAMETYPE_PLAYER } } });
         check(b.conditions.units.unitframe.reaction == Constants.REACTION_HELP, "반응이 바뀜");
         check(b.conditions.units.unitframe.frameTypes == Constants.FRAMETYPE_PLAYER,
             "frameTypes가 바뀜");
@@ -329,24 +266,16 @@ return function(DebindPrivate)
     --- 안 고른 원본은 게임이 놓는 대상으로 나가고, 가리킨 유닛은 쌍둥이가 든다. 채워 넣던 동안에는
     --- 아무것도 안 가리킨 누름이 없는 유닛에게 나갔다.
     test("개체창 조건은 원본의 대상을 안 채운다", function()
-        check(spell({ hover = true }).unit == nil,
-            "채워넣기가 남았다: " .. tostring(spell({ hover = true }).unit));
+        check(spell({ units = { unitframe = Row(true) } }).unit == nil,
+            "채워넣기가 남았다: " .. tostring(spell({ units = { unitframe = Row(true) } }).unit));
     end);
 
     test("제 대상이 있으면 그 대상 그대로다", function()
-        check(spell({ hover = true, unit = "focus" }).unit == "focus", "대상이 덮어써짐");
-    end);
-
-    -- **개명 전 이름으로 고른 대상도 옮겨서 읽는다.** `dbver <= 6`이 저장된 `unit = "hover"`를
-    -- 옮기지만, 사다리가 아직 안 닿은 프로필이 그대로 오면 `binding.unit`에 아무도 못 알아보는
-    -- 이름이 실린다 - 클릭 경로가 그 이름을 안 보고(`isClickCast`), 방출도 `SPECIAL_UNITS`와
-    -- `BASIC_UNITS` 어느 쪽에서도 못 찾아서 대상 없이 나간다.
-    test("개명 전 이름으로 고른 대상은 unitframe으로 읽힌다", function()
-        check(spell({ unit = "hover" }).unit == "unitframe", "대상이 " .. tostring(spell({ unit = "hover" }).unit));
+        check(spell({ units = { unitframe = Row(true) }, unit = "focus" }).unit == "focus", "대상이 덮어써짐");
     end);
 
     test("대상이 멀쩡하면 \"@\"는 남는다", function()
-        local b = spell({ unit = "focus", units = { ["@"] = true } });
+        local b = spell({ unit = "focus", units = { ["@"] = Row(true) } });
         check(type(b.conditions.units["@"]) == "table", "멀쩡한 조건이 지워짐");
         check(b.unitStates.focus == Constants.UNITSTATE_EXISTS, "대상 유닛 축에 안 얹힘");
     end);
@@ -364,7 +293,7 @@ return function(DebindPrivate)
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
-            units = { ["@"] = true },
+            units = { ["@"] = Row(true) },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
         check(b.conditions.units and b.conditions.units["@"] ~= nil, "\"@\"가 지워짐");
@@ -376,7 +305,7 @@ return function(DebindPrivate)
         local b = normalize(nest({
             type = Constants.PETACTION, value = "PET_FOLLOW",
             unit = "focus",
-            units = { ["@"] = true },
+            units = { ["@"] = Row(true) },
         }), true);
         check(b.unit == nil, "대상이 안 지워짐 - 전제가 깨졌다");
         check(b.unitStates and b.unitStates.target == Constants.UNITSTATE_EXISTS,
@@ -386,11 +315,11 @@ return function(DebindPrivate)
     -- **대상을 못 갖는 타입의 원본은 `"@"`를 `target` 칸에 묻는다.** 대상이 지워지고 채워 넣는
     -- 것도 없으니, 게임이 놓는 대상이 그 누름이 겨누는 유닛이다.
     test("대상이 지워진 매크로의 \"@\"는 target 칸에 선다", function()
-        local help = spell({ unit = "focus", units = { ["@"] = "help" } }).unitStates.focus;
+        local help = spell({ unit = "focus", units = { ["@"] = Row("help") } }).unitStates.focus;
         local b = normalize(nest({
             type = Constants.MACROTEXT, value = "/say hi",
-            unit = "focus", hover = true,
-            units = { ["@"] = "help" },
+            unit = "focus",
+            units = { ["@"] = Row("help") },
         }), true);
         check(b.unit == nil, "대상이 남았다: " .. tostring(b.unit));
         check(b.unitStates.target == help, "target 칸: " .. tostring(b.unitStates.target));
@@ -405,7 +334,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     local function atAnd(atValue, unitValue)
-        return spell({ unit = "focus", units = { ["@"] = atValue, focus = unitValue } });
+        return spell({ unit = "focus", units = { ["@"] = Row(atValue), focus = Row(unitValue) } });
     end
 
     -- **Which key it was left under is not the contract.** `BuildUnitStates` meets the two
@@ -435,25 +364,25 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- 유닛 조건이 마스크로 접히는 값 대응
+    -- What a stored row becomes on the axis
     --
-    -- solver가 유닛에 대해 읽는 것은 `unitStates`뿐이다. 저장된 스칼라가 여기서 축 위의
-    -- 점으로 바뀐다.
+    -- The solver reads nothing about a unit but `unitStates`, and this is where a stored row turns
+    -- into points on that axis.
     ---------------------------------------------------------------------------
 
-    test("유닛 조건 스칼라가 축 위의 마스크가 된다", function()
-        check(spell({ units = { target = true } }).unitStates.target
+    test("유닛 조건 행이 축 위의 마스크가 된다", function()
+        check(spell({ units = { target = Row(true) } }).unitStates.target
             == Constants.UNITSTATE_EXISTS, "존재");
-        check(spell({ units = { target = false } }).unitStates.target
+        check(spell({ units = { target = Row(false) } }).unitStates.target
             == Constants.UNITSTATE_NONE, "부재");
-        check(spell({ units = { target = "help" } }).unitStates.target
+        check(spell({ units = { target = Row("help") } }).unitStates.target
             == Constants.UNITSTATE_HELP, "우호");
-        check(spell({ units = { target = "harm" } }).unitStates.target
+        check(spell({ units = { target = Row("harm") } }).unitStates.target
             == Constants.UNITSTATE_HARM, "적대");
     end);
 
     test("\"@\"는 겨누는 유닛의 축으로 펴진다", function()
-        local b = spell({ unit = "focus", units = { ["@"] = "help" } });
+        local b = spell({ unit = "focus", units = { ["@"] = Row("help") } });
         check(b.unitStates.focus == Constants.UNITSTATE_HELP, "대상 유닛 축에 안 얹힘");
         check(b.unitStates["@"] == nil, "\"@\"가 제 축을 가짐");
     end);
@@ -541,52 +470,43 @@ return function(DebindPrivate)
 
     -- "없을 때"에는 제약할 생사가 없다. 없음 점은 축 위의 점이 아니다.
     test("없을 때는 생사가 축을 안 건드린다", function()
-        check(spell({ units = { target = false } }).unitStates.target
+        check(spell({ units = { target = Row(false) } }).unitStates.target
             == Constants.UNITSTATE_NONE, "없음 한 점");
     end);
 
-    -- **옛 스칼라는 여기서 끝난다.** 아래를 지나간 뒤로는 축별 표 하나만 존재해야 한다.
-    -- 방출·메뉴·이슈 검사가 저마다 타입 검사를 하게 두면, 잊은 한 곳이 불리언을 색인한다 -
-    -- 실제로 그렇게 터졌다(`/debtest`의 CheckedUnits, 2026-08-12). 그때 헤드리스가 못 본 이유는
-    -- 하네스가 `UpdateBindings.lua`를 안 읽어서였는데, **지금은 읽는다**(2026-08-21,
-    -- `.zzz/resolved.md` 10+31번). 같은 종류가 다시 나면 이 층에서 잡힌다.
-    test("옛 스칼라는 바인딩에서 축별 표로 올라온다", function()
+    -- **A row that is not a table stops here.** Past this point a row is a table or `false` and
+    -- nothing else. Left for the emitter, the menu and the issue check to type-check each on their
+    -- own, the one that forgot indexed a boolean, and it did once (`/debtest`'s CheckedUnits,
+    -- 2026-08-12). Only `/run` puts such a row in front of the rebuild now, since every door drops it.
+    test("표가 아닌 행은 바인딩에 false로만 온다", function()
         local b = spell({ unit = "focus", units = {
-            target = true, mouseover = "help", tank = "harm", healer = false, ["@"] = true,
+            target = true, mouseover = "help", tank = 7, healer = false, ["@"] = true,
         } });
-        check(type(b.conditions.units.target) == "table" and b.conditions.units.target.reaction == nil,
-            "존재");
-        check(b.conditions.units.mouseover.reaction == Constants.REACTION_HELP, "우호");
-        check(b.conditions.units.tank.reaction == Constants.REACTION_HARM, "적대");
-        check(b.conditions.units.healer == false, "부재는 그대로여야 한다");
-        check(type(b.conditions.units["@"]) == "table", "\"@\"도 같이 올라와야 한다");
-    end);
-
-    -- 마이그레이션이 아직 안 돈 데이터(가져오기 도중, 손으로 고친 프로필)도 지나간다.
-    test("옛 스칼라도 여전히 읽힌다", function()
-        check(spell({ units = { target = "help" } }).unitStates.target
-            == Constants.UNITSTATE_HELP, "스칼라 경로가 끊김");
+        for _, unit in ipairs({ "target", "mouseover", "tank", "healer", "@" }) do
+            check(b.conditions.units[unit] == false,
+                unit .. " came through as " .. tostring(b.conditions.units[unit]));
+        end
     end);
 
     ---------------------------------------------------------------------------
-    -- hover 조건도 같은 축을 탄다
+    -- The pointed frame's condition rides the same axis
     --
-    -- 가리킨 프레임의 유닛은 `"unitframe"`이라는 이름의 유닛일 뿐이다. 따로 두면 solver가
-    -- hover 조건과 같은 유닛의 조건이 서로 모순인 것을 못 본다.
+    -- The pointed frame's unit is only a unit named `"unitframe"`. Kept apart, the solver would not
+    -- see its condition contradict another on the same unit.
     ---------------------------------------------------------------------------
 
     test("hover만 켜면 호버 유닛이 존재로 좁혀진다", function()
-        check(spell({ hover = true }).unitStates["unitframe"] == Constants.UNITSTATE_EXISTS,
+        check(spell({ units = { unitframe = Row(true) } }).unitStates["unitframe"] == Constants.UNITSTATE_EXISTS,
             "존재로 안 좁혀짐");
     end);
 
     test("hover 반응이 호버 유닛 축을 좁힌다", function()
-        check(spell({ hover = true, reactions = Constants.REACTION_HELP }).unitStates["unitframe"]
+        check(spell({ units = { unitframe = Row("help") } }).unitStates["unitframe"]
             == Constants.UNITSTATE_HELP, "반응이 축에 안 실림");
     end);
 
     test("hover가 false면 호버 유닛이 부재로 좁혀진다", function()
-        check(spell({ hover = false }).unitStates["unitframe"] == Constants.UNITSTATE_NONE,
+        check(spell({ units = { unitframe = Row(false) } }).unitStates["unitframe"] == Constants.UNITSTATE_NONE,
             "부재로 안 좁혀짐");
     end);
 
@@ -620,16 +540,15 @@ return function(DebindPrivate)
     -- 바인딩은 액션에서 다시 만들어질 뿐 되돌아 쓰이지 않는다. 이게 깨지면 정규화가
     -- **사용자가 입력한 값을 지우는** 것이 된다 - 화면에서 조건이 사라진다.
     test("정규화가 액션을 건드리지 않는다", function()
-        local action = {
+        local action = nest({
             type = Constants.MACROTEXT, value = "/say hi",
             unit = "focus",
-            reactions = Constants.REACTION_HELP,
-            units = { ["@"] = true, target = "help" },
-        };
+            units = { ["@"] = Row(true), target = { exists = true, reaction = Constants.REACTION_ALL } },
+        });
         normalize(action, true);
         check(action.unit == "focus", "액션의 대상이 지워짐");
-        check(action.reactions == Constants.REACTION_HELP, "액션의 reactions가 지워짐");
-        check(action.units["@"] == true, "액션의 \"@\"가 지워짐");
+        check(action.conditions.units["@"] ~= nil, "액션의 \"@\"가 지워짐");
+        check(action.conditions.units.target.reaction == Constants.REACTION_ALL, "액션의 반응이 접힘");
     end);
 
     --- **This one classification answers for three readers now**, so it is pinned over its whole
@@ -653,24 +572,26 @@ return function(DebindPrivate)
 
     test("유닛 조건 읽기 - 정의역 전체", function()
         check(mode(nil) == "none", "조건 없음이 없음으로 안 읽힘");
-        check(mode(true) == "exists", "true가 있을 때로 안 읽힘");
-        check(mode(false) == "absent", "false가 없을 때로 안 읽힘");
-        check(mode("help") == "exists", "help가 있을 때로 안 읽힘");
-        check(mode("harm") == "exists", "harm이 있을 때로 안 읽힘");
         check(mode({}) == "exists", "빈 표가 있을 때로 안 읽힘");
+        check(mode({ exists = true }) == "exists", "exists=true가 있을 때로 안 읽힘");
         check(mode({ reaction = Constants.REACTION_HELP }) == "exists", "반응 표가 있을 때로 안 읽힘");
         check(mode({ dead = true }) == "exists", "생사 표가 있을 때로 안 읽힘");
         check(mode({ exists = false }) == "absent", "exists=false가 없을 때로 안 읽힘");
         check(mode({ disabled = true }) == "none", "꺼진 축이 없음으로 안 읽힘");
-        -- `off`가 먼저다. 껐다가 되돌릴 때 골라둔 값이 그대로 있어야 하므로 둘이 같이 선다.
+        -- `disabled` is read first: a row turned off keeps what was picked for when it is turned back,
+        -- so the two stand together.
         check(mode({ disabled = true, exists = false }) == "none", "꺼진 축보다 exists가 먼저 읽힘");
     end);
 
     --- **The menu draws a value no build writes as [when there is none]**: it has three radios and no
-    --- fourth. The action itself is left out (`INVALID_ACTION`, `issue_spec`).
+    --- fourth. The action itself is left out (`INVALID_ACTION`, `issue_spec`). The four old scalars are
+    --- among them: the ladder spreads them into tables, so version 8 has no reading for one.
     test("유닛 조건 읽기 - 모르는 스칼라는 좁은 쪽으로", function()
         check(mode("mostly") == "absent", "모르는 문자열이 없을 때로 안 떨어짐");
         check(mode(7) == "absent", "모르는 숫자가 없을 때로 안 떨어짐");
+        for _, old in ipairs({ true, false, "help", "harm" }) do
+            check(mode(old) == "absent", "the old scalar " .. tostring(old) .. " was read as " .. mode(old));
+        end
     end);
 
     ---------------------------------------------------------------------------
@@ -764,7 +685,7 @@ return function(DebindPrivate)
     --- **`@` goes with each twin to the unit that twin aims at** (§3-6). With no target the original
     --- asks `target` and the twins ask `player` and `focus`; on a picked unit all three ask that unit.
     test("@ 조건이 쌍둥이가 겨누는 유닛 칸에 선다", function()
-        local list = listFor({ units = { ["@"] = "help" } });
+        local list = listFor({ units = { ["@"] = Row("help") } });
         local help = list[1].unitStates and list[1].unitStates.target;
         check(help, "원본에 target 칸이 없다");
         for _, case in ipairs({ { Constants.CASTMOD_SELF, "player" }, { Constants.CASTMOD_FOCUS, "focus" } }) do
@@ -775,7 +696,7 @@ return function(DebindPrivate)
             check(twin.unitStates.target == nil, case[2] .. " 쌍둥이가 target 조건을 들고 있다");
         end
 
-        list = listFor({ unit = "target", units = { ["@"] = "help" } });
+        list = listFor({ unit = "target", units = { ["@"] = Row("help") } });
         for _, castModifier in ipairs({ Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS }) do
             local twin = twinFor(list, castModifier);
             check(twin.unitStates.target == help,
@@ -799,8 +720,8 @@ return function(DebindPrivate)
     --- It settles nothing before the press, so a held key moves what the press aims at and what `@` is
     --- asked of, and whichever binding wins goes out as `none`.
     test("대상 none은 대상 없는 액션처럼 겨누고 시전만 none으로 나간다", function()
-        local help = listFor({ unit = "target", units = { ["@"] = "help" } })[1].unitStates.target;
-        local list = listFor({ unit = "none", units = { ["@"] = "help" } });
+        local help = listFor({ unit = "target", units = { ["@"] = Row("help") } })[1].unitStates.target;
+        local list = listFor({ unit = "none", units = { ["@"] = Row("help") } });
         check(#list == 3, "길이 " .. #list);
         local original = list[1];
         check(original.castModifier == Constants.CASTMOD_NONE, "원본의 조합키 칸: " .. tostring(original.castModifier));
@@ -851,14 +772,14 @@ return function(DebindPrivate)
 
     --- `[우호일 때]`가 한 유닛 칸에 선 마스크. 기댓값을 손으로 적지 않고 대상 있는 액션에서 읽는다.
     local function helpMask()
-        return listFor({ unit = "target", units = { ["@"] = "help" } })[1].unitStates.target;
+        return listFor({ unit = "target", units = { ["@"] = Row("help") } })[1].unitStates.target;
     end
 
     --- **`@`는 대상과 따로 고른다** (§3-6). 대상이 `player`인 액션의 `@`는 `player` 칸에 서고,
     --- 원본과 self 쌍둥이가 같은 칸에 같은 값을 든다.
     test("대상 player의 @는 원본과 self 쌍둥이의 player 칸에 선다", function()
         local help = helpMask();
-        local list = listFor({ unit = "player", units = { ["@"] = "help" } });
+        local list = listFor({ unit = "player", units = { ["@"] = Row("help") } });
         check(list[1].unitStates and list[1].unitStates.player == help,
             "원본의 player 칸: " .. tostring(list[1].unitStates and list[1].unitStates.player));
         local twin = twinFor(list, Constants.CASTMOD_SELF);
@@ -870,7 +791,7 @@ return function(DebindPrivate)
     test("대상 없는 액션의 쌍둥이는 @를 자기 유닛 칸에 얹는다", function()
         local help = helpMask();
         withHoverCast(function()
-            local list = listFor({ units = { ["@"] = "help" } });
+            local list = listFor({ units = { ["@"] = Row("help") } });
             for _, case in ipairs({ { Constants.CASTMOD_SELF, "player" }, { Constants.CASTMOD_FOCUS, "focus" } }) do
                 local twin = twinFor(list, case[1]);
                 check(twin and twin.unitStates and twin.unitStates[case[2]] == help,
@@ -890,7 +811,7 @@ return function(DebindPrivate)
     test("대상 없는 원본은 @를 target 칸에 지키고 unit은 비워 둔다", function()
         local help = helpMask();
         for _, case in ipairs({
-            { fields = { units = { ["@"] = "help" } }, unit = nil },
+            { fields = { units = { ["@"] = Row("help") } }, unit = nil },
         }) do
             local list = listFor(case.fields);
             local original = list[1];
@@ -911,7 +832,7 @@ return function(DebindPrivate)
     --- 그대로 서고, 둘은 다른 축이다.
     test("개체창 조건이 걸린 원본도 @를 target 칸에 얹는다", function()
         local help = helpMask();
-        local original = listFor({ units = { ["@"] = "help", unitframe = {} } })[1];
+        local original = listFor({ units = { ["@"] = Row("help"), unitframe = {} } })[1];
         check(original.unit == nil, "원본의 unit: " .. tostring(original.unit));
         check(original.unitStates and original.unitStates.target == help,
             "target 칸: " .. tostring(original.unitStates and original.unitStates.target));
@@ -921,7 +842,7 @@ return function(DebindPrivate)
 
     test("Hover Cast가 켜지면 hover 쌍둥이가 따라온다", function()
         withHoverCast(function()
-            local list, action = listFor({ units = { ["@"] = "help" } });
+            local list, action = listFor({ units = { ["@"] = Row("help") } });
             list = castmod.without(Constants, list);
             check(#list == 2, "길이 " .. #list);
             check(list[1] == normalize(action), "[1]이 원본이 아니다");
@@ -944,7 +865,7 @@ return function(DebindPrivate)
     --- the pointed tier and goes out at the unit the reader picked, with `@` asked of that unit.
     test("고른 대상이 있으면 hover 쌍둥이도 그 대상으로 나간다", function()
         withHoverCast(function()
-            local list = castmod.without(Constants, (listFor({ unit = "focus", units = { ["@"] = "help" } })));
+            local list = castmod.without(Constants, (listFor({ unit = "focus", units = { ["@"] = Row("help") } })));
             check(#list == 2, "길이 " .. #list);
             local original, twin = list[1], list[2];
             check(twin.hoverTwin and twin.unit == "focus", "쌍둥이 unit: " .. tostring(twin.unit));
@@ -957,7 +878,7 @@ return function(DebindPrivate)
     --- pointed unit and still goes out asking.
     test("대상 none의 hover 쌍둥이는 가리킨 유닛에 묻고 none으로 나간다", function()
         withHoverCast(function()
-            local list = castmod.without(Constants, (listFor({ unit = "none", units = { ["@"] = "help" } })));
+            local list = castmod.without(Constants, (listFor({ unit = "none", units = { ["@"] = Row("help") } })));
             check(#list == 2, "길이 " .. #list);
             local original, twin = list[1], list[2];
             check(twin.hoverTwin and twin.unit == "unitframe", "쌍둥이 unit: " .. tostring(twin.unit));

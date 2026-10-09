@@ -110,6 +110,34 @@ local function Problems(DebindPrivate, DebindStorage, action)
                 bad("condition %s is a %s", k, type(v));
             end
         end
+        -- **A row is a table under a unit the menu lists**, holding only the fields a row stores. An old
+        -- scalar row or the old row name `hover` is no version 8 shape (`SanitizeAction` drops both),
+        -- so a fixture that still writes one stands for a profile no build has.
+        local units = conditions.units;
+        if (type(units) == "table") then
+            local listed = { ["@"] = true };
+            for _, unit in ipairs(DebindPrivate.DebindUI.SORTED_UNIT_LIST) do
+                if (unit ~= "none") then
+                    listed[unit] = true;
+                end
+            end
+            for unit, row in pairs(units) do
+                if (not listed[unit]) then
+                    bad("units.%s is not a unit a row is kept for", tostring(unit));
+                elseif (type(row) ~= "table") then
+                    bad("units.%s is a %s, not a row", tostring(unit), type(row));
+                else
+                    for k, v in pairs(row) do
+                        local expected = Constants.UNIT_CONDITION_FIELDS[k];
+                        if (not expected) then
+                            bad("units.%s.%s is not a row field", tostring(unit), tostring(k));
+                        elseif (not typed(expected, v)) then
+                            bad("units.%s.%s is a %s", tostring(unit), k, type(v));
+                        end
+                    end
+                end
+            end
+        end
         local known = conditions.known;
         if (known == false) then
             bad("known is false");

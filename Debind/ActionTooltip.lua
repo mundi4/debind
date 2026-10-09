@@ -579,20 +579,13 @@ do
 			for checkedUnit, stored in pairs(conditions.units) do
 				-- 끈 조건은 저장에 남아 있어도 여기 안 나온다.
 				local value = DebindPrivate.UnitConditionForBinding(stored);
-				-- **옛 철자를 새 이름으로 바꿔서 그린다.** 이 순회는 원본 액션의 표를 도는데,
-				-- 사다리가 아직 안 닿은 프로필은 가리킨 개체창의 유닛이 `hover`다. 그대로 두면
-				-- `UNIT_INFO`에 그 이름이 없어서 아래 줄이 nil을 인덱싱하다 터지고, 건너뛰면
-				-- 걸어둔 조건이 화면에서 통째로 사라진다. 새 이름이 이미 있으면 그쪽이 이긴다 -
-				-- `StoredUnitFrameCondition`이 같은 순서로 읽는다.
-				if (checkedUnit == "hover" and conditions.units.unitframe == nil) then
-					checkedUnit = "unitframe";
-				end
+				-- A row under a name `UNIT_INFO` has no entry for never gets here from storage: every
+				-- door drops it (`SanitizeAction`), so only `/run` in this session can put one in.
 				-- `"@"` is drawn just before this loop. `"player"` is skipped: its own menu sits
 				-- beside `Group` and asks about the reader rather than about a unit they picked, so
 				-- its line goes beside that one too. Skipped whole rather than only where life is
 				-- set, so a hand-edited axis there is drawn once rather than in both places.
-				if (value ~= nil and checkedUnit ~= "hover"
-						and checkedUnit ~= "@" and checkedUnit ~= "player") then
+				if (value ~= nil and checkedUnit ~= "@" and checkedUnit ~= "player") then
 					if (first) then
 						addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 						first = false;

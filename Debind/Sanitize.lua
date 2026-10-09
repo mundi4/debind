@@ -81,14 +81,6 @@ local function TalentListNames()
     return talentListNames;
 end
 
---- The four scalars a unit row was before `dbver` 4, as the row each became.
-local OLD_SCALAR_ROWS = {
-    [true]   = { exists = true },
-    [false]  = { exists = false },
-    ["help"] = { exists = true, reaction = Constants.REACTION_HELP },
-    ["harm"] = { exists = true, reaction = Constants.REACTION_HARM },
-};
-
 --- The numbers of a talent list, in order. Anything else goes, holes included.
 local function KeepNumbers(list)
     local kept = {};
@@ -188,23 +180,9 @@ local function SanitizeConditions(action, conditions)
 
     local units = conditions.units;
     if (units) then
-        -- **Old shapes the readers still read are moved, not dropped**: dropped, the condition goes
-        -- and the action takes keys it was kept off. The moves are the `dbver <= 4` and `<= 6` steps'
-        -- (`Migration.lua`), which every stored profile has been through; what still carries one is a
-        -- hand-made value or a spec's fixture, and `UnitConditionForBinding` reads it the same way.
-        if (units.hover ~= nil) then
-            if (units.unitframe == nil) then
-                units.unitframe = units.hover;
-            end
-            units.hover = nil;
-        end
-        for unit, row in pairs(units) do
-            local raised = OLD_SCALAR_ROWS[row];
-            if (raised) then
-                units[unit] = { exists = raised.exists, reaction = raised.reaction };
-            end
-        end
-
+        -- **An old scalar row and the old row name `hover` go here like any other value**: version 8
+        -- has no reading for either. Moving them by the meaning their own version gave them is the
+        -- ladder's, and the 7 -> 8 step does it for every profile before this runs (§6-1).
         local listed = ListedUnits();
         for unit, row in pairs(units) do
             if (not listed[unit] or luatype(row) ~= "table") then

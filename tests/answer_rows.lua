@@ -73,7 +73,7 @@ return function(Constants)
             { unit = "focus", units = { ["@"] = HELP, focus = HARM } }),
         row(5, "target row reaction 0", { units = { target = { reaction = 0 } } }),
         row(6, "target unitframe, \"@\" [there], unitframe [none]",
-            { unit = "unitframe", units = { ["@"] = {}, unitframe = false } }),
+            { unit = "unitframe", units = { ["@"] = {}, unitframe = { exists = false } } }),
         row(7, "target unitframe, unitframe reaction 0",
             { unit = "unitframe", units = { unitframe = { reaction = 0 } } }),
         row(8, "tank [there], solo only", { units = { tank = {} }, groups = Constants.GROUP_NONE }),
@@ -88,7 +88,7 @@ return function(Constants)
         row(13, "\"@\" [friendly], player [hostile]", { units = { ["@"] = HELP, player = HARM } }),
         row(14, "\"@\" [friendly], target, player, focus, unitframe all [hostile]",
             { units = { ["@"] = HELP, target = HARM, player = HARM, focus = HARM, unitframe = HARM } }),
-        row(15, "\"@\" [none]", { units = { ["@"] = false } }),
+        row(15, "\"@\" [none]", { units = { ["@"] = { exists = false } } }),
         row(16, "BUTTON3, target unitframe, \"@\" [there]",
             { key = "BUTTON3", unit = "unitframe", units = { ["@"] = {} } }),
         row(17, "Hover Cast skip, Normal Cast off", { casting = ALL_OFF }),
@@ -98,7 +98,7 @@ return function(Constants)
         -- The bare click answers `"cast"` whatever is stored, so [when there is none] on that unit
         -- is the one way to leave it with nothing (`HoverCastChoiceOf`).
         row(20, "BUTTON1, unitframe [none]",
-            { key = "BUTTON1", casting = USUAL, units = { unitframe = false } }),
+            { key = "BUTTON1", casting = USUAL, units = { unitframe = { exists = false } } }),
         row(21, "Normal Cast off, \"@\" [friendly], target [hostile]",
             { casting = { normalCast = false, hoverCast = "cast" },
                 units = { ["@"] = HELP, target = HARM } }),
@@ -112,6 +112,6 @@ return function(Constants)
         row(25, "invalid action, target [there]", { type = Constants.INVALID, units = { target = { exists = true } } }),
         row(26, "target row role 0", { units = { target = { role = 0 } } }),
         row(27, "\"@\" [none], target, player, focus [there]",
-            { units = { ["@"] = false, target = {}, player = {}, focus = {} } }),
+            { units = { ["@"] = { exists = false }, target = {}, player = {}, focus = {} } }),
     };
 end
