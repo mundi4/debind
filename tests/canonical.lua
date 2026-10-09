@@ -1,9 +1,9 @@
 --- **Every action in the profile has to be one that could be saved or exported at this moment.**
---- The writers keep that shape rather than leaving it to a clean-up. This net looks at every layer
---- right before each `UpdateBindings` and each `SanitizeLoadedLayers` (the load, the import at login,
---- the logout), and at what each writer hands `SanitizeWrittenActions`, which is where a writer that
---- relied on the clean-up shows: each test stands its own profile up, so by the end of a spec only
---- the last test's few actions are left to look at.
+--- The writers keep that shape rather than leaving it to a clean-up. This net looks at every stored
+--- list (`EachStoredList`) right before each `UpdateBindings` and each `SanitizeLoadedLayers` (the
+--- load, the import at login, the logout), and at what each writer hands `SanitizeWrittenActions`,
+--- which is where a writer that relied on the clean-up shows: each test stands its own profile up,
+--- so by the end of a spec only the last test's few actions are left to look at.
 ---
 --- **The field tables are the store's** (`ACTION_FIELDS`, `CONDITION_TYPES`, `CASTING_TYPES`), read
 --- off Debind's own. The other rules restate the shape here rather than calling
@@ -11,7 +11,8 @@
 --- agree with whatever they do.
 ---
 --- A test that plants a hand-made value on purpose says so with `ctx.HandMade(action)`, and that
---- action is skipped.
+--- action is skipped. One that plants something that is no action at all marks the list holding it
+--- the same way, and that list is skipped whole.
 
 local M = {};
 
@@ -193,16 +194,98 @@ local function Problems(DebindPrivate, DebindStorage, action)
     return out;
 end
 
-local function Sweep(DebindPrivate, DebindStorage, where, report)
-    local frame;
-    for layerID = 1, 64 do
-        local layer = DebindPrivate.GetProfileLayer(layerID);
-        if (layer == nil) then
-            break;
+--- Every stored action list, each once, with where it is. `fn(list, at)` for a list, and
+--- `bad(problem, at)` for what stands where a table belongs and is not one.
+---
+--- **Not only the loaded layers**, because writers reach cells no layer of this session holds: an
+--- arrival is placed by the scope it was sent with (`PlaceArrivedActions`), another class's cell
+--- included, and a switch rename rewrites every character's pending actions (`ForEachPendingAction`).
+--- So: the loaded layers, every cell under `DebindVars.layers`, this character's own while they are
+--- not attached yet (lazy creation), and every `pendingActions` share.
+---
+--- **Walked here rather than through the addon's own walks** (`ForEachStoredList`), for the reason
+--- the rules above are restated: a net that walked with the addon would miss what the addon's walk
+--- misses, and a fixture that is not a table where one belongs is reported instead of raising.
+local function EachStoredList(DebindPrivate, fn, bad)
+    local walked = {};
+    local function visit(list, at)
+        if (type(list) ~= "table") then
+            bad(("is a %s, not a list"):format(type(list)), at);
+        elseif (not walked[list] and not handMade[list]) then
+            walked[list] = true;
+            fn(list, at);
         end
+    end
+    local function visitClasses(classes, at)
+        if (type(classes) ~= "table") then
+            bad(("is a %s, not a table of classes"):format(type(classes)), at);
+            return;
+        end
+        for class, specTbl in pairs(classes) do
+            local classAt = ("%s/%s"):format(at, tostring(class));
+            if (type(specTbl) ~= "table") then
+                bad(("is a %s, not a table of specializations"):format(type(specTbl)), classAt);
+            else
+                for spec, list in pairs(specTbl) do
+                    visit(list, ("%s/%s"):format(classAt, tostring(spec)));
+                end
+            end
+        end
+    end
+
+    -- **Asked through the seam the in-game kit stands its layers behind**, which also passes over a
+    -- specialization layer this class does not have instead of stopping at it.
+    for layerID, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        visit(layer.actions, "layer " .. layerID);
+    end
+
+    local db = DebindPrivate.db;
+    local global = db and db.global;
+    if (type(global) ~= "table") then
+        return;
+    end
+    for owner, classes in pairs(type(global.layers) == "table" and global.layers or {}) do
+        visitClasses(classes, "layers/" .. tostring(owner));
+    end
+    if (db.charLayers ~= nil) then
+        visitClasses(db.charLayers, "layers/" .. tostring(DebindPrivate.playerGUID));
+    end
+    for guid, share in pairs(type(global.pendingActions) == "table" and global.pendingActions or {}) do
+        local at = "pendingActions/" .. tostring(guid);
+        if (type(share) ~= "table") then
+            bad(("is a %s, not a share"):format(type(share)), at);
+        else
+            if (share.account ~= nil) then
+                visitClasses(share.account, at .. "/account");
+            end
+            if (share.character ~= nil) then
+                visitClasses({ character = share.character }, at);
+            end
+        end
+    end
+end
+
+--- What is wrong in every stored list, as sentences ending in where it is.
+local function Findings(DebindPrivate, DebindStorage)
+    local out = {};
+    local function bad(problem, at)
+        out[#out + 1] = ("%s (at %s)"):format(problem, at);
+    end
+    EachStoredList(DebindPrivate, function(list, at)
+        -- **Positions 1..n are the list.** `#` and `ipairs` are all that read one, so an action under a
+        -- name or past a hole is in no list anything reads (`SanitizeActionList` drops it).
+        local count, top = 0, 0;
         local seen = {};
-        for _, action in layer:Enumerate() do
-            if (not handMade[action]) then
+        for position, action in pairs(list) do
+            if (type(position) ~= "number" or position < 1 or position % 1 ~= 0) then
+                bad(("an element under %q, not at a position"):format(tostring(position)), at);
+            else
+                count = count + 1;
+                top = math.max(top, position);
+            end
+            if (type(action) ~= "table") then
+                bad(("[%s] is a %s, not an action"):format(tostring(position), type(action)), at);
+            elseif (not handMade[action]) then
                 local problems = Problems(DebindPrivate, DebindStorage, action);
                 if (action.key ~= nil and type(action.seq) == "number") then
                     local group = action.key .. "/" .. tostring(action.arrivalID) .. "/" .. action.seq;
@@ -212,10 +295,24 @@ local function Sweep(DebindPrivate, DebindStorage, where, report)
                     seen[group] = true;
                 end
                 for _, problem in ipairs(problems) do
-                    frame = frame or SpecFrame();
-                    report(("%s, before %s: %s (%s)"):format(frame, where, problem, Describe(action)));
+                    bad(("%s (%s)"):format(problem, Describe(action)), at);
                 end
             end
+        end
+        if (top ~= count) then
+            bad(("a hole: %d elements up to [%d]"):format(count, top), at);
+        end
+    end, bad);
+    return out;
+end
+M.Findings = Findings;
+
+local function Sweep(DebindPrivate, DebindStorage, where, report)
+    local findings = Findings(DebindPrivate, DebindStorage);
+    if (#findings > 0) then
+        local frame = SpecFrame();
+        for _, finding in ipairs(findings) do
+            report(("%s, before %s: %s"):format(frame, where, finding));
         end
     end
 end

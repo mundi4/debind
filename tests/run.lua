@@ -336,6 +336,7 @@ local specs = {
     { name = "overview", path = root .. "/overview_spec.lua" },
     { name = "normalize", path = root .. "/normalize_spec.lua" },
     { name = "sanitize", path = root .. "/sanitize_spec.lua" },
+    { name = "canonical", path = root .. "/canonical_spec.lua" },
     { name = "clickcast", path = root .. "/clickcast_spec.lua" },
     { name = "loopoff", path = root .. "/loopoff_spec.lua" },
     { name = "actionbutton", path = root .. "/actionbutton_spec.lua" },
@@ -405,6 +406,7 @@ local ctx = {
 local canonical = dofile(root .. "/canonical.lua");
 ctx.HandMade = canonical.HandMade;
 ctx.Numbered = canonical.Numbered;
+ctx.CanonicalFindings = canonical.Findings;
 
 local totalPassed, totalFailures = 0, {};
 
