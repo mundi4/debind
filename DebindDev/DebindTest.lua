@@ -10719,7 +10719,7 @@ RegisterTest("Pointed unit [none]: over a frame the action does not run, off it 
         if not probesOk then return Fail(NAME, perr) end
 
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
-            conditions = { units = { unitframe = false } } })
+            conditions = { units = { unitframe = { exists = false } } } })
         ApplyBindings()
 
         local ORIGINAL
