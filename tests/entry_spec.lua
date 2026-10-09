@@ -857,6 +857,66 @@ return function(DebindPrivate, DebindStorage)
         check(Plain("ab|c", 3) == "ab||...", tostring(Plain("ab|c", 3)));
     end);
 
+    ---------------------------------------------------------------------------
+    -- Sanitized going in and coming out (`sanitizing-actions-with-one-function.md` §2-2)
+    --
+    -- **Both, because the preview, the counts and a string made again read the stored payload as
+    -- it is.** A world marker with no value raises where a row names it.
+    ---------------------------------------------------------------------------
+
+    --- A general cell holding a spell with a field nothing saves and an arrival number no wire
+    --- carries, then a world marker with no value.
+    local function BrokenPayload()
+        local payload = Payload({ { scope = "general", key = "F", count = 1,
+            junk = { type = Constants.WORLDMARKER, key = "F", seq = 2 } } });
+        local spell = payload.layers.account.GENERAL[0][1];
+        spell.junk = 1;
+        spell.arrivalID = "x";
+        return payload;
+    end
+
+    --- The two actions of `BrokenPayload`, asked as they must come out.
+    local function CheckSanitized(payload, what)
+        local list = payload.layers.account.GENERAL[0];
+        check(#list == 2, what .. ": " .. #list .. " actions");
+        check(list[1].junk == nil, what .. ": a field nothing saves stayed");
+        check(list[1].arrivalID == nil, what .. ": an arrival number stayed");
+        check(list[2].type == Constants.INVALID, what .. ": the world marker is " .. tostring(list[2].type));
+    end
+
+    test("a pasted payload is sanitized as it is stored", function()
+        ResetDrawer();
+        STORED[GOOD] = BrokenPayload();
+        local entry = DebindStorage.ImportEntry(GOOD);
+        check(entry, "refused");
+        CheckSanitized(entry.payload, "stored");
+    end);
+
+    test("a converted payload is sanitized as it is stored", function()
+        ResetDrawer();
+        local entry = DebindStorage.StorePayload(BrokenPayload());
+        check(entry, "refused");
+        CheckSanitized(entry.payload, "stored");
+    end);
+
+    test("what is already in the drawer is sanitized when the drawer is read", function()
+        ResetDrawer();
+        _G.DebindStorageVars = { version = 2, nextID = 2, entries = {
+            { id = 1, received = 0, receivedFrom = "string", payload = BrokenPayload() },
+        } };
+        CheckSanitized(DebindStorage.GetEntries()[1].payload, "in the drawer");
+    end);
+
+    test("an entry is sanitized again when it is opened", function()
+        ResetDrawer();
+        STORED[GOOD] = GOOD_PAYLOAD;
+        local entry = DebindStorage.ImportEntry(GOOD);
+        entry.payload = BrokenPayload();
+        local payload = DebindStorage.GetEntryPayload(entry);
+        check(payload, "refused");
+        CheckSanitized(payload, "opened");
+    end);
+
     DebindStorage.DecodeExportString = realDecode;
 
     return T;

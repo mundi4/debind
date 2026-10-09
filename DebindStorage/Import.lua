@@ -266,6 +266,26 @@ local function BuildAction(source)
 end
 DebindStorage.BuildAction = BuildAction;
 
+--- Every action list in `payload` through `SanitizeActionList`, **in place**: the drawer's door,
+--- going in and coming out (`sanitizing-actions-with-one-function.md` §2-2). The preview, the counts
+--- and a string made again all read the stored payload as it is.
+---
+--- **An arrival number is taken off first, as `BuildAction` does.** No wire carries one, and
+--- `SanitizeAction` reads a broken one as "remove this action", which is the profile's answer for
+--- a badge and not the payload's.
+---
+--- Run only on a payload `BringPayloadForward` has raised: the fields mean what this version says.
+function DebindStorage.SanitizePayload(payload)
+    DebindStorage.ForEachPayloadLayer(payload, function(_, _, _, _, list)
+        for _, action in pairs(list) do
+            if (luatype(action) == "table") then
+                action.arrivalID = nil;
+            end
+        end
+        DebindPrivate.SanitizeActionList(list);
+    end);
+end
+
 --- Does this payload hold something that raises **before anything sanitizes it**?
 ---
 --- **A `key` of NaN, and nothing else.** It raises the moment it is used as a table index, which the
@@ -302,7 +322,8 @@ end
 --- **Which makes this the only moment a migration could run**, for the same reason: there is no
 --- earlier one. The entry version's steps run here (`ENTRY_VERSION`).
 ---
---- **The payloads are raised here, once a session** (`BringPayloadForward`, in place). The row is
+--- **The payloads are raised and sanitized here, once a session** (`BringPayloadForward`,
+--- `SanitizePayload`, in place). The row is
 --- drawn from its payload before anybody opens it (`CountEntry`, `EntryClass`), so an entry stored
 --- as v2 has to be v3 by the time the list is drawn, not only once it is opened. One that cannot be
 --- raised is left as it was: its row still draws, and opening it says why (`GetEntryPayload`).
@@ -310,6 +331,13 @@ end
 --- **Each under its own `pcall`.** A step that raises on one entry would otherwise raise out of
 --- every call that reaches the drawer, the delete that is the only way out for that entry included.
 local broughtForward;
+
+local function BringEntryForward(payload)
+    if (DebindStorage.BringPayloadForward(payload)) then
+        DebindStorage.SanitizePayload(payload);
+    end
+end
+
 local function Vars()
     local vars = _G.DebindStorageVars;
     if (not vars) then
@@ -355,7 +383,7 @@ local function Vars()
     if (broughtForward ~= vars) then
         broughtForward = vars;
         for _, entry in ipairs(vars.entries) do
-            pcall(DebindStorage.BringPayloadForward, entry.payload);
+            pcall(BringEntryForward, entry.payload);
         end
     end
 
@@ -401,6 +429,7 @@ function DebindStorage.GetEntryPayload(entry)
         return nil, "IMPOSSIBLE_PAYLOAD";
     end
 
+    DebindStorage.SanitizePayload(payload);
     return payload;
 end
 
@@ -570,6 +599,9 @@ end
 local function StoreEntry(payload, receivedFrom)
     local vars = Vars();
     local entry = {};
+
+    -- Every way in comes past the ladder or builds at this version, the conversions included.
+    DebindStorage.SanitizePayload(payload);
 
     entry.id = vars.nextID;
     entry.receivedFrom = receivedFrom;

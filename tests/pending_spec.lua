@@ -7,7 +7,7 @@
 -- the split at logout, and what goes wrong between them is silent: a share written out empty is
 -- every pending action of that character gone, on a login that showed nothing.
 
-return function(DebindPrivate)
+return function(DebindPrivate, _, ctx)
     local frames = require("wow_frames");
     local C = DebindPrivate.Constants;
 
@@ -285,6 +285,71 @@ return function(DebindPrivate)
         vars.layers.account.GENERAL[0][1].conditions = nil;
         Login(vars);
         check(DebindPrivate.CollectSwitchUsage()["$a"], "a switch pending actions wait on read as unused");
+    end);
+
+    -- **Pending actions are drawn too, so the load sanitizes them** (`sanitizing-actions-with-one-
+    -- function.md` §2-2), which it can only do once they are merged.
+    test("a pending action is sanitized at load", function()
+        local vars = TwoShares();
+        ctx.HandMade(vars.pendingActions[GUID].account.GENERAL[0][1]).junk = 1;
+        Login(vars);
+        for _, action in ipairs(LayerActions()) do
+            check(action.junk == nil, "a pending action kept a field nothing saves: " .. tostring(action.value));
+        end
+    end);
+
+    test("what a logout stows has been sanitized", function()
+        Login(TwoShares());
+        for _, action in ipairs(LayerActions()) do
+            ctx.HandMade(action).junk = 1;
+        end
+        Logout();
+        local mine = _G.DebindVars.pendingActions[GUID];
+        for _, action in ipairs(mine.account.GENERAL[0]) do
+            check(action.junk == nil, "stowed with a field nothing saves: " .. tostring(action.value));
+        end
+    end);
+
+    -- **The save is what must not be lost to a sanitize that raises.** Unstowed, this character's
+    -- pending actions are written into the shared layers, where every character sees them.
+    test("a logout stows and attaches even when sanitizing raises", function()
+        Login(TwoShares());
+        local real = DebindPrivate.SanitizeLayerActions;
+        DebindPrivate.SanitizeLayerActions = function() error("sanitize raised"); end
+        local ok, err = pcall(Logout);
+        DebindPrivate.SanitizeLayerActions = real;
+        check(ok, "the logout raised: " .. tostring(err));
+        -- Reported rather than swallowed, and emptied here since the runner fails what is left.
+        local reported = require("wow_shim").world.reportedErrors;
+        check(#reported == 1 and reported[1]:find("sanitize raised", 1, true),
+            "reported: " .. table.concat(reported, " | "));
+        for i = #reported, 1, -1 do
+            reported[i] = nil;
+        end
+        local mine = _G.DebindVars.pendingActions and _G.DebindVars.pendingActions[GUID];
+        check(mine and Values(mine.character[0]) == "14#5", "this character's share was not written");
+        check(BadgesInLayers() == "", "badges left in the shared layers: " .. BadgesInLayers());
+        check(_G.DebindVars.layers[GUID] == nil, "a character layer left empty by the stow stayed attached");
+    end);
+
+    -- A character's tables enter the file only at the attach, so a stow that raises must not take
+    -- with it what this character made this session.
+    test("a logout attaches even when the stow raises", function()
+        Login({ layers = { account = { GENERAL = { [0] = { spell(1, "F1") } } } } });
+        table.insert(LayerActions(0, true), spell(2, "F2"));
+        local real = DebindPrivate.StowPendingActions;
+        DebindPrivate.StowPendingActions = function() error("stow raised"); end
+        local ok, err = pcall(Logout);
+        DebindPrivate.StowPendingActions = real;
+        check(ok, "the logout raised: " .. tostring(err));
+        local reported = require("wow_shim").world.reportedErrors;
+        check(#reported == 1 and reported[1]:find("stow raised", 1, true),
+            "reported: " .. table.concat(reported, " | "));
+        for i = #reported, 1, -1 do
+            reported[i] = nil;
+        end
+        check(_G.DebindVars.layers[GUID] == DebindPrivate.db.charLayers,
+            "the character layer made this session was not attached");
     end);
 
     return T;

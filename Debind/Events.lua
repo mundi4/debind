@@ -90,7 +90,7 @@ function Events.PLAYER_LOGIN()
     -- **Stood down, so this is where the addon ends.** It returns above the
     -- `RegisterEvent` lines below, and the only two registered at file scope are `ADDON_LOADED`
     -- and `PLAYER_LOGIN`, so this one return leaves the addon listening to nothing at all. That is
-    -- also why `PLAYER_LOGOUT` never gets to call `CleanUpDB` on the way out.
+    -- also why `PLAYER_LOGOUT` never gets to write anything on the way out.
     --
     -- `RunLegacyMigration` is the reason the return has to be *here* rather than only in `InitDB`:
     -- it reaches the stored table by a different path, this one.
@@ -116,6 +116,8 @@ function Events.PLAYER_LOGIN()
         -- rebind the references **first**, then re-read the layers.
         DebindPrivate.BindDerivedTables();
         DebindPrivate.LoadProfile();
+        -- The cells `InitDB` sanitized are not the ones loaded now.
+        DebindPrivate.SanitizeLoadedLayers();
         -- **The snapshot was taken in `InitDB`, before any of this arrived.** The gates that decide
         -- which frames are ours read it and not the live table, so without this the whole session
         -- runs on what an account with no profile at all had.
@@ -218,8 +220,7 @@ function Events.PLAYER_ENTERING_WORLD()
 end
 
 function Events.PLAYER_LOGOUT()
-    DebindPrivate.CleanUpDB();
-    DebindPrivate.StowPendingActions();
+    DebindPrivate.SettleForLogout();
 end
 
 function Events.TRAIT_CONFIG_UPDATED(_, configID)

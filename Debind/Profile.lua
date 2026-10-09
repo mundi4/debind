@@ -594,7 +594,7 @@ end
 --- rename fixes what is on screen and quietly breaks what is not.
 ---
 --- **`charLayers` is this character's `layers[guid]` and it is handed in, because it may not be in
---- `db.layers` yet.** It is attached once there is something in it (`CleanUpDB`), so everything a
+--- `db.layers` yet.** It is attached once there is something in it (`AttachCharacterTables`), so everything a
 --- character puts in its own layers this session lives in a table the account walk cannot see.
 --- That is not an edge: it is the layer the reader is looking at while they rename.
 ---
@@ -715,8 +715,9 @@ end
 --- Does this character's `states[guid]` hold anything?
 ---
 --- **Every field a state can hold has to be listed here**, and the one that is missing is silent:
---- `CleanUpDB` detaches the whole state on the way out, so a character whose only content this
---- does not recognise loses it at logout rather than at the write, with nothing said either time
+--- `AttachCharacterTables` detaches the whole state, at logout too, so a character whose only
+--- content this does not recognise loses it at logout rather than at the write, with nothing said
+--- either time
 --- (`redesigning-custom-states.md` ⚑4). `switches` is the remembered switch values.
 local function HasStateContent(state)
     if (state.CustomTargets and next(state.CustomTargets) ~= nil) then
@@ -875,7 +876,7 @@ function DebindPrivate.ForEachSwitchOverride(fn)
 end
 
 --- Every character's `states[guid]`, this character's included. **This one may not be in `states`
---- yet** (lazy creation, `CleanUpDB`), so it is handed over on its own when it is not.
+--- yet** (lazy creation, `AttachCharacterTables`), so it is handed over on its own when it is not.
 local function ForEachState(fn)
     local mine = DebindPrivate.db.charState;
     for _, state in pairs(DebindPrivate.db.global.states or {}) do
@@ -1254,7 +1255,7 @@ function DebindPrivate.GetPlayerIdentity()
 end
 
 --- Any character's `characters[guid]` entry, read only, or nil. This character's is answered even
---- before it is attached (`CleanUpDB`).
+--- before it is attached (`AttachCharacterTables`).
 function DebindPrivate.GetCharacterIdentity(guid)
     if (guid == DebindPrivate.playerGUID) then
         return DebindPrivate.db.char;
@@ -1679,7 +1680,7 @@ function DebindPrivate.CollectSwitchUsage()
     end
 
     -- **This character's layers may not be in the account table yet**, since they are attached
-    -- only once they hold something (`CleanUpDB`). Left out, the layers on screen right now would
+    -- only once they hold something (`AttachCharacterTables`). Left out, the layers on screen right now would
     -- be the ones missing from the list.
     local attached = false;
     for owner, classes in pairs(db.layers or {}) do
@@ -2323,8 +2324,9 @@ function DebindPrivate.InitDB()
 
     -- **Lazy creation.** Where there is no entry, state or layers we hand out a **detached** table
     -- rather than putting one in `characters`, `states` or `layers`. Attaching them is
-    -- `CleanUpDB`'s job: state and layers once there is something in them, the entry always. So
-    -- until the first logout, `characters[guid]` being nil is what says this GUID is new here.
+    -- `AttachCharacterTables`'s job, at the end of this function and at logout: state and layers
+    -- once there is something in them, the entry always. So until that attach, `characters[guid]`
+    -- being nil is what says this GUID is new here.
     --
     -- **After the migration**, which is what moves the state out of the entry and the layers into
     -- `layers`.
@@ -2527,17 +2529,24 @@ local function DropFieldsTheTypeCannotHold(action)
 end
 DebindPrivate.DropFieldsTheTypeCannotHold = DropFieldsTheTypeCannotHold;
 
-function DebindPrivate.CleanUpDB()
+--- Every loaded layer through `SanitizeLayerActions`, the pending actions merged into them included
+--- (`MergePendingActions`): those are drawn too. **Other characters' cells are left as stored.**
+--- Nothing draws them, and that character's own login sanitizes them
+--- (`sanitizing-actions-with-one-function.md` §2-2).
+function DebindPrivate.SanitizeLoadedLayers()
     for _, layer in pairs(LayerArray) do
         DebindPrivate.SanitizeLayerActions(layer.actions);
 
         for _, action in layer:Enumerate() do
-            -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
-            -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
+            -- An action loaded from disk never went through `Insert`, so it is armed here. This is
+            -- after the migration, so it does not trip while conditions still sit at the top.
             ArmAction(action);
         end
     end
+end
 
+function DebindPrivate.CleanUpDB()
+    DebindPrivate.SanitizeLoadedLayers();
     AttachCharacterTables();
 end
 
@@ -2571,9 +2580,9 @@ end
 --- Takes this character's pending actions out of its layers and into `pendingActions[guid]`. The
 --- logout half of `MergePendingActions`.
 ---
---- **After `CleanUpDB`**, so what goes into the share has had the same clean-up as the layers. And
---- **never from inside it**: the load-time `CleanUpDB` runs on layers nothing has been merged into
---- yet, and a split there would write this character's share out empty.
+--- **After `SanitizeLoadedLayers`**, so what goes into the share is sanitized like the layers. And
+--- **never from inside `CleanUpDB`**, which the load runs too: there it would take the actions just
+--- merged back out of the layers for the whole session.
 ---
 --- The layers end up without the badged actions, which is the shape saved to disk; nothing runs
 --- after logout to read them.
@@ -2618,8 +2627,24 @@ function DebindPrivate.StowPendingActions()
     if (next(db.pendingActions) == nil) then
         db.pendingActions = nil;
     end
+end
 
-    -- Decided again, because a character layer that held only pending actions is empty now.
+--- What a logout does to the profile before the client writes it: sanitize, stow, attach.
+---
+--- **Each step runs whatever the one before it did**, and a raise is reported and passed over.
+--- Unstowed, this character's pending actions are saved inside the shared layers, where every
+--- character meets them. Unattached, whatever this character made this session is never written,
+--- since a character's tables enter the file only here (lazy creation).
+---
+--- **The attach is last**, because a character layer that held only pending actions is empty once
+--- they are stowed.
+function DebindPrivate.SettleForLogout()
+    for _, step in ipairs({ "SanitizeLoadedLayers", "StowPendingActions" }) do
+        local ok, err = pcall(DebindPrivate[step]);
+        if (not ok) then
+            geterrorhandler()(err);
+        end
+    end
     AttachCharacterTables();
 end
 
@@ -3005,7 +3030,7 @@ local function StoredActionsAt(scope, class, spec)
     elseif (scope == "character") then
         -- **This character's layers come from `db.charLayers`, not `db.layers[guid]`.** That one may
         -- not be attached yet (lazy creation in `InitDB`), and writing through `db.layers` would
-        -- land somewhere other than the table `CleanUpDB` attaches.
+        -- land somewhere other than the table `AttachCharacterTables` attaches.
         specTbl = SpecTableIn(DebindPrivate.db.charLayers, Constants.PLAYER_CLASS);
     else
         return nil;

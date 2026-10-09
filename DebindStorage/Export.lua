@@ -581,9 +581,16 @@ end
 --- Copies `action` into its cell of `payload` and onto `exported`. The cell is made by the first
 --- action actually taken, so an empty layer -- or one the reader unticked whole -- leaves no empty
 --- table behind for the far side to walk.
+---
+--- **The copy is sanitized, never the stored action** (`sanitizing-actions-with-one-function.md`
+--- §2-2). Another character's cells are as they were stored until that character logs in, and the
+--- switch walk below reads what is copied.
 local function TakeAction(payload, exported, action, owner, class, spec)
-    local cell = CellAt(payload.layers, owner, class, spec);
     local copy = CopyFields(action, ACTION_FIELDS);
+    if (not DebindPrivate.SanitizeAction(copy)) then
+        return;
+    end
+    local cell = CellAt(payload.layers, owner, class, spec);
     cell[#cell + 1] = copy;
     exported[#exported + 1] = copy;
 end
@@ -619,11 +626,10 @@ end
 --- show. Whether a layer's actions are clumped by key is deliberately left open until there is a
 --- preview to read them (`building-export-import.md`).
 ---
---- **Nothing is validated, and nothing is rewritten.** A broken action exports exactly as it sits.
---- The receiving side shows it as it is and the user deletes it, and that one rule is what removes a
---- whole class of questions about spells the reader does not have. The one standing exception was
---- `setstate`, whose stored index would have arrived **unbroken and wrong** where no mark can
---- see it; §9-1 made the stored form a name, so there is nothing left to rewrite.
+--- **Nothing about the client is asked.** A spell the reader does not have goes out as it sits, the
+--- receiving side shows it marked, and the user deletes it; that one rule removes a whole class of
+--- questions. What a copy does go through is `SanitizeAction` (`TakeAction`), which reads nothing
+--- about the client either: a broken action goes out as `INVALID`, the shape a load would give it.
 function DebindStorage.BuildExportPayload(selection)
     local payload, exported, layers = NewPayload(), {}, {};
 
@@ -666,7 +672,8 @@ function DebindStorage.BuildAccountPayload()
 
     DebindPrivate.ForEachAccountLayer(function(list, owner, class, spec)
         for i = 1, #list do
-            if (DebindStorage.IsExportable(list[i])) then
+            -- What is no table is no action, and no load has taken it out of another character's list.
+            if (luatype(list[i]) == "table" and DebindStorage.IsExportable(list[i])) then
                 TakeAction(payload, exported, list[i], owner, class, spec);
             end
         end
@@ -1164,7 +1171,16 @@ function DebindStorage.DecodeExportString(str)
 
     -- Whether what came back is a table at all is asked below, with the same answer, on the door a
     -- stored entry uses too.
-    return DebindStorage.BringPayloadForward(payload);
+    --
+    -- **Under `pcall`, because the bytes are somebody else's.** A step written for what our builds
+    -- stored can meet a shape none of them wrote, and the paste box has to answer rather than raise.
+    -- The raise is still reported: a step that raises is ours to fix, whatever it was handed.
+    local ok, raised, refusal = pcall(DebindStorage.BringPayloadForward, payload);
+    if (not ok) then
+        geterrorhandler()(raised);
+        return nil, "BAD_PAYLOAD";
+    end
+    return raised, refusal;
 end
 
 --- What the window calls: an entry and what is ticked in it, string out.

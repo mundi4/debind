@@ -311,6 +311,23 @@ return function(DebindPrivate, _, ctx)
             "a spell action's value was altered by the click-target rewrite");
     end);
 
+    -- **The import at login swaps the cells `InitDB` sanitized**, so what it brings is sanitized
+    -- after it (`sanitizing-actions-with-one-function.md` §2-2).
+    test("what the import at login brings is sanitized", function()
+        FreshInit();
+        _G.DebounceVars = {
+            dbver = 3,
+            GENERAL = { { type = "spell", value = 774, key = "F1", seq = 1, disabled = false } },
+        };
+        DebindPrivate.ShowMigrationDialogIfPending =
+            DebindPrivate.ShowMigrationDialogIfPending or function() end;
+        check(require("wow_frames").fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+
+        local action = DebindPrivate.GetProfileLayer(1):GetAction(1);
+        check(action and action.value == 774, "the import brought nothing");
+        check(action.disabled == nil, "disabled = false was kept: " .. tostring(action.disabled));
+    end);
+
     -- **순서 번호의 그물.** 여기 있는 이유는 마이그레이션과 같은 종류의 실패라서다 - 틀려도
     -- 아무 소리가 안 나고, 눈으로 봐서는 알 수 없다.
     --
@@ -2081,7 +2098,7 @@ return function(DebindPrivate, _, ctx)
     ---------------------------------------------------------------------------
     -- The import badge has to survive `CleanUpDB`
     --
-    -- `CleanUpDB` strips every field that is not in `KEYS_TO_SAVE`, and it runs on the way out.
+    -- `SanitizeAction` strips every field that is not in `KEYS_TO_SAVE`, at load and on the way out.
     -- The badge is what keeps an imported action out of the binding build, so **if it were not on
     -- that list, quarantine would lift itself on the next login** - someone else's keys would
     -- quietly start firing, which is the worst direction this addon can fail in and the one thing

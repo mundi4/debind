@@ -890,6 +890,52 @@ return function(DebindPrivate, DebindStorage, harness)
             "붙기 전의 신원이 빠졌다");
     end);
 
+    -- **Another character's cells are as they were stored**: nothing sanitizes them until that
+    -- character logs in. The copy going out is sanitized; the profile is not touched
+    -- (`sanitizing-actions-with-one-function.md` §2-2).
+    test("the account's payload sanitizes its copy and leaves the profile alone", function()
+        AccountProfile();
+        local list = DebindPrivate.db.global.layers[ALT].PRIEST[1];
+        list[#list + 1] = { type = Constants.WORLDMARKER, key = "W", conditions = "x" };
+        local payload = DebindStorage.BuildAccountPayload();
+        local alt = LayerAt(payload, ALT, "PRIEST", 1);
+        check(alt and #alt == 2 and alt[2].type == Constants.INVALID,
+            "the copy: " .. tostring(alt and alt[2] and alt[2].type));
+        check(alt[2].conditions == nil, "the copy kept conditions that are no table");
+        check(list[#list].type == Constants.WORLDMARKER and list[#list].conditions == "x",
+            "the stored action was changed");
+    end);
+
+    test("the account's payload walks past what is no action in another character's list", function()
+        AccountProfile();
+        local list = DebindPrivate.db.global.layers[ALT].PRIEST[1];
+        table.insert(list, 1, 5);
+        local ok, payload = pcall(DebindStorage.BuildAccountPayload);
+        check(ok, "raised: " .. tostring(payload));
+        local alt = LayerAt(payload, ALT, "PRIEST", 1);
+        check(alt and #alt == 1 and alt[1].value == 3, "the alt's cell is wrong");
+    end);
+
+    -- **The ladder runs on somebody else's bytes.** A step written for what our builds stored can
+    -- meet a shape none of them wrote, and the paste box has to answer rather than raise.
+    test("a pasted string whose ladder raises is refused, not raised", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F" } } });
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+        local real = DebindStorage.BringPayloadForward;
+        DebindStorage.BringPayloadForward = function() error("a step raised"); end
+        local ok, payload, reason = pcall(DebindStorage.DecodeExportString, str);
+        DebindStorage.BringPayloadForward = real;
+        check(ok, "raised: " .. tostring(payload));
+        check(payload == nil and reason == "BAD_PAYLOAD", "answered " .. tostring(payload) .. ", " .. tostring(reason));
+        -- Reported all the same: the step is ours. Emptied here, since the runner fails what is left.
+        local reported = require("wow_shim").world.reportedErrors;
+        check(#reported == 1 and reported[1]:find("a step raised", 1, true),
+            "reported: " .. table.concat(reported, " | "));
+        for i = #reported, 1, -1 do
+            reported[i] = nil;
+        end
+    end);
+
     ---------------------------------------------------------------------------
     -- Options
     --

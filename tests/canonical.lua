@@ -1,8 +1,8 @@
 --- **Every action in the profile has to be one that could be saved or exported at this moment.**
 --- The writers keep that shape rather than leaving it to a clean-up. This net looks at every layer
---- right before each `UpdateBindings` and each `CleanUpDB`, which is where a writer that relied on
---- the clean-up shows: each test stands its own profile up, so by the end of a spec only the last
---- test's few actions are left to look at.
+--- right before each `UpdateBindings` and each `SanitizeLoadedLayers` (the load, the import at login,
+--- the logout), which is where a writer that relied on the clean-up shows: each test stands its own
+--- profile up, so by the end of a spec only the last test's few actions are left to look at.
 ---
 --- **The field tables are the store's** (`ACTION_FIELDS`, `CONDITION_TYPES`, `CASTING_TYPES`), read
 --- off Debind's own. The other rules restate the shape here rather than calling
@@ -225,7 +225,7 @@ function M.Install(DebindPrivate, DebindStorage, report)
             report(message);
         end
     end
-    for _, name in ipairs({ "UpdateBindings", "CleanUpDB" }) do
+    for _, name in ipairs({ "UpdateBindings", "SanitizeLoadedLayers" }) do
         local original = DebindPrivate[name];
         DebindPrivate[name] = function(...)
             Sweep(DebindPrivate, DebindStorage, name, once);

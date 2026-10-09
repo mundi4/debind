@@ -1,6 +1,6 @@
 # 액션을 sanitize 함수 하나로 바로잡기
 
-> 상태: 되감기를 했다(3-4). 7절 2번(목록을 걷는 일)까지 했고 다음은 3번이다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
+> 상태: 되감기를 했다(3-4). 7절 3번(부르는 자리)까지 했고 다음은 4번이다. 5번은 2·3번에서 같이 됐다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
 > 소유자가 더 정한 것(대기 액션, 계정 전체 페이로드는 사본만, 서랍, 클라이언트마다 다른 답)을 2-1·2-2에 넣었다. 2절에서
 > `debind-1b`가 덧붙인 줄에는 "(덧붙임)"을 달았다. 6절의 정답표도 다 정했다.
 > `checking-pasted-strings-and-keeping-actions-canonical.md`의 설계(가져오기 관문만 엄하게 하고, 접속 때는 아무것도 고치지
@@ -416,8 +416,59 @@
      액션이 거기까지 온다. 값 없는 `worldmarker`는 `"WORLD_MARKER" .. nil`에서 터진다. `setcustom`도 같다.
      `{ type = "command", value = {} }`는 `"BINDING_NAME_" .. {}`에서 터진다. `GetEntryPayload`의 주석("이 줄을 지나면 우리
      것이다")도 이제 틀렸다. 고치는 길은 위의 "서랍에 넣을 때와 꺼낼 때"다. `DescribePayload`의 `out.action`도 같이 본다.
+
+   했다(2026-10-09, `debind-6c`).
+   - **불러올 때.** `SanitizeLoadedLayers`(`Profile.lua`)가 불러온 레이어마다 `SanitizeLayerActions`를 돌리고 `ArmAction`을
+     건다. `InitDB`에서는 `CleanUpDB`가 이것을 부르고, `CleanUpDB`는 `MergePendingActions` 뒤에 돈다. 순서는 원래 맞았고,
+     거꾸로 돌리면 빨개지는 테스트를 더했다. PLAYER_LOGIN의 Legacy 가져오기는 `LoadProfile` 바로 뒤에서 한 번 더 부른다.
+   - **로그아웃.** `PLAYER_LOGOUT`은 `SettleForLogout`(`Profile.lua`)을 부른다. 순서는 sanitize(`SanitizeLoadedLayers`),
+     stow(`StowPendingActions`), attach(`AttachCharacterTables`)다. 앞의 둘은 각자 `pcall` 안에서 돌고, 에러는
+     `geterrorhandler`로 알린다. attach는 언제나 돈다.
+     - sanitize가 터져도 대기 액션이 공용 레이어에 남지 않는다.
+     - stow가 터져도 이번 세션에 만든 캐릭터 칸이 파일에 들어간다. 캐릭터의 표는 attach 때만 파일에 들어가기 때문이다.
+     - stow 끝에 있던 attach는 여기로 옮겼다. stow를 부르는 곳은 로그아웃뿐이다.
+     - 앞의 `CleanUpDB`는 attach를 stow 앞에서 한 번 더 했다. 그 attach가 stow가 터질 때를 받쳐 주고 있었는데, 리뷰가
+       그것을 짚었다.
+   - **계정 전체 페이로드.** `TakeAction`이 사본을 `SanitizeAction`에 넘기고, 지우라는 답이면 담지 않는다. 프로필은
+     건드리지 않는다. 스위치를 모으는 `BuildSwitchCells`가 사본을 읽기 때문에 담는 자리에서 고친다. 다른 캐릭터의 목록에서
+     표가 아닌 원소는 건너뛴다. 전에는 표가 아닌 `conditions`에서 `pairs`가, 숫자 원소에서 `IsExportable`이 터졌다.
+     `BuildExportPayload`도 `TakeAction`을 쓰니 같이 sanitize된다. 이 캐릭터의 레이어라 바뀌는 것은 없다.
+   - **서랍.** `SanitizePayload`(`Import.lua`)가 페이로드의 목록마다 도착 번호를 떼고 `SanitizeActionList`를 돌린다.
+     부르는 자리는 셋이다. 넣을 때(`StoreEntry`, 붙여넣기·Clique 변환·다른 애드온 변환·여기서 만든 것이 다 지난다), 꺼낼
+     때(`GetEntryPayload`), 서랍을 처음 읽을 때(`Vars`, 올리기에 성공한 항목만, 항목마다 `pcall`)다. 도착 번호를 먼저 떼는
+     것은 `BuildAction`과 같은 까닭이다. 페이로드에는 도착 번호가 없어야 하고, `SanitizeAction`은 틀린 도착 번호를 "액션을
+     지워라"로 읽는다.
+   - **위의 미리보기 회귀는 이것으로 닫혔다.** 미리보기는 `GetEntryPayload`로 읽고, 서랍의 항목은 `Vars`가 이미 고쳐 둔다.
+     `DescribePayload`의 `out.action`은 그리는 쪽이 없다. 읽는 것은 `entry_spec` 하나다.
+   - **붙여넣는 문.** `DecodeExportString`이 `BringPayloadForward`를 `pcall`로 부르고, 터지면 `BAD_PAYLOAD`로 답한다.
+     에러는 `geterrorhandler`로 알린다. 사다리가 터지는 것은 받은 값이 무엇이든 우리 코드가 고칠 일이다.
+   - **레이어에 놓기 전**은 1번에서 이미 됐다(`BuildAction`).
+   - **테스트.** 열하나를 더했다(`pending_spec` 셋, `migration_spec` 하나, `entry_spec` 넷, `export_spec` 셋). 아홉은 고치기
+     전 코드에서 빨갰다. 나머지 둘(불러올 때 대기 액션, 로그아웃 때 stow하는 것)은 원래 순서가 맞아서 통과했다. 그 둘은
+     순서를 거꾸로 돌리면 각각 빨개지는 것을 봤다. 리뷰 뒤에 둘을 더했다. stow가 터져도 attach가 도는지, 붙여넣는 문이
+     에러를 알리는지다. 둘 다 고치기 전 모양에서 빨갰다.
+   - **이 단계의 리뷰(`/code-review high`)에서 고친 것.**
+     - stow가 터지면 attach도 안 돌던 것. 위의 로그아웃 순서로 고쳤다.
+     - `tests/canonical.lua`의 그물이 `CleanUpDB` 대신 `SanitizeLoadedLayers` 앞에 선다. 그래야 로그아웃과 Legacy 가져오기도
+       그물에 걸린다.
+     - `BuildExportPayload` 머리주석의 "아무것도 고치지 않는다"를 고쳤다. 이제 사본이 sanitize를 지난다.
+     - attach를 `CleanUpDB`로 부르던 주석 여섯 군데를 `AttachCharacterTables`로 고쳤다. 로그아웃 때 `CleanUpDB`가 돈다던
+       주석 셋(`Profile.lua`, `Events.lua`, `migration_spec`)도 고쳤다.
+     - 아래 줄이 하는 일을 되풀이하던 `BringEntryForward`의 주석을 지웠다.
+     - 택하지 않은 것: `GetEntryPayload`의 sanitize를 `pcall`로 감싸라는 것. `SanitizeAction`은 무엇이든 받는 함수이고,
+       불러올 때도 감싸지 않는다. 거기서 터지는 것은 거절할 까닭이 아니라 고칠 버그다.
+     - 택하지 않은 것: 꺼낼 때마다 다시 sanitize하는 비용. 꺼낼 때 또 거치는 것은 소유자가 정했다(2-2). 여기서 만든 항목이
+       두 번 지나는 것(`TakeAction`과 `StoreEntry`)은 만들 때 한 번이다.
+   - **이 단계 밖이라 넘긴 것.** `debind-4b`가 `need-fixing.md`에 넣었다.
+     - PLAYER_LOGIN의 Legacy 가져오기(`MergeLayers`)가 이 캐릭터의 목록을 통째로 바꾼다. 그래서 `InitDB`가 그 목록에 이미
+       넣어 둔 대기 액션이 사라진다. 이 변경 전부터 그랬다.
+     - 다른 캐릭터의 칸을 걷는 `ForEachStoredList`·`ForEachStoredAction`·`ForEachPendingAction`은 표가 아닌 목록과 원소를
+       거르지 않는다. 계정 전체 페이로드는 원소만 거른다.
 4. **"액션이 바뀔 때마다".** 지금은 액션을 쓰는 자리가 열네 곳쯤 흩어져 있다. 입구 하나를 세워 모은다.
 5. **`CleanUpDB`의 정리를 걷는다.** sanitize가 그 일을 맡는다. 남는 것은 `ArmAction`과 `AttachCharacterTables`다.
+
+   2번과 3번에서 이미 그 모양이 됐다. `CleanUpDB`는 `SanitizeLoadedLayers`(sanitize와 `ArmAction`)와 `AttachCharacterTables`
+   뿐이고, 불러올 때만 쓴다.
 6. **지운 계획 문서를 가리키는 주석과 문서를 고친다**(3-4).
 7. **5절의 값들을 다시 넣어 본다**(`.zzz/sanitize-harness/`). 어디서도 터지지 않아야 한다.
 8. **`1dd02f1` 리뷰에서 나온 작은 것들.** 다른 번호에 속하지 않는다. 어느 세션이 고칠지는 아직 정하지 않았다.
@@ -430,6 +481,10 @@
    - **같은 물음을 두 번 적었다.** `Sanitize.lua`의 `SanitizeConditions`는 이름을 `CONDITION_FIELDS[name] or
      (IsSwitchName(name) and "boolean")`로 묻는데, `Constants.IsConditionField`가 있다. `IsScalar`는
      `Fits("number|string", value)`와 같다.
+   - **같은 규칙이 두 군데 있다: Escape 키.** `BringPayloadDataForward`(`Export.lua`)가 Escape에 걸린 액션의 키와 `seq`를
+     떼는데, `SanitizeAction`도 같은 일을 하고 7절 3번부터 서랍의 두 문에서 돈다. `import_spec`의 "an action sent on Escape
+     arrives with no key"가 그 일을 `BringPayloadForward`에 묶어 두고 있어서, 걷어내려면 그 테스트가 서랍의 문을 거쳐 묻게
+     바꿔야 한다(`debind-6c`가 3번 리뷰에서 찾았다).
    - **죽은 검사.** `PayloadIsImpossible`의 `luatype(source) == "table"`이다. `ForEachPayloadLayer`가 이미 표인 원소만
      넘긴다(`Import.lua`, 그 머리주석). 걷어낸다.
    - **택하지 않은 지적.** 옛 빌드로 되돌리면 새 타입이 `INVALID`가 되거나, 로그아웃 때 새 축이 지워진다는 것이다. 되돌리기는
