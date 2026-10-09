@@ -44,7 +44,7 @@ So the binds have to be layered, and one key has to be able to mean more than on
 
 **A layer holds only the keys you put in it — never a whole keyboard.** So the question is asked one key at a time: for *this* key, which rows have something to say?
 
-The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does, and does nothing if none of them do. Nothing is switched off on the way: the rows below are still answering for every other key.
+The narrowest row that **fits** wins. A row whose conditions don't hold has nothing to say this time, so the key carries on to the next row that does, and if none of them do, by default it does whatever it would do without Debind. Nothing is switched off on the way: the rows below are still answering for every other key.
 
 Say `R` is Rebirth, in Account / Class. Every druid you have presses `R` for a battle rez, and so does the next one you roll. Then Balance wants `R` for Starfall — put Starfall in Account / Specialization and you're done. **The narrow layer takes over there, the broad one keeps everything else.** Balance gets Starfall, every other druid still gets Rebirth. You didn't copy Rebirth anywhere, you didn't delete it, and it's still in one place when you want to change it.
 
@@ -112,7 +112,7 @@ A switch can also drive itself from a macro conditional: hand it `[@tank,exists]
 
 ## When a key holds several actions
 
-Debind checks them in order and runs the first one that fits. If none of them fit, the key does nothing, even where WoW has something bound to it.
+Debind checks them in order and runs the first one that fits. If none of them fit, the key goes back to whatever WoW has bound to it — or does nothing, if you'd rather. That's one setting.
 
 Two things decide that order before you do, and they're the same idea — the narrower case is checked first:
 

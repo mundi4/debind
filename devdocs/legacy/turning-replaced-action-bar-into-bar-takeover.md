@@ -1,7 +1,7 @@
 # Replaced Action Bar 조건을 Bar Takeover로 바꾸기
 
-> 상태: 구현했다(2026-10-08). 남은 것은 도움말 하나다. `keys-given-back.md` 4번 항목이 "druid forms and skyriding do not
-> count"라고만 해서 은신이 빠져 있다. 도움말은 손대기 전에 범위를 소유자에게 묻는 것이 규칙이라 물어 둔 상태다.
+> 상태: 다 했다(2026-10-09). 구현은 2026-10-08에 들어갔다. `keys-given-back.md` 4번 항목에 은신이 빠진 것은 그 페이지의
+> 머리 주석에 옮겨 적었다(2026-10-09, 소유자).
 >
 > 쓴 세션: `debind-3e` (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 2026-10-08.
 

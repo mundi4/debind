@@ -10,6 +10,7 @@
 **LABELS CHANGED on screen (2026-10-08, not yet followed here).**
 - Item 1: the value is now *Press Does Nothing*, not *Press does nothing*.
 - Item 4: the *Action Button keys* value for replaced bars is now *Replaced Action Bar*. "a replaced action bar" in the lead-in and body is plain text; decide whether it now names that value.
+- Item 4: "druid forms and skyriding do not count" leaves out stealth. `GIVE_BACK_REPLACED_BAR_DESC` and `CONDITION_BARTAKEOVER_REPLACED_DESC` both name forms, stealth and skyriding (`turning-replaced-action-bar-into-bar-takeover.md`).
 -->
 
 A key given back works as if Debind had nothing on it: whatever else is bound to it runs, from WoW's own keybindings or another addon, and nothing if nothing is.

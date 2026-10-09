@@ -17,6 +17,7 @@
 - First paragraph: wrong for a held Self/Focus Cast Key press when an action would run on the plain press (it does nothing whatever the setting). Waiting on the chords-with-no-twin discussion.
 - Item 2: "runs on every press" overstates; an action with *Normal Cast* unticked or *Hover Cast* on *Skip this action* does not. Proposed: "runs on every press it takes part in, so nothing under it is reached on those presses."
 - Action bar slot paragraph: mostly redundant now the default gives the key back. Drop it, or keep only the slot sentence for *Press does nothing*.
+- Action bar slot paragraph, if kept: the *Commands* tab now lists each action bar button twice, as *Action Button* and right after it as *WoW Binding* (`ActionCatalog.lua`), and both reach the slot. Say which row to pick. The comment above the paragraph ("`Use WoW's Own Binding` and every other `Binding Command` become a block") is stale: *WoW Binding* runs its command again.
 - Comments: 16, 18 and 59 below are stale; 20 and 22 belong with item 3 of `keys-given-back.md`; the hover comment before the *Cast Options* paragraph describes the old tier order.
 -->
 
