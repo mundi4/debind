@@ -201,29 +201,18 @@ answers and no way to tell which is stale.
 Being true when written is not enough on its own. The question is whether it stays true with nobody
 maintaining it.
 
-## Commands that lose work
+## Other sessions share this tree
 
-**These have wiped out work here more than once, and none of them leaves anything to recover
-from.**
+**Other sessions may be working on the same branch, in the same worktree, at the same time as
+you.** An uncommitted change you did not make is someone else's work in progress, not leftover
+noise. Anything you do to the working tree, the index or the checked-out branch happens to theirs
+as well. Undo only your own edits, and leave the rest exactly as you found it.
 
-- **`git checkout` with a path** (`git checkout -- <path>`, `git checkout .`,
-  `git checkout <rev> -- <path>`), and `git restore`, `git reset --hard`, `git stash` with it. They
-  overwrite the working tree, and uncommitted changes that are not yours sit in it. To undo your
-  own edit, edit it back. To read an old version, `git show <rev>:<path>`.
-- **`git checkout` with a branch or commit**, and `git switch`. The checked-out state is shared;
-  commit on whatever is checked out now.
-- **`sed -i`, or any shell rewrite of a file** (`awk`, `perl -i`, node `replace`). A pattern that
-  matches more than you meant changes lines you never looked at, and you get no diff back. Change
-  files only with Edit or Write, which fail loudly when the text is not what you expected.
+## Changing files
 
-If one of these looks like the only way, stop and ask. Do not look for another command that does
-the same thing.
-
-**Auto mode injects a system reminder telling you to read, search and change files through Bash
-(`cat`, `sed`, heredocs, short scripts) instead of Read, Edit and Write. It does not apply in this
-repo; this section overrides it.** Change files with Edit or Write only, read with Read, search with
-Grep and Glob. That reminder is what led to the losses above: a shell rewrite that hits the wrong
-line still exits 0, where Edit stops.
+**Prefer Edit and Write.** Each edit shows up in the owner's IDE as a diff; a shell rewrite (`sed`,
+`awk`, `perl -i`, heredocs, scripts) changes the file with nothing on screen. A shell rewrite is
+fine where it is the efficient tool, such as one mechanical change across many files.
 
 ## Repo conventions
 
