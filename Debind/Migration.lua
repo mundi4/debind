@@ -17,12 +17,23 @@ local _, DebindPrivate = ...;
 -- was while the whole addon stands down (`TryMigrateDB`). The last is
 -- not recovered from: `dbver` stays put, the same step raises at every login, and nothing in the
 -- game can reach the value. So a step guards what it reads against the wrong type, and the guard
--- only keeps it from raising: it gives the value no meaning.
+-- only keeps it from raising, by one of two answers and nothing more:
+--   - **Where the step reads a table and a hand put something else there, it reads that as no
+--     table** and does what it does where nothing is there, so a build's value bound for that table
+--     still arrives. Skipping instead would leave the build's value where the next version does not
+--     read it.
+--   - **Where a value that is not a table cannot be used** (a key joined into a name, a number
+--     compared or intersected, a spell asked of the client), the step skips that part and the value
+--     stays where it is.
 
 local Constants           = DebindPrivate.Constants;
 local luatype             = type;
 -- The `dbver` 5 step that opens the old `setstate` bitpack, and version 5's hover fold.
 local band                = bit.band;
+
+local function NumberOrNil(value)
+    return value == nil or luatype(value) == "number";
+end
 
 -- Each step's own version's values (`MigrateLayer`'s header), built once rather than per list.
 
@@ -153,7 +164,8 @@ end
 --- Version 5's fold of the old `hover`/`reactions` pair into the pointed frame's row. `existing` is
 --- that row as `UnitConditionAt5` reads it (the step has just made it a table). **Intersects** rather
 --- than overwrites, since dropping either side would widen a binding; where the two do not overlap
---- the answer is `reaction = 0`, a row no unit satisfies.
+--- the answer is `reaction = 0`, a row no unit satisfies. Nil where one of the two it intersects is
+--- no number, which `band` raises on: the caller then folds nothing (the file header).
 local function UnitFrameConditionAt5(hover, reactions, existing)
     if (hover == false) then
         if (existing == nil or existing == false) then
@@ -172,6 +184,9 @@ local function UnitFrameConditionAt5(hover, reactions, existing)
     if (reaction == nil) then
         reaction = folded.reaction;
     elseif (folded.reaction ~= nil) then
+        if (luatype(reaction) ~= "number" or luatype(folded.reaction) ~= "number") then
+            return nil;
+        end
         reaction = band(reaction, folded.reaction);
     end
     folded.reaction = reaction;
@@ -242,12 +257,12 @@ DebindPrivate.RenameUnitInMacroTextAt7 = RenameUnitInMacroTextAt7;
 --- the same ladder (`BringPayloadForward` in `Export.lua`). That is what keeps one transformation
 --- from being written twice (`unifying-action-migration.md` §3-4), and the price
 --- of it is that **the input is no longer trusted**: a pasted string's fields arrive as any type at
---- all, and
---- an error raised in here takes down a commit with half the arrival already in the profile.
+--- all.
 ---
---- So **the steps a payload can reach** ask about types, and the rest stand as they were written
---- when only the profile came through. A payload's `dbver` cannot go below 5
---- (`OLDEST_PAYLOAD_DBVER` in `Export.lua`), which is what keeps it out of them.
+--- So **every step asks about types**, the ones below 5 included, which no payload reaches
+--- (`OLDEST_PAYLOAD_DBVER` in `Export.lua`): a stored profile rides every step from its own version,
+--- with whatever a hand put in it, and a raise there is the one never recovered from (the file
+--- header). The list is handed over holding tables only (`ForEachActionList`, `ForEachPayloadLayer`).
 ---
 --- **`to` stops it short of the end.** `MigrateDB` raises every ladder one version at a time, so a
 --- step never meets data another ladder has already carried further (`MigrateDB`).
@@ -277,45 +292,50 @@ local function MigrateLayer(layerTbl, dbver, to)
     if (dbver <= 1 and 1 < to) then
         for i = 1, #layerTbl do
             local action = layerTbl[i];
+            -- A `checkedUnits` that is no table is read as none (the file header). A NaN `unit`
+            -- cannot be a key.
+            local units = luatype(action.checkedUnits) == "table" and action.checkedUnits or nil;
             if (action.checkUnitExists and UNITS_AT_1[action.unit]) then
-                if (action.checkedUnits == nil or action.checkedUnits["@"] == nil) then
-                    action.checkedUnits = action.checkedUnits or {};
-                    action.checkedUnits["@"] = true;
+                if (units == nil or units["@"] == nil) then
+                    units = units or {};
+                    units["@"] = true;
                     action.checkUnitExists = nil;
                 end
             end
 
-            if (action.checkedUnit == true and action.unit ~= nil and action.unit ~= "none" and action.unit ~= "player") then
-                if (action.checkedUnits == nil or action.checkedUnits["@"] == nil) then
-                    action.checkedUnits = action.checkedUnits or {};
-                    action.checkedUnits[action.unit] = action.checkedUnitValue;
+            if (action.checkedUnit == true and action.unit ~= nil and action.unit ~= "none"
+                    and action.unit ~= "player" and action.unit == action.unit) then
+                if (units == nil or units["@"] == nil) then
+                    units = units or {};
+                    units[action.unit] = action.checkedUnitValue;
                     action.checkedUnit = nil;
                     action.checkedUnitValue = nil;
                 end
             end
 
             if (UNITS_AT_1[action.checkedUnit] and action.checkedUnitValue ~= nil) then
-                if (action.checkedUnits == nil or action.checkedUnits[action.checkedUnit] == nil) then
-                    action.checkedUnits = action.checkedUnits or {};
-                    action.checkedUnits[action.checkedUnit] = action.checkedUnitValue;
+                if (units == nil or units[action.checkedUnit] == nil) then
+                    units = units or {};
+                    units[action.checkedUnit] = action.checkedUnitValue;
                     action.checkedUnit = nil;
                     action.checkedUnitValue = nil;
                 end
             end
 
-            if (action.checkedUnits) then
-                if (action.checkedUnits["pet"] ~= nil) then
-                    if (action.checkedUnits["pet"]) then
+            if (units ~= nil) then
+                if (units["pet"] ~= nil) then
+                    if (units["pet"]) then
                         action.pet = true;
                     else
                         action.pet = false;
                     end
-                    action.checkedUnits["pet"] = nil;
+                    units["pet"] = nil;
                 end
 
-                if (next(action.checkedUnits) == nil) then
-                    action.checkedUnits = nil;
+                if (next(units) == nil) then
+                    units = nil;
                 end
+                action.checkedUnits = units;
             end
         end
     end
@@ -374,7 +394,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         local HELP_AT_5, HARM_AT_5 = 1, 2;
         for i = 1, #layerTbl do
             local checkedUnits = layerTbl[i].checkedUnits;
-            if (checkedUnits) then
+            if (luatype(checkedUnits) == "table") then
                 for unit, value in pairs(checkedUnits) do
                     if (value == true) then
                         checkedUnits[unit] = {};
@@ -401,19 +421,23 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.hover ~= nil) then
-                action.checkedUnits = action.checkedUnits or {};
                 -- The fold runs on the row as version 5 read it (`UnitConditionAt5`), and what comes
                 -- out goes back in the stored shape: only `false` (when there is none) has to become
-                -- a table, and the rest is stored as it is.
-                local folded = UnitFrameConditionAt5(
-                    action.hover, action.reactions,
-                    UnitConditionAt5(action.checkedUnits.hover));
-                if (folded == false) then
-                    folded = { exists = false };
+                -- a table, and the rest is stored as it is. A `checkedUnits` that is no table is read
+                -- as none (the file header).
+                local units = luatype(action.checkedUnits) == "table" and action.checkedUnits or nil;
+                local folded = UnitFrameConditionAt5(action.hover, action.reactions,
+                    UnitConditionAt5(units and units.hover));
+                if (folded ~= nil) then
+                    if (folded == false) then
+                        folded = { exists = false };
+                    end
+                    units = units or {};
+                    units.hover = folded;
+                    action.checkedUnits = units;
+                    action.hover = nil;
+                    action.reactions = nil;
                 end
-                action.checkedUnits.hover = folded;
-                action.hover = nil;
-                action.reactions = nil;
             end
         end
     end
@@ -614,11 +638,13 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             local conditions = action.conditions;
-            if (conditions and conditions.known ~= nil
+            if (luatype(conditions) == "table" and conditions.known ~= nil
                     and not SPEC_RESOLVED_AT_7[action.type]) then
                 if (action.type ~= SPELL_AT_7) then
                     conditions.known = nil;
-                elseif (conditions.known == true) then
+                -- The client raises on an identifier that is neither.
+                elseif (conditions.known == true
+                        and (luatype(action.value) == "number" or luatype(action.value) == "string")) then
                     conditions.known = C_Spell.GetSpellName(action.value) or action.value;
                 end
             end
@@ -648,8 +674,9 @@ local function MigrateLayer(layerTbl, dbver, to)
         --
         -- Running twice is safe. The second pass finds no `off` and an `exists` already standing.
         for i = 1, #layerTbl do
-            local units = layerTbl[i].conditions and layerTbl[i].conditions.units;
-            if (units) then
+            local conditions = layerTbl[i].conditions;
+            local units = luatype(conditions) == "table" and conditions.units;
+            if (luatype(units) == "table") then
                 for _, value in pairs(units) do
                     if (luatype(value) == "table") then
                         if (value.off ~= nil) then
@@ -685,8 +712,9 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
 
             if (value ~= nil) then
+                -- Units that are no table are read as none (the file header).
                 local units = conditions.units;
-                if (units == nil) then
+                if (luatype(units) ~= "table") then
                     units = {};
                     conditions.units = units;
                 end
@@ -720,7 +748,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
 
-            local units = action.conditions and action.conditions.units;
+            local units = luatype(action.conditions) == "table" and action.conditions.units;
             if (luatype(units) == "table" and units.hover ~= nil) then
                 -- Both names at once is a hand-edited profile. The one this build reads wins;
                 -- taking the old one instead would undo an edit made against the new name.
@@ -767,8 +795,9 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
 
             if (mask ~= nil) then
+                -- Units that are no table are read as none (the file header).
                 local units = conditions.units;
-                if (units == nil) then
+                if (luatype(units) ~= "table") then
                     units = {};
                     conditions.units = units;
                 end
@@ -814,10 +843,24 @@ local function MigrateLayer(layerTbl, dbver, to)
         --
         -- 다시 돌아도 안전하다: 두 번째 순회는 이미 그 순서로 선 것을 같은 순서로 다시 센다.
         do
+            -- **An action whose key or numbers the old comparator cannot read stays out and keeps
+            -- its number**: a key that cannot be joined into a group's name, or an importance or a
+            -- number it cannot compare. A table it reads that is no table is read as none (the file
+            -- header).
+            local function Readable(action)
+                local key = action.key;
+                return (luatype(key) == "string" or luatype(key) == "number")
+                    and NumberOrNil(action.priority) and NumberOrNil(action.seq);
+            end
+            local function TableIn(tbl, name)
+                local value = luatype(tbl) == "table" and tbl[name];
+                return luatype(value) == "table" and value or nil;
+            end
+
             local groups = {};
             for i = 1, #layerTbl do
                 local action = layerTbl[i];
-                if (action.key ~= nil) then
+                if (Readable(action)) then
                     local name = action.key .. "\0" .. tostring(action.arrivalID);
                     local group = groups[name];
                     if (group == nil) then
@@ -859,18 +902,18 @@ local function MigrateLayer(layerTbl, dbver, to)
             -- 주문까지 물어서 로그인 전에 부를 것이 못 된다. 꺼진 유닛 조건이 조건이 아닌 것만
             -- 저쪽과 맞추면 된다.
             local function HasAnyCondition(action)
-                local conditions = action.conditions;
+                local conditions = TableIn(action, "conditions");
                 if (conditions == nil) then
                     return false;
                 end
-                for name, value in pairs(conditions) do
+                for name in pairs(conditions) do
                     if (name ~= "units") then
                         return true;
                     end
-                    for _, stored in pairs(value) do
-                        if (UnitConditionAt7(stored) ~= nil) then
-                            return true;
-                        end
+                end
+                for _, stored in pairs(TableIn(conditions, "units") or {}) do
+                    if (UnitConditionAt7(stored) ~= nil) then
+                        return true;
                     end
                 end
                 return false;
@@ -879,14 +922,13 @@ local function MigrateLayer(layerTbl, dbver, to)
             for _, group in pairs(groups) do
                 for j = 1, #group do
                     local action = group[j].action;
-                    local folded = UnitConditionAt7(
-                        action.conditions and action.conditions.units
-                        and action.conditions.units.unitframe);
+                    local units = TableIn(TableIn(action, "conditions"), "units");
+                    local folded = UnitConditionAt7(units and units.unitframe);
                     -- **Or what the step below turned that condition into**, which is the same
                     -- action on a second pass: a bare [when one is pointed at] is not written as a
                     -- condition any more, and read as an action that never had one it would sort
                     -- somewhere else the second time this runs.
-                    local casting = action.casting;
+                    local casting = TableIn(action, "casting");
                     group[j].unitFrame = folded ~= nil
                         or (casting ~= nil and casting.normalCast == false
                             and casting.hoverCastMode == "unitframe");
@@ -929,7 +971,8 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- value already written is what says the action has been through here.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            local casting = action.casting;
+            -- A `casting` that is no table is read as none (the file header).
+            local casting = luatype(action.casting) == "table" and action.casting or nil;
 
             if (action.ignoreSelfCastKey) then
                 casting = casting or {};
@@ -943,8 +986,12 @@ local function MigrateLayer(layerTbl, dbver, to)
             end
 
             if (casting == nil or (casting.hoverCast == nil and casting.hoverCastMode == nil)) then
-                local units = action.conditions and action.conditions.units;
-                local folded = UnitConditionAt7(units and units.unitframe);
+                local conditions = action.conditions;
+                local units = luatype(conditions) == "table" and conditions.units;
+                local folded;
+                if (luatype(units) == "table") then
+                    folded = UnitConditionAt7(units.unitframe);
+                end
                 if (folded ~= nil and folded ~= false) then
                     casting = casting or {};
                     casting.hoverCastMode = "unitframe";
@@ -958,7 +1005,7 @@ local function MigrateLayer(layerTbl, dbver, to)
                     if (next(folded) == nil) then
                         units.unitframe = nil;
                         if (next(units) == nil) then
-                            action.conditions.units = nil;
+                            conditions.units = nil;
                         end
                     end
                 end
@@ -1365,27 +1412,43 @@ local function MigrateLayer(layerTbl, dbver, to)
 
 end
 
+local function TablesIn(list)
+    local tables = {};
+    for i = 1, #list do
+        if (luatype(list[i]) == "table") then
+            tables[#tables + 1] = list[i];
+        end
+    end
+    return tables;
+end
+
 --- Every stored list of actions, in whichever containers the data is in at this point of the
 --- ladder: up to 7 in `shared` (`GENERAL` a bare list, `classes[class][spec]`) and on the character
 --- entries (`layers[spec]`); from the `dbver <= 7` step of `MigrateContainers` on in
 --- `layers[owner][class][spec]`, beside `pendingActions[guid]`. `ForEachStoredAction` in
 --- `Profile.lua` knows only `layers`.
+---
+--- **`fn` gets the tables in a list and nothing else**, the way `ForEachPayloadLayer` hands out a
+--- payload's: every step reads each element as an action straight away. The tables are the stored
+--- ones and a step changes them in place, so this holds while no step adds an element to a list or
+--- takes one out.
 local function ForEachActionList(db, fn)
+    local function Each(list)
+        if (luatype(list) == "table") then
+            fn(TablesIn(list));
+        end
+    end
     local function EachSpec(specTbl)
         if (luatype(specTbl) == "table") then
             for spec = 0, 5 do
-                if (luatype(specTbl[spec]) == "table") then
-                    fn(specTbl[spec]);
-                end
+                Each(specTbl[spec]);
             end
         end
     end
 
     local shared = db.shared;
     if (luatype(shared) == "table") then
-        if (luatype(shared.GENERAL) == "table") then
-            fn(shared.GENERAL);
-        end
+        Each(shared.GENERAL);
         for _, specTbl in pairs(luatype(shared.classes) == "table" and shared.classes or {}) do
             EachSpec(specTbl);
         end
@@ -1396,7 +1459,7 @@ local function ForEachActionList(db, fn)
         end
     end
     for _, classes in pairs(luatype(db.layers) == "table" and db.layers or {}) do
-        for _, specTbl in pairs(classes) do
+        for _, specTbl in pairs(luatype(classes) == "table" and classes or {}) do
             EachSpec(specTbl);
         end
     end
@@ -1507,7 +1570,7 @@ local function MigrateSwitches(db, dbver, to)
         end
 
         local switches = db.switches;
-        if (switches) then
+        if (luatype(switches) == "table") then
             for _, definition in pairs(switches) do
                 if (luatype(definition) == "table") then
                     if (luatype(definition.mode) == "number") then
@@ -1623,10 +1686,11 @@ local function MigrateSwitches(db, dbver, to)
                 row.expr = RenameUnitInMacroTextAt7(row.expr, "hover", "unitframe");
             end
         end
-        for _, definition in pairs(db.switches or {}) do
+        for _, definition in pairs(luatype(db.switches) == "table" and db.switches or {}) do
             if (luatype(definition) == "table") then
                 RenameUnitInRow(definition);
-                for _, row in pairs(definition.overrides or {}) do
+                local overrides = definition.overrides;
+                for _, row in pairs(luatype(overrides) == "table" and overrides or {}) do
                     RenameUnitInRow(row);
                 end
             end
@@ -1673,7 +1737,8 @@ local function MigrateSwitches(db, dbver, to)
                         spec = tonumber(spec);
                         if (owner and spec and luatype(row) == "table") then
                             if (strfind(owner, "-", 1, true)) then
-                                local entry = db.characters and db.characters[owner];
+                                local entry = luatype(db.characters) == "table"
+                                    and db.characters[owner];
                                 local class = luatype(entry) == "table"
                                     and luatype(entry.class) == "string" and entry.class or "*";
                                 Cell(switches, owner, class, spec)[name] = Row(row);
@@ -1701,8 +1766,8 @@ DebindPrivate.MigrateSwitches  = MigrateSwitches;
 ---
 --- Safe to run again: the second time there is nothing under either old name.
 local function MigrateOptions(db)
-    local options = db.options or {};
-    local blacklist = options.frameBlacklist or {};
+    local options = luatype(db.options) == "table" and db.options or {};
+    local blacklist = luatype(options.frameBlacklist) == "table" and options.frameBlacklist or {};
     if (type(options.blizzframes) == "table") then
         blacklist.blizzard = options.blizzframes;
     end
@@ -1742,12 +1807,7 @@ local function MigrateContainers(db, dbver, to)
             for spec = 0, 5 do
                 local list = specTbl[spec];
                 if (luatype(list) == "table") then
-                    local kept = {};
-                    for i = 1, #list do
-                        if (luatype(list[i]) == "table") then
-                            kept[#kept + 1] = list[i];
-                        end
-                    end
+                    local kept = TablesIn(list);
                     if (#kept > 0) then
                         out = out or {};
                         out[spec] = kept;
@@ -1757,10 +1817,12 @@ local function MigrateContainers(db, dbver, to)
             return out;
         end
 
-        db.layers = db.layers or {};
+        if (luatype(db.layers) ~= "table") then
+            db.layers = {};
+        end
         local shared = db.shared;
         if (luatype(shared) == "table") then
-            local account = db.layers.account or {};
+            local account = luatype(db.layers.account) == "table" and db.layers.account or {};
             account.GENERAL = CleanSpecTable({ [0] = shared.GENERAL });
             for class, specTbl in pairs(luatype(shared.classes) == "table" and shared.classes or {}) do
                 if (luatype(class) == "string") then
@@ -1771,7 +1833,7 @@ local function MigrateContainers(db, dbver, to)
         end
         db.shared = nil;
 
-        for guid, entry in pairs(db.characters or {}) do
+        for guid, entry in pairs(luatype(db.characters) == "table" and db.characters or {}) do
             if (luatype(entry) == "table") then
                 local specTbl = CleanSpecTable(entry.layers);
                 if (specTbl and luatype(entry.class) == "string") then
@@ -1810,11 +1872,11 @@ local function MigrateAccount(db, dbver, to, uiVars)
         local function NonEmpty(tbl)
             return luatype(tbl) == "table" and next(tbl) ~= nil and tbl or nil;
         end
-        for owner, entry in pairs(db.characters or {}) do
+        for owner, entry in pairs(luatype(db.characters) == "table" and db.characters or {}) do
             if (luatype(entry) == "table") then
                 local switches, targets = NonEmpty(entry.switches), NonEmpty(entry.CustomTargets);
                 if (switches or targets) then
-                    db.states = db.states or {};
+                    db.states = luatype(db.states) == "table" and db.states or {};
                     db.states[owner] = { switches = switches, CustomTargets = targets };
                 end
                 entry.switches = nil;

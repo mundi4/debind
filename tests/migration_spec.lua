@@ -3746,5 +3746,255 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
+    ---------------------------------------------------------------------------
+    -- No step raises on a value a hand put in
+    --
+    -- **What the value becomes is not asked**: that is `SanitizeAction`'s, after the ladder. What is
+    -- asked is that no step raises on it, since on a stored profile that raise comes back at every
+    -- login (`Migration.lua`'s header), and that an action a build of that version wrote, beside it,
+    -- comes out the way it does on its own.
+    ---------------------------------------------------------------------------
+
+    --- An action of version `dbver` that the steps from there move. It goes first in its list, so the
+    --- `dbver <= 2` numbering hands it the same `seq` whatever follows it.
+    local function Written(dbver)
+        if (dbver <= 4) then
+            return { type = "spell", value = 9, key = "F9", combat = true, checkedUnits = { target = "help" } };
+        elseif (dbver == 5) then
+            return { type = "spell", value = 9, key = "F9", combat = true,
+                checkedUnits = { target = { reaction = 1 } } };
+        elseif (dbver == 6) then
+            return { type = "spell", value = 9, key = "F9", seq = 1, ignoreSelfCastKey = true,
+                conditions = { pet = true, units = { target = {}, hover = {} } } };
+        end
+        return { type = "spell", value = 9, key = "F9", seq = 1, pinRank = true,
+            conditions = { specialbar = true, units = { target = { exists = true } } } };
+    end
+
+    --- `C_Spell.GetSpellName` refusing what its declaration excludes. The client declares
+    --- `spellIdentifier` a number or a string and not nilable (`SpellDocumentation.lua`); the shim
+    --- answers nil for anything, which would hide a step handing it a table.
+    local function WithDeclaredSpellName(fn)
+        local real = C_Spell.GetSpellName;
+        C_Spell.GetSpellName = function(identifier)
+            if (type(identifier) ~= "number" and type(identifier) ~= "string") then
+                error("bad argument #1 to 'GetSpellName'", 2);
+            end
+            return real(identifier);
+        end;
+        local ok, err = pcall(fn);
+        C_Spell.GetSpellName = real;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    local function Broken(fields)
+        local action = { type = "spell", value = 1, key = "F1", seq = 1 };
+        for k, v in pairs(fields) do
+            action[k] = v;
+        end
+        return action;
+    end
+
+    --- `{ dbver, what, { actions } }`: each list rides the layer ladder from `dbver` to the end behind
+    --- `Written(dbver)`. Two actions on one key are what the `dbver <= 6` renumbering sorts.
+    local HAND_MADE_ACTIONS = {
+        { 1, "a checkedUnits that is no table", { Broken({ checkUnitExists = true, unit = "target", checkedUnits = 5 }) } },
+        { 1, "a checkedUnits that is a string", { Broken({ checkedUnit = "target", checkedUnitValue = true,
+            checkedUnits = "target" }) } },
+        { 1, "a unit that is NaN", { Broken({ checkedUnit = true, unit = 0 / 0, checkedUnitValue = true }) } },
+        { 4, "a checkedUnits that is no table", { Broken({ checkedUnits = 5 }) } },
+        { 4, "the hover pair beside a checkedUnits that is a string", { Broken({ hover = true, checkedUnits = "x" }) } },
+        { 4, "the hover pair with reactions that are no number", { Broken({ hover = true, reactions = "x",
+            checkedUnits = { hover = "help" } }) } },
+        { 4, "the hover pair onto a row whose reaction is no number", { Broken({ hover = true, reactions = 1,
+            checkedUnits = { hover = { reaction = "x" } } }) } },
+        { 6, "conditions that are no table", { Broken({ conditions = 5 }) } },
+        { 6, "a known spell whose value is no id or name", { Broken({ value = {}, conditions = { known = true } }) } },
+        { 6, "units that are no table", { Broken({ conditions = { units = 5 } }) } },
+        { 6, "the pet condition beside units that are a string", { Broken({ conditions = { pet = true, units = "x" } }) } },
+        { 6, "the frame mask beside units that are a string", { Broken({ conditions = { frameTypes = 4, units = "x" } }) } },
+        { 6, "a key that is no name", { Broken({ key = true }) } },
+        { 6, "a key that is a table", { Broken({ key = {} }) } },
+        { 6, "an importance that is no number", { Broken({ priority = "high" }), Broken({}) } },
+        { 6, "a seq that is no number", { Broken({ seq = {} }), Broken({}) } },
+        { 6, "conditions that are a string, on a key with another action", { Broken({ conditions = "x" }), Broken({}) } },
+        { 6, "units that are a string, on a key with another action", { Broken({ conditions = { units = "x" } }),
+            Broken({}) } },
+        { 6, "casting that is no table, on a key with another action", { Broken({ casting = 5 }), Broken({}) } },
+        { 6, "casting that is a string beside an old cast key box", { Broken({ casting = "x", ignoreSelfCastKey = true }) } },
+        -- On the written action's own key, where the renumbering would sort the two together.
+        { 6, "an importance that is no number, on the written action's key", { Broken({ key = "F9", priority = "high" }) } },
+        { 6, "a seq that is no number, on the written action's key", { Broken({ key = "F9", seq = {} }) } },
+        { 6, "conditions that are a string, on the written action's key", { Broken({ key = "F9", conditions = "x" }) } },
+        { 6, "casting that is no table, on the written action's key", { Broken({ key = "F9", casting = 5 }) } },
+    };
+
+    test("no layer step raises on an action value a hand put in", function()
+        local failed = {};
+        for _, case in ipairs(HAND_MADE_ACTIONS) do
+            local dbver, what, broken = case[1], case[2], case[3];
+            local alone = { Written(dbver) };
+            DebindPrivate.MigrateLayer(alone, dbver);
+            local list = { Written(dbver) };
+            for _, action in ipairs(broken) do
+                list[#list + 1] = action;
+            end
+            local ok, err = pcall(WithDeclaredSpellName, function()
+                DebindPrivate.MigrateLayer(list, dbver);
+            end);
+            if (not ok) then
+                failed[#failed + 1] = ("from %d, %s: raised %s"):format(dbver, what, tostring(err));
+            elseif (not same(list[1], alone[1])) then
+                failed[#failed + 1] = ("from %d, %s: the written action came out %s, on its own %s")
+                    :format(dbver, what, Show(list[1]), Show(alone[1]));
+            end
+        end
+        check(#failed == 0, table.concat(failed, "\n    "));
+    end);
+
+    local function Units(a)
+        local units = type(a.conditions) == "table" and a.conditions.units;
+        return type(units) == "table" and units or nil;
+    end
+
+    --- `{ dbver, what, broken, clean, where, to }`: `broken` carries a value a build of that version
+    --- wrote beside a hand-made one, in the table it moves into or next to it, and `clean` the same
+    --- without the hand-made one. `where` reads where the build's value lands once the ladder reaches
+    --- `to`.
+    local BESIDE_A_HAND_MADE_VALUE = {
+        -- `band` is never reached with the old pair off, so the reactions beside it stop nothing.
+        { 4, "the hover pair turned off, beside reactions that are no number",
+            { hover = false, reactions = "x" },
+            { hover = false },
+            function(a) return type(a.checkedUnits) == "table" and a.checkedUnits.hover or nil; end, 5 },
+        { 1, "a unit check, into a checkedUnits that is no table",
+            { checkUnitExists = true, unit = "target", checkedUnits = 5 },
+            { checkUnitExists = true, unit = "target" },
+            function(a) return Units(a) and Units(a)["@"]; end },
+        -- Stopped at 5: left at the top, the pair would be folded by the 7 -> 8 step's old-shape pass.
+        { 4, "the hover pair, into a checkedUnits that is a string",
+            { hover = true, reactions = 1, checkedUnits = "x" },
+            { hover = true, reactions = 1 },
+            function(a) return type(a.checkedUnits) == "table" and a.checkedUnits.hover or nil; end, 5 },
+        { 5, "a condition, into conditions that are no table",
+            { combat = true, conditions = 5 },
+            { combat = true },
+            function(a) return type(a.conditions) == "table" and a.conditions.combat or nil; end },
+        { 6, "the pet condition, into units that are a string",
+            { conditions = { pet = true, units = "x" } },
+            { conditions = { pet = true } },
+            function(a) return Units(a) and Units(a).pet; end },
+        { 6, "the frame mask, into units that are a string",
+            { conditions = { frameTypes = 4, units = "x" } },
+            { conditions = { frameTypes = 4 } },
+            function(a) return Units(a) and Units(a).unitframe; end },
+        { 6, "an old cast key box, into casting that is a string",
+            { casting = "x", ignoreSelfCastKey = true },
+            { ignoreSelfCastKey = true },
+            function(a) return type(a.casting) == "table" and a.casting.selfCastKey or nil; end },
+    };
+
+    -- **The build's value is the one asked about**: skipping its move for a hand-made value it does
+    -- not need would change what the step does to data a build wrote (`Migration.lua`'s header). Each
+    -- is held to where the same value lands with the hand-made one taken away.
+    test("a value a build wrote still moves beside a value a hand put in", function()
+        local failed = {};
+        for _, case in ipairs(BESIDE_A_HAND_MADE_VALUE) do
+            local dbver, what, broken, clean, where, to = case[1], case[2], case[3], case[4], case[5], case[6];
+            local cleanList, brokenList = { Broken(clean) }, { Broken(broken) };
+            DebindPrivate.MigrateLayer(cleanList, dbver, to);
+            local ok, err = pcall(DebindPrivate.MigrateLayer, brokenList, dbver, to);
+            local want = where(cleanList[1]);
+            if (want == nil) then
+                failed[#failed + 1] = ("from %d, %s: the premise broke, the value went nowhere on its own: %s")
+                    :format(dbver, what, Show(cleanList[1]));
+            elseif (not ok) then
+                failed[#failed + 1] = ("from %d, %s: raised %s"):format(dbver, what, tostring(err));
+            elseif (not same(where(brokenList[1]), want)) then
+                failed[#failed + 1] = ("from %d, %s: landed as %s, on its own as %s")
+                    :format(dbver, what, Show(where(brokenList[1])), Show(want));
+            end
+        end
+        check(#failed == 0, table.concat(failed, "\n    "));
+    end);
+
+    --- A stored profile at `dbver` with `Written(dbver)` where that version kept the account's
+    --- general layer.
+    local function StoredAt(dbver)
+        if (dbver <= 6) then
+            return { dbver = dbver, shared = { GENERAL = { Written(dbver) } }, characters = {}, layers = {} };
+        end
+        local profile = ProfileAt7();
+        profile.shared.GENERAL = { Written(7) };
+        return profile;
+    end
+
+    --- `{ dbver, what, fn(profile) }`: `fn` puts the hand-made value into a profile `StoredAt(dbver)`.
+    local HAND_MADE_PROFILES = {
+        { 1, "a list element that is no table", function(db)
+            db.shared.GENERAL[2] = 5;
+        end },
+        { 7, "a pending list element that is no table", function(db)
+            db.pendingActions = { [ALT] = { character = { [0] = { 5 } } } };
+        end },
+        { 7, "an owner under layers that is no table", function(db)
+            db.layers = { ["Player-1-00000001"] = 5 };
+        end },
+        { 7, "layers that are no table", function(db)
+            db.layers = 5;
+        end },
+        { 7, "an account under layers that is no table", function(db)
+            db.layers = { account = 5 };
+        end },
+        { 7, "characters that are no table", function(db)
+            db.characters = 5;
+            db.switches = { ["$a"] = { mode = "manual", overrides = { ["Alt-Realm:0"] = { mode = "expr" } } } };
+        end },
+        { 7, "states that are no table", function(db)
+            db.states = 5;
+        end },
+        { 6, "options that are no table", function(db)
+            db.options = 5;
+        end },
+        { 6, "an excluded frame list that is no table", function(db)
+            db.options = { frameBlacklist = 5, blizzframes = { player = false } };
+        end },
+        { 5, "old switch definitions that are no table", function(db)
+            db.customStates = 5;
+        end },
+        { 6, "switch definitions that are no table", function(db)
+            db.switches = 5;
+        end },
+        { 6, "a switch's overrides that are no table", function(db)
+            db.switches = { ["$a"] = { mode = "manual", overrides = 5 } };
+        end },
+    };
+
+    test("no step of the stored profile's ladder raises on a value a hand put in", function()
+        local failed = {};
+        for _, case in ipairs(HAND_MADE_PROFILES) do
+            local dbver, what, plant = case[1], case[2], case[3];
+            local alone = StoredAt(dbver);
+            DebindPrivate.MigrateDB(alone);
+            local profile = StoredAt(dbver);
+            plant(profile);
+            local ok, err = pcall(DebindPrivate.MigrateDB, profile);
+            if (not ok) then
+                failed[#failed + 1] = ("from %d, %s: raised %s"):format(dbver, what, tostring(err));
+            else
+                local want = alone.layers.account.GENERAL[0];
+                local got = type(profile.layers) == "table" and type(profile.layers.account) == "table"
+                    and profile.layers.account.GENERAL and profile.layers.account.GENERAL[0];
+                if (not same(got, want)) then
+                    failed[#failed + 1] = ("from %d, %s: the written layer came out %s, on its own %s")
+                        :format(dbver, what, Show(got), Show(want));
+                end
+            end
+        end
+        check(#failed == 0, table.concat(failed, "\n    "));
+    end);
+
     return T;
 end

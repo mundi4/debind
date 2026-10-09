@@ -72,10 +72,8 @@ local PAYLOAD_VERSION    = 3;
 --- **5 is the version sharing shipped on.** v1 came out of 3.2, whose `DB_VERSION` was 5, so no
 --- string this addon ever made holds an action shape older than that.
 ---
---- **The floor is what lets `MigrateLayer` be called as it stands.** That ladder's steps at 4 and
---- below were written while only the profile came through them and take their fields to be the
---- type they should be. A hand-written `dbver = 1` reaching them raises, and a paste is not a place
---- that may raise.
+--- **A lower one is refused rather than carried up the steps below 5.** A string carrying one
+--- was written by a hand, and no string this addon made needs those steps.
 local OLDEST_PAYLOAD_DBVER = 5;
 
 --- How the bytes are packed, which is a **separate** number from `PAYLOAD_VERSION` on purpose. Swapping
