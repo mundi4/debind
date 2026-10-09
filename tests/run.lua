@@ -48,11 +48,14 @@ local updateGolden = false;
 --- (`going-headless-outside-the-ui.md` §10-2). **This has to be known before the addon is loaded**,
 --- which is why the argument walk sits up here rather than beside the spec list.
 local shipped = false;
+--- Run the specs marked `slow` as well (the spec list says which and why).
+local all = false;
 for i = 1, #(arg or {}) do
     if (arg[i] == "--bench") then bench = true; end
     if (arg[i] == "--bench-beat") then benchBeat = true; end
     if (arg[i] == "--update-golden") then updateGolden = true; end
     if (arg[i] == "--shipped") then shipped = true; end
+    if (arg[i] == "--all") then all = true; end
 end
 
 local loadOpts = { shipped = shipped, readFile = readFile };
@@ -314,11 +317,15 @@ end
 ---
 --- The order is still worth keeping readable: cheapest first, and the ones that run a whole
 --- rebuild after the ones that measure a single function.
+---
+--- **`slow` runs only under `--all`.** Each sweeps a cross product, and on 2026-10-10 the two took
+--- 7.6 of a run's 10.8 seconds (judgment 6.4, solver 1.2) while a change was being checked against
+--- one spec that needed neither. CI passes `--all`.
 local specs = {
     -- The shim itself. It stands in for the client, so what it gets wrong every spec below
     -- inherits (`wow_shim.lua`, the `CopyTable` comment).
     { name = "format", path = root .. "/format_spec.lua" },
-    { name = "solver", path = root .. "/solver_spec.lua" },
+    { name = "solver", path = root .. "/solver_spec.lua", slow = true },
     { name = "ordering", path = root .. "/ordering_spec.lua" },
     { name = "helptext", path = root .. "/helptext_spec.lua" },
     { name = "macrotext", path = root .. "/macrotext_spec.lua" },
@@ -365,7 +372,7 @@ local specs = {
     { name = "macroparse", path = root .. "/macroparse_spec.lua" },
     { name = "eval", path = root .. "/eval_spec.lua" },
     { name = "castchord", path = root .. "/castchord_spec.lua" },
-    { name = "judgment", path = root .. "/judgment_spec.lua" },
+    { name = "judgment", path = root .. "/judgment_spec.lua", slow = true },
     { name = "judgmentloop", path = root .. "/judgmentloop_spec.lua" },
     { name = "beatsignal", path = root .. "/beatsignal_spec.lua" },
     { name = "keymap", path = root .. "/keymap_spec.lua" },
@@ -410,7 +417,7 @@ ctx.CanonicalFindings = canonical.Findings;
 
 local totalPassed, totalFailures = 0, {};
 
-for _, spec in ipairs(specs) do
+local function RunSpec(spec)
     local chunk = assert(loadfile(spec.path));
     shim.resetWorld(spec.client);
     require("wow_frames").reset();
@@ -431,6 +438,15 @@ for _, spec in ipairs(specs) do
     end
 end
 
+local skipped = {};
+for _, spec in ipairs(specs) do
+    if (spec.slow and not all) then
+        skipped[#skipped + 1] = spec.name;
+    else
+        RunSpec(spec);
+    end
+end
+
 -- **A global nothing answered is a failure of the run, not of one spec.** Which spec touched it is
 -- not the useful question -- the value was nil for every one of them, and what each of those then
 -- certified was the addon running against a client that does not exist. `SLASH_CAST1` is the case
@@ -447,6 +463,9 @@ for _, f in ipairs(totalFailures) do
 end
 
 io.write(("\n%d passed, %d failed\n"):format(totalPassed, #totalFailures));
+if (#skipped > 0) then
+    io.write(("not run (slow, --all runs them): %s\n"):format(table.concat(skipped, ", ")));
+end
 
 if (#totalFailures > 0) then
     os.exit(1);

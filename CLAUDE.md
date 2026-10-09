@@ -27,7 +27,8 @@ key covers. WoW's own keybindings are never touched — see `README.md` for the 
 
 ```
 npm test                      # headless Lua specs, twice: the working tree, then --shipped
-lua5.1 tests/run.lua          # one of those passes on its own (CI runs both)
+npm run test:all              # the same with the slow specs (judgment, solver); CI runs this
+lua5.1 tests/run.lua          # one of those passes on its own (--all adds the slow specs)
 lua5.1 tests/run.lua --bench  # solver benchmark
 npm run lint                  # luacheck
 npm run check                 # lint + test + every static check (run this before reporting done)
@@ -42,6 +43,10 @@ Individual static checks: `check:locales`, `check:templates`, `check:xml`, `chec
 
 There is no filter flag for a single spec — comment out entries in `tests/run.lua`'s spec list, or
 run the one file through the shim yourself.
+
+**The slow specs run only under `--all`**, and a plain run says which it left out. Run them when the
+change reaches what they sweep: `judgment` for `Judgment.lua`, `Rebuild/JudgeLoop.lua` or the
+press's `EVAL_SNIPPET`, which it holds a key's judgment item against; `solver` for `Solver.lua`.
 
 **"link ptr to this worktree" means `npm run link -- ptr .`** (`.` is the worktree the command runs
 in; `main` is the main worktree). Argument forms and the rest of the local setup are in

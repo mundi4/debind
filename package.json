@@ -4,6 +4,7 @@
   "description": "Local test runner and static checks for the Debind addon (needs lua5.1 on PATH)",
   "scripts": {
     "test": "lua5.1 tests/run.lua && lua5.1 tests/run.lua --shipped",
+    "test:all": "lua5.1 tests/run.lua --all && lua5.1 tests/run.lua --all --shipped",
     "lint": "node tools/luacheck.js",
     "check:templates": "node tools/check-templates.js",
     "check:locales": "node tools/check-locales.js",
