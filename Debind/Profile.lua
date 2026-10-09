@@ -2529,86 +2529,12 @@ DebindPrivate.DropFieldsTheTypeCannotHold = DropFieldsTheTypeCannotHold;
 
 function DebindPrivate.CleanUpDB()
     for _, layer in pairs(LayerArray) do
-        local actions = layer.actions;
-        for i = #actions, 1, -1 do
-            if (not DebindPrivate.SanitizeAction(actions[i])) then
-                tremove(actions, i);
-            end
-        end
-
-        -- Per group, the numbers it has already used. The net below reads it to find **duplicates**.
-        --
-        -- **A group is `(key, arrivalID)`, so the tally is keyed by both.** By key alone the
-        -- reader's own set on `CTRL-1` and an arrival that came in on `CTRL-1` share one tally, and
-        -- every number the second of them holds reads as a duplicate of the first's -- the net then
-        -- renumbers a group that nothing was wrong with, on every logout.
-        local seenSeq = {};
-        -- Per group, the next number to hand out. Opened at that group's highest plus one the first
-        -- time it is needed -- almost no group ever trips the net, so counting the whole layer up
-        -- front would be wasted on nearly all of them.
-        local nextSeq = {};
-        local function NextSeqFor(groupID, key, arrivalID)
-            local seq = nextSeq[groupID];
-            if (seq == nil) then
-                seq = 1;
-                for _, other in layer:Enumerate() do
-                    if (other.key == key and other.arrivalID == arrivalID
-                            and other.seq and other.seq >= seq) then
-                        seq = other.seq + 1;
-                    end
-                end
-            end
-            nextSeq[groupID] = seq + 1;
-            return seq;
-        end
+        DebindPrivate.SanitizeLayerActions(layer.actions);
 
         for _, action in layer:Enumerate() do
             -- 디스크에서 올라온 액션은 `Insert`를 안 지나므로 여기서 건다. 마이그레이션
             -- 뒤이기도 해서, 조건이 아직 최상단에 있는 동안에는 안 걸린다.
             ArmAction(action);
-
-            -- The ordering number's net. **It is for data the migration never reached** -- MigrateDB
-            -- only walks the shapes it knows about, so a hand-edited SavedVariables or a corner left
-            -- by an old client can go past it. In ordinary use nothing trips it: every path that
-            -- hands out a number goes through a renumber (`RenumberKeyGroup`), which leaves neither
-            -- a missing one nor two the same inside a group.
-            --
-            -- **It looks inside one (layer, key) and nowhere wider.** Renumbering starts each group
-            -- at 1, so numbers repeating across one layer is now the normal state -- the comparator
-            -- never puts two keys' actions next to each other.
-            local key = action.key;
-            if (key == nil) then
-                -- **A keyless action has no number** (`ClearActionKey`). One here came from a
-                -- profile written before that was true, and it is not a number for anything -- the
-                -- key it was a place in is gone. Left alone it would sit in the file for good,
-                -- since every path that gives the key back overwrites it anyway.
-                action.seq = nil;
-            else
-                local groupID = key .. "/" .. tostring(action.arrivalID);
-                -- With no number the comparator reads the action as 0 (Ordering.lua) and puts it
-                -- first -- the slot that fires before anything else on that key. With no way to
-                -- know where it belongs, the back is the less startling end.
-                if (action.seq == nil) then
-                    action.seq = NextSeqFor(groupID, key, action.arrivalID);
-                end
-
-                -- **Duplicates are caught too.** When only missing numbers were, two of the same
-                -- stayed -- and the comparator answers false both ways round (Ordering.lua), so the
-                -- two are tied and `sort` places them arbitrarily. Which of two bindings on one key
-                -- fires first could then change from one sort to the next.
-                --
-                -- The one met later takes a new number and goes to the back. Which of them was
-                -- ahead was **never decided in the first place**, being a tie, so nothing is lost.
-                local group = seenSeq[groupID];
-                if (group == nil) then
-                    group = {};
-                    seenSeq[groupID] = group;
-                end
-                if (group[action.seq]) then
-                    action.seq = NextSeqFor(groupID, key, action.arrivalID);
-                end
-                group[action.seq] = true;
-            end
         end
     end
 

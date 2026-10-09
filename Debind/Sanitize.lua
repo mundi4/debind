@@ -2,7 +2,9 @@ local _, DebindPrivate = ...;
 local Constants = DebindPrivate.Constants;
 
 local band      = bit.band;
+local format    = string.format;
 local gmatch    = string.gmatch;
+local sort      = table.sort;
 local luatype   = type;
 
 local KEYS_TO_SAVE          = DebindPrivate.KEYS_TO_SAVE;
@@ -330,4 +332,104 @@ function DebindPrivate.SanitizeAction(action)
     end
 
     return true;
+end
+
+--- Every action in `list` through `SanitizeAction`, and out of the list what it says to remove.
+--- **Positions 1..n are the list**: `#` and `ipairs` are all that ever walk one, so an element in a
+--- hole or under a name is in no list anyone reads, and a hole leaves `#` free to answer either side
+--- of it. The list closes up in place, in the order the positions had.
+---
+--- A payload's numbers stay as they came: an arrival renumbers where it lands (`PlaceArrivedActions`).
+function DebindPrivate.SanitizeActionList(list)
+    local positions = {};
+    for position in pairs(list) do
+        if (luatype(position) == "number" and position >= 1 and position % 1 == 0) then
+            positions[#positions + 1] = position;
+        end
+    end
+    sort(positions);
+
+    local kept = {};
+    for i = 1, #positions do
+        local action = list[positions[i]];
+        if (DebindPrivate.SanitizeAction(action)) then
+            kept[#kept + 1] = action;
+        end
+    end
+    wipe(list);
+    for i = 1, #kept do
+        list[i] = kept[i];
+    end
+end
+
+local function ByStoredNumber(lhs, rhs)
+    if (lhs.seq ~= rhs.seq) then
+        -- **No number goes to the back.** Where it belonged cannot be known, and the back is the
+        -- less startling end: in front it would take the press from whatever fired first.
+        if (lhs.seq == nil) then
+            return false;
+        elseif (rhs.seq == nil) then
+            return true;
+        end
+        return lhs.seq < rhs.seq;
+    end
+    return lhs.index < rhs.index;
+end
+
+--- `SanitizeActionList` for a layer's list, which then numbers each group `(key, arrivalID)` 1..n
+--- (`RenumberKeyGroup` says why that is the group).
+---
+--- **Ranked by the stored number alone, not by `RenumberKeyGroup`'s comparator** (2026-10-09,
+--- `sanitizing-actions-with-one-function.md` §2-3). `seq` is the comparator's last step, so the
+--- firing order comes out exactly as it went in. What this leaves is a group whose numbers disagree
+--- with its importance or conditions, and only a hand edit makes one: every edit renumbers through
+--- the comparator. Its one cost is that a later move across a band lands at the other end. The
+--- comparator reads the binding (`MakeOrderRecord`, `FillBinding`), and this runs at ADDON_LOADED
+--- and at logout, where one raise stops the load or the save.
+---
+--- **Two equal numbers are taken in stored order**, and said under DEBUG: which of them went first
+--- was never decided, since the comparator ties them and `sort` puts them either way.
+function DebindPrivate.SanitizeLayerActions(list)
+    DebindPrivate.SanitizeActionList(list);
+
+    -- By key, then by `arrivalID`, with `false` for the reader's own set.
+    local groups, order = {}, {};
+    for index = 1, #list do
+        local action = list[index];
+        if (action.key ~= nil) then
+            local byArrival = groups[action.key];
+            if (byArrival == nil) then
+                byArrival = {};
+                groups[action.key] = byArrival;
+            end
+            local arrival = action.arrivalID or false;
+            local group = byArrival[arrival];
+            if (group == nil) then
+                group = {};
+                byArrival[arrival] = group;
+                order[#order + 1] = group;
+            end
+            group[#group + 1] = { action = action, seq = action.seq, index = index };
+        end
+    end
+
+    for _, group in ipairs(order) do
+        sort(group, ByStoredNumber);
+        local tied;
+        for i = 1, #group do
+            local record = group[i];
+            if (i > 1 and record.seq ~= nil and record.seq == group[i - 1].seq
+                    and (tied == nil or tied[#tied] ~= record.seq)) then
+                tied = tied or {};
+                tied[#tied + 1] = record.seq;
+            end
+            record.action.seq = i;
+        end
+        if (tied and Constants.DEBUG) then
+            local action = group[1].action;
+            DebindPrivate.DisplayMessage(format("Actions on %s%s shared seq %s; numbered in stored order.",
+                action.key, action.arrivalID and (" (arrival " .. action.arrivalID .. ")") or "",
+                table.concat(tied, ", ")));
+        end
+    end
 end

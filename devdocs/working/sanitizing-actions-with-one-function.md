@@ -1,6 +1,6 @@
 # 액션을 sanitize 함수 하나로 바로잡기
 
-> 상태: 되감기를 했다(3-4). 7절 1번(함수와 `"invalid"`)까지 했고 다음은 2번이다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
+> 상태: 되감기를 했다(3-4). 7절 2번(목록을 걷는 일)까지 했고 다음은 3번이다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
 > 소유자가 더 정한 것(대기 액션, 계정 전체 페이로드는 사본만, 서랍, 클라이언트마다 다른 답)을 2-1·2-2에 넣었다. 2절에서
 > `debind-1b`가 덧붙인 줄에는 "(덧붙임)"을 달았다. 6절의 정답표도 다 정했다.
 > `checking-pasted-strings-and-keeping-actions-canonical.md`의 설계(가져오기 관문만 엄하게 하고, 접속 때는 아무것도 고치지
@@ -374,10 +374,64 @@
      손으로 만든 모양이던 픽스처 셋(숫자인 유닛 행, 메뉴에 없는 유닛 이름, 배포된 적 없는 전문화 ID 집합)은 메뉴가 쓰는
      모양으로 바꿨다. 역할 전체값 테스트는 sanitize를 거치지 않은 액션으로 읽는 쪽을 그대로 묻는다.
 2. **목록을 걷는 일.** 표가 아닌 원소 빼기(3-3의 15번)와 묶음마다 `seq` 다시 매기기(2-3). 액션 하나로는 못 하는 일이다.
+
+   했다(2026-10-09, `debind-6c`, 세션 ID `21c5d56d-a7ef-49e7-b1df-24fc109c27b2`).
+   - **함수는 둘이다.** `SanitizeActionList`는 어느 목록이든 받는다. 목록의 자리(1..n)만 목록으로 보고, 구멍과 이름 붙은
+     원소는 뺀 채 자리 순서대로 메운다. `SanitizeAction`이 지우라고 한 원소도 뺀다. 페이로드의 `seq`는 건드리지 않는다.
+     `SanitizeLayerActions`는 그 위에 묶음(키, `arrivalID`)마다 1부터 다시 매긴다. 레이어의 목록에만 쓴다.
+   - **목록의 구멍도 이것이 메운다.** 앞의 `CleanUpDB`는 `for i = #actions, 1, -1`로 돌아서, 구멍 너머에 있는 원소를 놓쳤다
+     (`1dd02f1` 리뷰).
+   - **순위는 저장된 `seq`로만 매긴다**(`debind-4b`가 정했다. 2-3을 따른 것이라 소유자에게는 묻지 않았다). 리뷰는
+     `RenumberKeyGroup`의 비교자로 매기라고 했다. 그래야 중요도나 조건과 어긋난 번호가 바로잡힌다는 것이다.
+     - 택하지 않은 까닭은 셋이다. 첫째, 2-3이 요구하는 것은 빠진 번호와 겹친 번호를 메우는 것이고, 번호를 비교자와 맞추는
+       것은 아니다. 둘째, 어긋난 묶음은 손으로 고친 파일에서만 생긴다. 편집은 모두 비교자로 다시 매기기 때문이다. 그런 묶음이
+       남아도 터지는 곳은 없고, 나중에 밴드를 넘겨 옮길 때 반대쪽 끝에 놓이는 것이 전부다. 셋째, 비교자는 바인딩을
+       읽는다(`MakeOrderRecord`, `FillBinding`). 이 함수는 ADDON_LOADED와 로그아웃 때 도니, 거기서 하나라도 터지면 불러오기나
+       저장이 멈춘다.
+     - `seq`는 비교자의 마지막 단계다. 그래서 `seq`로만 매겨도 발동 순서는 그대로다. 이 까닭은 함수 머리주석에도 적었다.
+   - **번호 없는 액션은 묶음 맨 뒤로 간다.** 앞 그물의 결정을 이어받았다. 맨 앞에 두면 원래 먼저 발동하던 것의 자리를 뺏는다.
+     겹친 번호와 번호 없는 액션끼리는 저장된 순서대로 매긴다. 겹친 번호는 DEBUG에서만 대화창에 한 줄 띄운다.
+   - **`CleanUpDB`의 `seq` 그물을 이것으로 바꿨다.** 그물에 있던 키 없는 액션의 `seq` 지우기도 같이 걷혔다. 그 일은
+     `SanitizeAction`이 한다. `CleanUpDB`에는 레이어마다 `SanitizeLayerActions`와 `ArmAction`, 끝의 `AttachCharacterTables`만
+     남았다. 부르는 자리를 옮기는 것은 3번이다.
+   - **앞 그물과 답이 달라진 곳.** 겹친 번호를 그물은 뒤에 만난 쪽을 맨 뒤로 보냈고, 이제는 바로 뒤에 선다. 띄엄띄엄한 번호
+     (3, 7)는 그물이 그대로 두었고, 이제는 1, 2가 된다. 둘 다 발동 순서는 바뀌지 않는다.
+   - **테스트.** `sanitize_spec`에 목록 열넷을 더했다. 함수가 없을 때 모두 빨갰고, 번호 없는 액션을 맨 앞으로 보내게 망가뜨리면
+     넷이 빨개진다. `migration_spec`의 그물 테스트 둘은 새 답을 묻게 고쳤다. 띄엄띄엄한 번호를 불러온 뒤 그 값을 그대로 묻던
+     픽스처 셋(`identity_spec`, `export_spec`, `renumber_spec`)은 같은 성질을 액션 자체로 묻거나, 번호를 불러온 뒤에 심게 고쳤다.
+   - **이 단계의 리뷰(`/code-review high`)에서 고친 것.**
+     - 묶음을 `key .. "/" .. tostring(arrivalID)` 문자열이 아니라 키와 `arrivalID`의 두 겹 표로 가른다. `tostring`은 유효숫자
+       14자리에서 자르니, 그 뒤만 다른 두 도착 번호가 한 묶음이 될 수 있었다.
+     - DEBUG 메시지가 겹친 번호를 다 적는다. 전에는 마지막 하나만 적었다.
+     - 입력이 이미 답과 같던 테스트(`{2, 1}` → `2 1`)를 `{5, 3}` → `2 1`로 바꿨다.
+     - `migration_spec`에서 지운 그물의 알고리즘("nil을 먼저 채우고 겹침을 본다")을 설명하던 주석을 고쳤다.
+     - 택하지 않은 것: 접속과 로그아웃마다 모든 묶음을 정렬하는 비용. 앞 그물은 일부러 게으르게 짰다. 키 있는 액션마다 기록
+       하나, 묶음마다 정렬 한 번이고, 한 세션에 두 번 돈다.
 3. **부르는 자리.** 불러올 때(`MergePendingActions` 뒤, Legacy 가져오기 뒤), 로그아웃할 때, 계정 전체 페이로드의 사본,
    서랍에 넣을 때와 꺼낼 때(Clique 변환 포함), 레이어에 놓기 전. 로그아웃에서는 sanitize가 에러를 내도 저장 정리
    (`StowPendingActions`, `AttachCharacterTables`)가 돌아야 한다.
+   - **서랍 미리보기가 sanitize 안 된 페이로드를 그린다**(`1dd02f1` 리뷰, 그 커밋이 만든 회귀). `StorageUI`의
+     `SortLayerActions`, `BuildPreviewKeyGroups`(`sortName`), `DebindStoragePreviewRowMixin:Init`/`OnEnter`가 원본 표에
+     `NameAndIconForAction`·`AddActionToTooltip`을 부른다. `1dd02f1`이 `PayloadIsImpossible`을 NaN 키만 거절하게 좁혀서, 깨진
+     액션이 거기까지 온다. 값 없는 `worldmarker`는 `"WORLD_MARKER" .. nil`에서 터진다. `setcustom`도 같다.
+     `{ type = "command", value = {} }`는 `"BINDING_NAME_" .. {}`에서 터진다. `GetEntryPayload`의 주석("이 줄을 지나면 우리
+     것이다")도 이제 틀렸다. 고치는 길은 위의 "서랍에 넣을 때와 꺼낼 때"다. `DescribePayload`의 `out.action`도 같이 본다.
 4. **"액션이 바뀔 때마다".** 지금은 액션을 쓰는 자리가 열네 곳쯤 흩어져 있다. 입구 하나를 세워 모은다.
 5. **`CleanUpDB`의 정리를 걷는다.** sanitize가 그 일을 맡는다. 남는 것은 `ArmAction`과 `AttachCharacterTables`다.
 6. **지운 계획 문서를 가리키는 주석과 문서를 고친다**(3-4).
 7. **5절의 값들을 다시 넣어 본다**(`.zzz/sanitize-harness/`). 어디서도 터지지 않아야 한다.
+8. **`1dd02f1` 리뷰에서 나온 작은 것들.** 다른 번호에 속하지 않는다. 어느 세션이 고칠지는 아직 정하지 않았다.
+   - **지운 함수를 가리키는 주석.** `Talents.lua:142`와 `Specs.lua:105`는 지운 `ConditionAllowed`를 들어 "이 깊이까지는
+     페이로드가 안 닿는다"고 한다. `Migration.lua:894`는 "가져오기 관문(`BuildAction`)"을, `Issues.lua:252`는 "`BuildAction`이
+     붙여넣은 액션에서 그 필드를 거절한다"를 말한다. 이제는 가져올 때와 불러올 때 둘 다 `SanitizeAction`이 한다.
+   - **깨진 행의 이름이 원래 값을 그대로 그린다.** `ActionDisplay.lua`의 `INVALID` 갈래가 `tostring(formerly.value)`를 그대로
+     쓴다. 붙여넣은 문자열이 색 코드, 가짜 링크, 긴 본문을 거기에 넣을 수 있다. 이런 값을 거르는 `DebindStorage.PlainText`가
+     이미 있지만 `DebindStorage`에 있고 `ActionDisplay`는 Debind 쪽이다. Debind 쪽에 같은 것을 두거나 그 함수를 옮겨야 한다.
+   - **같은 물음을 두 번 적었다.** `Sanitize.lua`의 `SanitizeConditions`는 이름을 `CONDITION_FIELDS[name] or
+     (IsSwitchName(name) and "boolean")`로 묻는데, `Constants.IsConditionField`가 있다. `IsScalar`는
+     `Fits("number|string", value)`와 같다.
+   - **죽은 검사.** `PayloadIsImpossible`의 `luatype(source) == "table"`이다. `ForEachPayloadLayer`가 이미 표인 원소만
+     넘긴다(`Import.lua`, 그 머리주석). 걷어낸다.
+   - **택하지 않은 지적.** 옛 빌드로 되돌리면 새 타입이 `INVALID`가 되거나, 로그아웃 때 새 축이 지워진다는 것이다. 되돌리기는
+     설계하지 않았다(소유자). 필드나 타입이 늘 때 `dbver`를 올려 옛 빌드가 물러서게 하는 것을 규칙으로 둘지는 소유자와
+     아직 정하지 않았다.

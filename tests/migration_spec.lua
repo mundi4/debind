@@ -348,14 +348,15 @@ return function(DebindPrivate, _, ctx)
         });
 
         checkDistinctSeq(actions, "겹침 정리 후");
-        -- 나중에 만난 쪽이 밀린다. 앞의 둘은 건드릴 이유가 없다.
-        check(actions[1].seq == 1 and actions[2].seq == 2,
-            "겹치지 않은 번호까지 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+        -- Two equal numbers are taken in stored order (`sanitizing-actions-with-one-function.md` §2-3).
+        check(actions[1].seq == 1 and actions[3].seq == 2 and actions[2].seq == 3,
+            "numbers: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq) .. ", "
+            .. tostring(actions[3].seq));
     end);
 
     test("번호가 없는 액션과 겹치는 액션이 섞여 있어도 전부 갈린다", function()
-        -- nil은 비교자가 0으로 접으므로(Ordering.lua) 둘 다 동률이다. 한 번의 청소로
-        -- 두 갈래가 같이 나아야 한다 - nil을 먼저 채우고 나서 겹침을 보기 때문이다.
+        -- The comparator reads nil as 0 (Ordering.lua), so both kinds tie. One clean-up has to settle
+        -- the two at once.
         local actions = LoadLayerAndClean({
             { type = "spell", value = 1, key = "F1" },
             { type = "spell", value = 2, key = "F1" },
@@ -391,14 +392,18 @@ return function(DebindPrivate, _, ctx)
             "번호가 바뀌었다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
     end);
 
-    test("성한 번호는 청소를 거쳐도 그대로다", function()
+    -- **Every group is numbered again where it enters a layer** (`sanitizing-actions-with-one-function.md`
+    -- §2-3), gaps included.
+    test("a group's gaps close at load", function()
         local actions = LoadLayerAndClean({
             { type = "spell", value = 1, key = "F1", seq = 3 },
             { type = "spell", value = 2, key = "F2", seq = 7 },
+            { type = "spell", value = 3, key = "F1", seq = 5 },
         });
 
-        check(actions[1].seq == 3 and actions[2].seq == 7,
-            "멀쩡한 번호를 다시 매겼다: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq));
+        check(actions[1].seq == 1 and actions[2].seq == 1 and actions[3].seq == 2,
+            "numbers: " .. tostring(actions[1].seq) .. ", " .. tostring(actions[2].seq) .. ", "
+            .. tostring(actions[3].seq));
     end);
 
     test("the account's share is not pulled twice", function()

@@ -307,13 +307,15 @@ return function(DebindPrivate)
     -- **배열 순서로 고르면 이 테스트가 빨개진다.** 배열은 삽입 이력이라 `seq`와 어긋날 수 있고,
     -- 위 판은 일부러 어긋나게 세웠다.
     test("배열 순서가 아니라 seq가 고른다", function()
-        ResetProfile({ Spell(1, "F", 5), Spell(1, "F", 3), Spell(1, "F", 4) });
+        -- Held by reference: the load numbers each group 1..n again, so 3 is not 3 by the time this asks.
+        local smallest = Spell(1, "F", 3);
+        ResetProfile({ Spell(1, "F", 5), smallest, Spell(1, "F", 4) });
 
         local dupes = DebindPrivate.CollectDuplicateActions();
         check(#dupes == 2, "집힌 수 " .. #dupes);
         check(ValuesOf(dupes) == "1 1", "값이 다르다: " .. ValuesOf(dupes));
         for _, action in ipairs(dupes) do
-            check(action.seq ~= 3, "seq 3이 집혔다 - 제일 작은 것이 남아야 한다");
+            check(action ~= smallest, "seq 3이 집혔다 - 제일 작은 것이 남아야 한다");
         end
     end);
 

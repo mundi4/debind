@@ -97,7 +97,8 @@ function DebindPrivate.CompareActionOrder(lhs, rhs)
     -- (`building-export-import.md` 12절) -- there used to be a second field read in this
     -- slot for sets that had no key of their own, and it is gone with that case.
     --
-    -- Absent reads as 0. If the net ever tears, that beats comparing nil inside a sort.
+    -- Absent reads as 0. Should one ever get past `SanitizeLayerActions`, that beats comparing nil
+    -- inside a sort.
     return (lhs.seq or 0) < (rhs.seq or 0);
 end
 

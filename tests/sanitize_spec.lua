@@ -299,5 +299,145 @@ return function(DebindPrivate)
         withUnits({ target = { exists = true, group = Constants.UNITGROUP_ALL } }),
         withUnits({ target = { exists = true } }));
 
+    -- The list a layer or a payload keeps (§2-3, and `need-fixing.md` 15 as carried into §3-3).
+
+    local function test(name, fn)
+        local ok, err = pcall(fn);
+        if (ok) then
+            T.passed = T.passed + 1;
+        else
+            T.failures[#T.failures + 1] = name .. ": " .. tostring(err);
+        end
+    end
+
+    local function on(key, seq, extra)
+        local action = { type = S, value = 774, key = key, seq = seq };
+        for k, v in pairs(extra or {}) do
+            action[k] = v;
+        end
+        return action;
+    end
+
+    --- The `seq` of each element, in list order.
+    local function seqs(list)
+        local out = {};
+        for i = 1, #list do
+            out[i] = tostring(list[i].seq);
+        end
+        return table.concat(out, " ");
+    end
+
+    local function expect(got, want, what)
+        if (got ~= want) then
+            error(what .. ": got " .. tostring(got) .. ", expected " .. tostring(want), 2);
+        end
+    end
+
+    test("an element that is not a table goes, and the rest keep their order", function()
+        local a, b, c = on("F1", 1), on("F1", 2), on("F2", 1);
+        local list = { a, "x", b, 5, c };
+        DebindPrivate.SanitizeActionList(list);
+        expect(#list, 3, "length");
+        expect(list[1] == a and list[2] == b and list[3] == c, true, "order");
+    end);
+
+    test("an action the function says to remove goes", function()
+        local a = on("F1", 1);
+        local list = { on("F1", 2, { arrivalID = "x" }), a };
+        DebindPrivate.SanitizeActionList(list);
+        expect(#list, 1, "length");
+        expect(list[1] == a, true, "the one kept");
+    end);
+
+    test("a hole closes up", function()
+        local a, b = on("F1", 1), on("F2", 1);
+        local list = { [1] = a, [3] = b };
+        DebindPrivate.SanitizeActionList(list);
+        expect(list[1] == a and list[2] == b and list[3] == nil, true, "positions");
+    end);
+
+    test("an action under a name rather than a position goes", function()
+        local list = { on("F1", 1) };
+        list.extra = on("F2", 1);
+        DebindPrivate.SanitizeActionList(list);
+        expect(list.extra, nil, "named element");
+        expect(#list, 1, "length");
+    end);
+
+    -- **A payload's numbers are left as they came** (§2-3): the arrival renumbers them where they land.
+    test("a list that is no layer keeps its numbers", function()
+        local list = { on("F1", 3), on("F1", 7) };
+        DebindPrivate.SanitizeActionList(list);
+        expect(seqs(list), "3 7", "numbers");
+    end);
+
+    test("a layer's group is numbered from 1 with no gaps", function()
+        local list = { on("F1", 3), on("F2", 5), on("F1", 7) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "1 1 2", "numbers");
+    end);
+
+    test("a layer's group is numbered by its numbers, not by where it sits", function()
+        local list = { on("F1", 5), on("F1", 3) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "2 1", "numbers");
+    end);
+
+    test("two of one number are numbered in stored order", function()
+        local list = { on("F1", 1), on("F1", 2), on("F1", 1) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "1 3 2", "numbers");
+    end);
+
+    test("an action with no number goes behind its group, in stored order", function()
+        local list = { on("F1", nil), on("F1", 1), on("F1", nil) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "2 1 3", "numbers");
+    end);
+
+    test("a number that is no number reads as none", function()
+        local list = { on("F1", "1"), on("F1", 4) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "2 1", "numbers");
+    end);
+
+    test("an arrival on the same key is a group of its own", function()
+        local list = { on("F1", 4), on("F1", 9, { arrivalID = 3 }) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "1 1", "numbers");
+    end);
+
+    test("a keyless action keeps no number in a layer", function()
+        local list = { on(nil, 2), on("F1", 2) };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(seqs(list), "nil 1", "numbers");
+    end);
+
+    test("a layer drops what is no action as well", function()
+        local a = on("F1", 2);
+        local list = { "x", a };
+        DebindPrivate.SanitizeLayerActions(list);
+        expect(#list == 1 and list[1] == a and a.seq == 1, true, "the one kept, numbered");
+    end);
+
+    -- **Which of two equal numbers went first is unknowable**, so it is said, under DEBUG only.
+    test("two of one number are said under DEBUG and nothing else is", function()
+        local said = {};
+        local real = DebindPrivate.DisplayMessage;
+        DebindPrivate.DisplayMessage = function(text) said[#said + 1] = text; end
+        local ok, err = pcall(function()
+            DebindPrivate.SanitizeLayerActions({
+                on("F1", 1), on("F1", 1), on("F1", 2), on("F1", 2), on("F2", 1), on("F2", nil),
+            });
+        end);
+        DebindPrivate.DisplayMessage = real;
+        assert(ok, err);
+        expect(#said, Constants.DEBUG and 1 or 0, "messages");
+        if (Constants.DEBUG) then
+            expect(said[1]:find("F1", 1, true) ~= nil, true, "the key named in " .. said[1]);
+            expect(said[1]:find("1, 2", 1, true) ~= nil, true, "both tied numbers named in " .. said[1]);
+        end
+    end);
+
     return T;
 end

@@ -220,9 +220,11 @@ return function(DebindPrivate, DebindStorage, harness)
             },
         });
 
+        -- The load numbers the group 1..n again (20 and 10 become 2 and 1), and the array still
+        -- runs against them.
         local group = GroupFor(DebindStorage.BuildExportPayload(), "F");
         for _, action in ipairs(group) do
-            check(action.seq == (action.value == 10 and 20 or 10),
+            check(action.seq == (action.value == 10 and 2 or 1),
                 "seq가 안 실렸다: " .. tostring(action.seq));
         end
     end);

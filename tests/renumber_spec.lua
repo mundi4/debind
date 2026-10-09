@@ -483,10 +483,14 @@ return function(DebindPrivate)
             general = {
                 High(11, "F", 10),
                 Plain(21, "F", 2),
-                Plain(31, "G", 7),
-                Plain(32, "G", 9),
+                Plain(31, "G", 1),
+                Plain(32, "G", 2),
             },
         });
+        -- Planted after loading, which numbers every group 1..n: a group already at 1..n would read
+        -- the same whether the renumber reached it or not.
+        Find("G", 31).seq = 7;
+        Find("G", 32).seq = 9;
 
         Edit(Find("F", 21), "priority", 2);
 
@@ -499,7 +503,7 @@ return function(DebindPrivate)
     -- differently.
     --
     -- Only a hand-edited file gets this far. **The numbers are planted after loading** -- `InitDB`
-    -- ends in `CleanUpDB` and its net splits duplicates inside a group first.
+    -- ends in `CleanUpDB`, which numbers every group 1..n first (`SanitizeLayerActions`).
     test("several ties are ordered by array position", function()
         ResetProfile({
             general = {

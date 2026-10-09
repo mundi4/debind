@@ -665,9 +665,9 @@ return function(DebindPrivate, DebindStorage)
         end
     end);
 
-    -- **SavedVariables까지 가는 쪽.** 배치 루프가 도중에 터지면 앞의 것은 이미 `Insert`된 뒤이고
-    -- 뒤따르는 재번호 매기기가 아예 안 돌아, 살아남은 액션이 내부 도착 밴드(`ARRIVAL_SEQ`)를
-    -- 그대로 들고 저장된다. `CleanUpDB`는 nil과 중복만 고치지 그 범위는 안 걷어낸다.
+    -- If the batch loop raised midway, the actions before it are already `Insert`ed and the renumber
+    -- after it never runs: the survivors hold the internal arrival band (`ARRIVAL_SEQ`) for the rest
+    -- of the session, until `CleanUpDB` numbers the group again (`SanitizeLayerActions`).
     test("망가진 seq가 있어도 배치가 반쯤 끝나지 않는다", function()
         ResetProfile();
         local placements = DebindStorage.PlanArrival(General({
