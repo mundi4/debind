@@ -1767,31 +1767,52 @@ end
 --- The three places in one action a switch name is rewritten: a condition key, an on/off/toggle
 --- target, and a macro body (both its conditions and its `/click DebindSwitch` lines). A merge
 --- (`MergeSwitch`) passes `merging`: where one place already names `newName`, the old term goes and
---- the one already there decides.
+--- the one already there decides. Returns whether anything was written.
 local function RenameSwitchInAction(action, oldName, newName, merging)
+    local wrote = false;
     local conditions = action.conditions;
     if (conditions and conditions[oldName] ~= nil) then
         if (not (merging and conditions[newName] ~= nil)) then
             conditions[newName] = conditions[oldName];
         end
         conditions[oldName] = nil;
+        wrote = true;
     end
     if (Constants.SETSWITCH_MODES[action.type] and action.value == oldName) then
         action.value = newName;
+        wrote = true;
     end
     if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
-        action.value = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName, merging);
+        local renamed = DebindPrivate.RenameSwitchInMacroText(action.value, oldName, newName, merging);
+        wrote = wrote or renamed ~= action.value;
+        action.value = renamed;
     end
+    return wrote;
 end
 
 --- `RenameSwitchInAction` over every action that can name a switch: every stored layer, and every
 --- character's pending actions, waiting or merged into this session's layers.
+---
+--- **What it rewrote in a loaded layer is sanitized** (`SanitizeWrittenActions`). Another
+--- character's cells are left as stored, for that character's own login, as the load leaves them.
+--- Loaded is asked of `EnumerateAllProfileLayers`, as in `PlaceArrivedActions`.
 local function RenameSwitchEverywhere(db, oldName, newName, merging)
+    local loaded = {};
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        for _, action in layer:Enumerate() do
+            loaded[action] = true;
+        end
+    end
+
+    local written = {};
     local function rename(action)
-        RenameSwitchInAction(action, oldName, newName, merging);
+        if (RenameSwitchInAction(action, oldName, newName, merging) and loaded[action]) then
+            written[#written + 1] = action;
+        end
     end
     ForEachStoredAction(db, rename, DebindPrivate.db.charLayers);
     ForEachPendingAction(db, rename);
+    DebindPrivate.SanitizeWrittenActions(written);
 end
 
 --- Renames a switch, **and rewrites every reference to it**. Answers `true`, or `false` and a
@@ -2550,6 +2571,30 @@ function DebindPrivate.CleanUpDB()
     AttachCharacterTables();
 end
 
+--- What a writer has just written, through `SanitizeAction`; one it says to remove leaves its layer.
+--- **The net under the writers, not their shape**: each keeps the stored shape itself, so on what
+--- they write this changes nothing (`sanitizing-actions-with-one-function.md` §2-2).
+---
+--- **Renumbering stays with the writer.** Only the writer knows the group an action just left.
+function DebindPrivate.SanitizeWrittenActions(actions)
+    for i = 1, #actions do
+        local action = actions[i];
+        if (not DebindPrivate.SanitizeAction(action)) then
+            local _, layer = DebindPrivate.FindLayerID(action);
+            if (layer) then
+                layer:Remove(action);
+            end
+        end
+    end
+end
+
+--- **The one way a writer in the window finishes**: what it wrote is sanitized and the bindings
+--- are built again, once for the whole set.
+function DebindPrivate.ActionsChanged(actions)
+    DebindPrivate.SanitizeWrittenActions(actions);
+    DebindPrivate.UpdateBindings();
+end
+
 --- Drops empty lists and the tables left holding nothing from one `pendingActions[guid]` share.
 local function PruneShare(share)
     local function pruneSpecs(specTbl)
@@ -3079,12 +3124,24 @@ function DebindPrivate.PlaceArrivedActions(placements)
     -- quarantined action among theirs.
     local touched = {};
 
+    -- **What lands in a loaded layer is sanitized there** (`SanitizeWrittenActions`), once the
+    -- numbers are settled. One in another class's or character's cell waits for that login, as the
+    -- load leaves it. The loaded ones are asked of `EnumerateAllProfileLayers`, the seam the in-game
+    -- kit stands its layers behind (`CollectArrivedActions` says why).
+    local loaded, written = {}, {};
+    for _, layer in DebindPrivate.EnumerateAllProfileLayers() do
+        loaded[layer.actions] = true;
+    end
+
     for _, placement in ipairs(placements) do
         local actions = StoredActionsAt(placement.scope, placement.class, placement.spec);
         if (actions) then
             local action = placement.action;
             scratch.actions = actions;
             scratch:Insert(action);
+            if (loaded[actions]) then
+                written[#written + 1] = action;
+            end
 
             -- **A spell name is resolved once, here, and only kept beside the name**
             -- (`importing-clique-profiles.md` §4). This is the one moment the reader's own index is
@@ -3128,6 +3185,8 @@ function DebindPrivate.PlaceArrivedActions(placements)
             scratch:RenumberKeyGroup(group.key, group.arrivalID);
         end
     end
+
+    DebindPrivate.SanitizeWrittenActions(written);
 end
 
 --- Every action in the profile still wearing an import badge.

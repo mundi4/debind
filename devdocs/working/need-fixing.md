@@ -1,6 +1,6 @@
 # 고칠 것
 
-> 상태: 미착수. 항목 3, 9, 10, 12, 13, 14. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
+> 상태: 미착수. 항목 3, 9, 12, 13, 14. 3은 고칠 것이 아니라 소유자가 정할 기본값 하나로 줄었다(2026-10-09). 1(유닛 조건 fold가 갈림)과 2(키트가 방출의 레코드 배치를 따로 베껴 세다 갈림)는
 > 2026-10-08에 고쳐서 여기서 뺐다. 둘 다 같은 규칙을 두 곳 이상에 따로 적어 둔 것이 원인이었다. 4(키트의 Tail 시험
 > 넷이 beat와 리빌드를 못 가름)도 같은 날 넷 다 `WaitOnBeat`로 바꿔서 뺐다. 6(`macrotext_spec`이 `EmitMacroTextArg`를
 > 베껴 잼)도 같은 날 `BuildMacroTextEntries`가 내는 글을 직접 재게 바꾸고 `bakeFixed`를 지워서 뺐다. 이것도 같은 규칙을
@@ -11,6 +11,9 @@
 > 8(마스크 조건의 범위 밖 비트를 누름과 loop가 다르게 읽음)과 11(빈 `conditions.units`를 접지 않음)은 2026-10-09에 뺐다.
 > `SanitizeAction`(`sanitizing-actions-with-one-function.md`)이 불러올 때와 가져올 때 범위 밖 비트를 잘라 내고 빈 `units`를
 > 접는다. 메뉴는 둘 다 만들지 않는다.
+> 10(메뉴의 "끄기" 칸이 `disabled = false`를 씀)도 2026-10-09에 고쳐서 뺐다. 메뉴의 `ActionValues.Set`이 `disabled`의
+> `false`를 nil로 접고, 확인 장치(`tests/canonical.lua`)도 이제 그 값을 잡는다(`sanitizing-actions-with-one-function.md`
+> 7절 4번, `debind-6c`).
 >
 > 쓴 세션: `debind-45` (세션 ID `69a358ab-115a-49d9-9681-65106e3c7003`). 9는 `debind-3e`
 > (세션 ID `9c6ce919-05ff-4e0d-aa1f-839f97dff70f`). 10~12는 `debind-32`
@@ -42,15 +45,6 @@
 
 이 표들이 바뀌면 옛 프로필의 값이 조용히 다르게 옮겨진다. 각 단계가 자기 판의 값을 직접 들게 할지, 그 표가 그 판 이후로
 안 바뀌었다는 것만 확인하고 둘지를 단계마다 정해야 한다.
-
-## 10. 메뉴의 "끄기" 칸이 체크를 풀면 `disabled = false`를 쓴다
-
-찾은 곳: `checking-pasted-strings-and-keeping-actions-canonical.md` 3절 3번의 `/code-review high`(2026-10-09).
-
-"끄기"는 `USE_CHECKED_VALUE`(`MenuKit.TOGGLE`)로 쓰고, 토글은 꺼짐을 nil이 아니라 `false`로 쓴다(`MenuKit.lua`의
-`setValue`). 키 결과는 nil과 같지만, 같은 액션인지 묻는 비교(`IDENTITY_FIELDS`)에는 다른 값이라 한 번 켰다 끈 액션과 손대지
-않은 액션이 다르게 읽히고, 내보내기에도 `disabled = false`가 실린다. `FoldIntoStoredShape`도 확인 장치(`tests/canonical.lua`)도
-이 값을 보지 않는다. 쓰는 쪽에서 nil을 쓸지, 접기에 넣을지 정해야 한다.
 
 ## 12. 확인 장치가 불러온 레이어만 본다
 

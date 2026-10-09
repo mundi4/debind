@@ -859,7 +859,7 @@ local function MoveAction(elementData, destLayerID, copying)
 
 	-- **A move carries the table itself.** The selection, the anchor and the linked highlight hold the
 	-- action by table, so a fresh one would leave each of them on something no layer holds. Nothing derived goes stale with it: the binding caches read no layer,
-	-- and what does depend on one is rebuilt by the `UpdateBindings` below.
+	-- and what does depend on one is rebuilt by the `ActionsChanged` below.
 	if (copying) then
 		action = CopyTable(action);
 	end
@@ -870,7 +870,7 @@ local function MoveAction(elementData, destLayerID, copying)
 	-- means nothing here. "The back of this key group" is the answer to both.
 	destLayer:PlaceInKeyGroup(action);
 
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged({ action });
 
 	-- 목록은 정렬해서 그리므로 손으로 끼워넣지 않고 다시 만든다.
 	DebindLayerPanel:Refresh(true);
@@ -930,9 +930,22 @@ end
 --- the reader's to clear. Accepting the lot while it is the only value ticked on the key axis ends
 --- on an empty list, which is exactly what that state asks for; the dropdown's reset button is on
 --- screen the whole time.
+--- What a key move wrote for `ActionsChanged`: the set that moved, and the occupants stepping aside.
+local function WithOccupants(actions, occupants)
+	local written = {};
+	for _, list in ipairs({ actions, occupants }) do
+		for i = 1, #list do
+			written[#written + 1] = list[i];
+		end
+	end
+	return written;
+end
+
 local function ApproveArrivedActions(actions, occupants, contested, answer)
+	local written = actions;
 	if (answer == "theirs" and occupants) then
 		DebindPrivate.ClearKeyForActions(occupants);
+		written = WithOccupants(actions, occupants);
 	end
 
 	-- Grouped, because `SetKeyForActions` takes a set and the order inside it is the thing being
@@ -973,13 +986,14 @@ local function ApproveArrivedActions(actions, occupants, contested, answer)
 	-- changes what the filters show prunes first, and this was the one that did not.
 	--- One set for the whole update, because the two below it ask the same question of the same
 	--- profile and building it is a walk over every layer (`NarrowedVisibleActions`). Nothing
-	--- between here and the last of them touches what the answer is made of: `UpdateBindings`
-	--- writes the key map and not `key` or `arrivalID`, which are the two fields the filters read.
+	--- between here and the last of them touches what the answer is made of: `ActionsChanged`
+	--- writes the key map, and its sanitize leaves what a writer wrote as written, `key` and
+	--- `arrivalID` (the two fields the filters read) among it.
 
 	local visible = NarrowedVisibleActions();
 	DebindFrame:PruneSelectionToBinFilter(visible);
 
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged(written);
 	DebindLayerPanel:Refresh(true, visible);
 	DebindFrame:Update();
 end
@@ -3845,6 +3859,7 @@ function DebindFrameMixin:AddNewAction(type, value, name, icon, props, destLayer
 	-- are born without a key and so get no number (`SetActionKey` hands one out when a key is
 	-- given); if `props` carried a key, this is where it takes the back of that group.
 	layer:PlaceInKeyGroup(action);
+	DebindPrivate.ActionsChanged({ action });
 
 	-- 목록이 정렬돼 있으므로 새 액션이 맨 뒤에 붙는다는 보장이 없다. 다시 만들고 찾아간다.
 	self.LayerPanel:Refresh(true);
@@ -3911,7 +3926,7 @@ function DebindFrameMixin:ReplaceActions(actions, type, value, name, icon, props
 
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
 
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged(changed);
 	self.LayerPanel:Refresh(true);
 	self.LayerPanel:ScrollActionIntoView(changed[1]);
 	self:Update();
@@ -4350,7 +4365,7 @@ function DebindFrameMixin:OnReceiveDrag(destLayerID)
 	destLayer:PlaceInKeyGroup(action);
 
 	self:ClearMouse();
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged({ action });
 	self.LayerPanel:Refresh(true);
 
 	-- **떨군 곳으로 따라간다.** 탭 버튼에 떨구면 그 탭을 켜고, 방금 생긴 액션을 고르고,
@@ -4607,6 +4622,7 @@ function DebindIconSelectorFrameMixin:OkayButton_OnClick()
 	else
 		self.editAction.name = text;
 		self.editAction.icon = iconTexture;
+		DebindPrivate.ActionsChanged({ self.editAction });
 	end
 
 	-- 이름이 바뀌면 이름순 정렬에서 자리가 바뀐다. Update는 있는 줄을 그 자리에서 고쳐
@@ -4841,7 +4857,7 @@ end
 --- the drawn order what was asked for; the renumber reads that order back and closes it to 1..n.
 ---
 --- The arrow buttons and the right-click menu **go through this one function.** Saving is three
---- things together (the `seq` swap, the renumber, `UpdateBindings`), and writing them along two
+--- things together (the `seq` swap, the renumber, `ActionsChanged`), and writing them along two
 --- paths means one of them loses one someday. That loss stays invisible until the next login.
 function DebindUI.ApplyOrderSwap(action, neighbor)
 	if (not action or not neighbor) then
@@ -4853,7 +4869,7 @@ function DebindUI.ApplyOrderSwap(action, neighbor)
 	-- 그룹의 끝에서 밀려나 화면 밖으로 나가는 순간에는 따라가야 한다.
 	_revealAction = action;
 	DebindPrivate.RenumberKeyGroupForAction(action);
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged({ action, neighbor });
 	DebindLayerPanel:Refresh(true);
 	DebindFrame:Update();
 	PlaySound(SOUNDKIT.IG_ABILITY_ICON_DROP);
@@ -5872,7 +5888,7 @@ function DebindFrameMixin:CancelBindMode()
 	end
 
 	if (changed) then
-		DebindPrivate.UpdateBindings();
+		DebindPrivate.ActionsChanged(restored);
 		self.LayerPanel:Refresh(true);
 		self:Update();
 		DebindResultPanel:Refresh();
@@ -5949,7 +5965,7 @@ function DebindFrameMixin:SetActionKey(action, key)
 	if (accepted) then
 		self:PruneSelectionToBinFilter(visible);
 	end
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged({ action });
 	self.LayerPanel:Refresh(true, visible);
 	self.LayerPanel:ScrollActionIntoView(action);
 	-- 키가 바뀌면 왼쪽 열에서 자리를 통째로 옮긴다 - 그 열은 키로 묶고 키로 정렬한다. 간 자리가
@@ -6000,7 +6016,7 @@ end
 --- **`key` may be nil, and then there is no group to walk.** Unbinding clears the key outright
 --- (`ClearKeyForActions`), so what is left is rows of their own in the pile at the bottom and each
 --- is its own answer - `CollectActionsForKey` has nothing to say about a key that is not there.
-local function RebuildAfterKeyGroupChange(actions, key)
+local function RebuildAfterKeyGroupChange(actions, key, written)
 	-- **A selection the reader made stays made.** Read before the rebuild, while the set still answers
 	-- for what was picked. Actions sent here from a heading were never selected, and folding onto one
 	-- of them is still the answer for those.
@@ -6012,7 +6028,7 @@ local function RebuildAfterKeyGroupChange(actions, key)
 		end
 	end
 
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged(written or actions);
 	DebindLayerPanel:Refresh(true);
 
 	local target;
@@ -6047,7 +6063,8 @@ end
 --- (`MoveKeyGroupToKey`).
 local function ApplyKeyGroupMove(actions, key, occupants, unbindOccupants)
 	DebindPrivate.MoveKeyGroupToKey(actions, key, occupants, unbindOccupants);
-	RebuildAfterKeyGroupChange(actions, key);
+	RebuildAfterKeyGroupChange(actions, key,
+		(unbindOccupants and occupants) and WithOccupants(actions, occupants) or actions);
 end
 
 --- Asked when the key that was pressed is already carrying something.
@@ -6944,7 +6961,7 @@ function DebindMacroFrameMixin:Save()
 	end
 
 	action.value = text;
-	DebindPrivate.UpdateBindings();
+	DebindPrivate.ActionsChanged({ action });
 end
 
 --- The bottom-right button, which carries two meanings on one frame.

@@ -50,10 +50,11 @@ for (const rel of FILES) {
     let m;
     while ((m = re.exec(text)) !== null) {
         const body = m[0];
-        if (!/\bkey\s*=/.test(body) || !/\bvalue\s*=/.test(body)) continue;
-        if (/\blabel\s*=/.test(body)) continue;
+        // `(?!=)`, so a comparison (`key == "disabled"`) in a function inside the group is no field.
+        if (!/\bkey\s*=(?!=)/.test(body) || !/\bvalue\s*=(?!=)/.test(body)) continue;
+        if (/\blabel\s*=(?!=)/.test(body)) continue;
         checked += 1;
-        if (/\bctx\s*=/.test(body)) continue;
+        if (/\bctx\s*=(?!=)/.test(body)) continue;
         const line = text.slice(0, m.index).split("\n").length;
         offenders.push(`${rel}:${line}: ${body.replace(/\s+/g, " ").trim()}`);
     }

@@ -1,6 +1,6 @@
 # 액션을 sanitize 함수 하나로 바로잡기
 
-> 상태: 되감기를 했다(3-4). 7절 3번(부르는 자리)까지 했고 다음은 4번이다. 5번은 2·3번에서 같이 됐다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
+> 상태: 되감기를 했다(3-4). 7절 4번(액션이 바뀔 때마다)까지 했고 다음은 6번이다. 5번은 2·3번에서 같이 됐다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
 > 소유자가 더 정한 것(대기 액션, 계정 전체 페이로드는 사본만, 서랍, 클라이언트마다 다른 답)을 2-1·2-2에 넣었다. 2절에서
 > `debind-1b`가 덧붙인 줄에는 "(덧붙임)"을 달았다. 6절의 정답표도 다 정했다.
 > `checking-pasted-strings-and-keeping-actions-canonical.md`의 설계(가져오기 관문만 엄하게 하고, 접속 때는 아무것도 고치지
@@ -465,6 +465,54 @@
      - 다른 캐릭터의 칸을 걷는 `ForEachStoredList`·`ForEachStoredAction`·`ForEachPendingAction`은 표가 아닌 목록과 원소를
        거르지 않는다. 계정 전체 페이로드는 원소만 거른다.
 4. **"액션이 바뀔 때마다".** 지금은 액션을 쓰는 자리가 열네 곳쯤 흩어져 있다. 입구 하나를 세워 모은다.
+
+   했다(2026-10-09, `debind-6c`. 모양은 `debind-4b`와 정했다).
+   - **입구는 `ActionsChanged(actions)`다**(`Profile.lua`). 넘겨받은 액션을 `SanitizeWrittenActions`에 넘기고, 리빌드를 한 번
+     한다. `SanitizeWrittenActions`는 액션마다 `SanitizeAction`을 돌리고, 지우라는 답이면 그 액션을 레이어에서 뺀다.
+   - **번호 다시 매기기는 쓰는 쪽에 남겼다.** 액션이 어느 묶음에서 빠졌는지는 쓰는 쪽만 안다. `MoveAction`이 떠난 묶음이
+     그렇다.
+   - **창의 쓰는 자리는 자기 `UpdateBindings` 대신 이것을 부른다.** 메뉴의 `OnActionsChanged`, `MoveAction`,
+     `ApproveArrivedActions`, `ReplaceActions`, `OnReceiveDrag`, `ApplyOrderSwap`, `CancelBindMode`, `SetActionKey`,
+     `RebuildAfterKeyGroupChange`(키 묶음 옮기기와 [키 풀기]), 매크로 `Save`가 그렇다. 자리를 비킨 액션도 넘긴다. "theirs"
+     답의 점유자와 [키 풀기]로 옮긴 점유자다. 아이콘 편집기와 `AddNewAction`은 리빌드를 안 했는데 이제 한다.
+     `AddNewAction`에서는 `props`로 키가 들어온 액션도 그 자리에서 바인딩된다.
+   - **지우기 둘은 그대로 `UpdateBindings`를 부른다.** 쓴 액션이 없다.
+   - **창 밖의 둘은 리빌드 없이 `SanitizeWrittenActions`만 부른다.** `PlaceArrivedActions`와 스위치 이름 바꾸기·합치기
+     (`RenameSwitchEverywhere`)다. 손댄 것 가운데 불러온 레이어에 있는 것만 넘긴다. 다른 캐릭터의 칸은 그 캐릭터가
+     접속할 때 고쳐진다. `RenameSwitchInAction`은 이제 무언가 썼는지를 돌려준다. 리빌드는 그 둘을 부른 쪽이 원래 한다.
+   - **헤드리스의 그물(`tests/canonical.lua`)이 `SanitizeWrittenActions`가 받은 것을 sanitize 전에 본다**(`debind-4b`). 입구가
+     먼저 고치면 리빌드 앞의 그물은 고친 것만 보게 되고, 쓰는 쪽이 저장 모양이 아닌 것을 남겨도 지나간다. 그래서
+     sanitize는 쓰는 쪽이 만든 것에 대해 아무것도 바꾸지 않는다. 쓰는 쪽이 저장 모양을 지키고, 입구는 그 밑의 그물이다.
+   - **그물이 쓰는 쪽의 실수를 하나 잡았다.** 메뉴의 [끄기] 상자가 끈 상태를 `disabled = false`로 썼다. 저장 모양은
+     nil이다(6-2). `MenuKit.TOGGLE`은 끈 상자를 `false`로 쓰고, 액션 쪽 `Set`이 그것을 접지 않았다. `ActionValues.Set`이
+     `disabled`의 `false`를 nil로 접게 고쳤다. 그물에도 `disabled = false` 줄을 더했다. 이것이 빠져 있어서 지금까지 못
+     잡았다. `actionmenu_spec`의 두 테스트는 `false`를 묻고 있었는데 저장 모양(nil)을 묻게 고쳤다.
+   - **`check:menu-ctx`의 오탐을 고쳤다.** 위의 접기 줄에 있는 `key == "disabled"`를 `ActionValues` 표의 `key =` 필드로
+     읽었다. 비교(`==`)는 필드로 치지 않게 했다. `ctx` 없는 data 표는 여전히 잡는 것을 봤다.
+   - **테스트가 가진 것.** 헤드리스 넷을 더했다. 메뉴 줄 하나(실제 메뉴를 세워 누른다), `PlaceArrivedActions`, 스위치
+     이름 바꾸기와 합치기다. 각각 저장하지 않는 필드를 심은 액션을 쓰게 하고 그 필드가 사라지는지 묻는다. 고치기 전에
+     모두 빨갰다. 이름 바꾸기와 합치기는 다른 캐릭터의 칸을 건드리지 않는지도 묻는다. 그 밖에 헤드리스가 모는 쓰는 자리는
+     모두 그물을 지난다.
+   - **테스트가 닿지 않는 것과 그 까닭.** `DebindUI.lua`는 헤드리스 러너가 싣지 않는다(`tests/run.lua`의 목록). 그래서 창의
+     쓰는 자리가 입구를 부르는지는 헤드리스로 물을 수 없다. 킷 테스트도 두지 않았다. 한 번 맞으면 그대로인 배선이라서다
+     (소유자의 규칙, `debind-4b`). 이 자리들은 코드 리뷰가 본다.
+   - **이 단계의 리뷰(`/code-review high`)에서 고친 것.**
+     - `UpdateBindings`를 부른다고 적은 주석 셋을 `ActionsChanged`로 고쳤다(`MoveAction`, `ApplyOrderSwap`,
+       `ApproveArrivedActions`의 필터 주석).
+     - 점유자를 붙이는 같은 반복문 두 벌을 `WithOccupants` 하나로 모았다.
+     - `PlaceArrivedActions`와 이름 바꾸기가 불러온 레이어를 `LayerArray`가 아니라 `EnumerateAllProfileLayers`로 묻는다.
+       인게임 킷이 레이어를 세우는 이음매가 그쪽이다.
+     - 택하지 않은 것: 쓰는 쪽이 번호를 다시 매긴 이웃 액션도 입구에 넘기라는 것. 다시 매기기가 쓰는 것은 `seq` 하나이고,
+       그 번호는 `RenumberKeyGroup`이 매긴다. sanitize가 거기서 바꿀 것이 없다. 이웃은 리빌드 앞의 그물이 본다.
+     - 택하지 않은 것: 입구가 액션을 지울 때 묶음 번호와 선택을 정리하라는 것. 지우라는 답은 표가 아니거나 도착 번호가
+       틀렸을 때뿐이고, 쓰는 쪽은 그런 것을 넘기지 않는다. 넘기면 그물이 먼저 잡는다.
+     - 택하지 않은 것: 여러 개를 옮길 때 리빌드가 개수만큼 도는 것. 전에도 `MoveAction`마다 `UpdateBindings`를 불렀다.
+     - 택하지 않은 것: 아이콘 편집기와 `AddNewAction`이 리빌드를 얻는 것. `debind-4b`와 정한 모양이다.
+     - 택하지 않은 것: `disabled`를 이름으로 접지 말고 토글 전체를 접으라는 것. 이 묶음의 토글은 `disabled` 하나다. `Set`은
+       토글의 `false`와 예·아니오 줄의 `false`를 가를 수 없다.
+   - 이 단계의 픽스처 정리: `talents_spec`이 메뉴에 넘기는 키 있는 액션 넷에 `seq`가 없었다. 그물이 입구에서 그것을 잡아,
+     저장된 액션처럼 `seq = 1`을 줬다. Legacy 가져오기 테스트는 일부러 심은 값을 가져오기가 복사하므로, 불러온 액션에
+     `HandMade`를 거는 자리를 테스트 안에 두었다.
 5. **`CleanUpDB`의 정리를 걷는다.** sanitize가 그 일을 맡는다. 남는 것은 `ArmAction`과 `AttachCharacterTables`다.
 
    2번과 3번에서 이미 그 모양이 됐다. `CleanUpDB`는 `SanitizeLoadedLayers`(sanitize와 `ArmAction`)와 `AttachCharacterTables`

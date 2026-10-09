@@ -321,7 +321,17 @@ return function(DebindPrivate, _, ctx)
         };
         DebindPrivate.ShowMigrationDialogIfPending =
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
-        check(require("wow_frames").fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
+        -- The import copies what it brings, so what it loads is marked as planted here.
+        local load = DebindPrivate.LoadProfile;
+        DebindPrivate.LoadProfile = function(...)
+            load(...);
+            for _, action in DebindPrivate.GetProfileLayer(1):Enumerate() do
+                ctx.HandMade(action);
+            end
+        end;
+        local ok, err = pcall(require("wow_frames").fireEvent, "PLAYER_LOGIN");
+        DebindPrivate.LoadProfile = load;
+        check(ok and err > 0, "the login: " .. tostring(err));
 
         local action = DebindPrivate.GetProfileLayer(1):GetAction(1);
         check(action and action.value == 774, "the import brought nothing");

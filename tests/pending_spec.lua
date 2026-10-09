@@ -247,6 +247,27 @@ return function(DebindPrivate, _, ctx)
             "their pending macro body says " .. tostring(theirs.character[1][1].value));
     end);
 
+    -- **A rename and a merge sanitize what they rewrote in the layers loaded now**, and nothing else:
+    -- another character's cells wait for that character's own login
+    -- (`sanitizing-actions-with-one-function.md` §2-2).
+    for _, case in ipairs({
+        { "a rename", function() return DebindPrivate.RenameSwitch("$a", "$b"); end },
+        { "a merge", function() return DebindPrivate.MergeSwitch("$a", "$c"); end },
+    }) do
+        test(case[1] .. " sanitizes what it rewrote in this character's layers and nothing else", function()
+            local vars = SwitchProfile();
+            local theirs = vars.pendingActions[OTHER].account.GENERAL[0][1];
+            Login(vars);
+            local mine = ctx.HandMade(LayerActions(0)[1]);
+            mine.junk = 1;
+            theirs.junk = 1;
+            check(case[2](), case[1] .. " was refused");
+            check(mine.conditions["$a"] == nil, "the premise broke: the action was not rewritten");
+            check(mine.junk == nil, "a field nothing saves survived on this character's action");
+            check(theirs.junk == 1, "another character's cell was sanitized");
+        end);
+    end
+
     -- §2-5: pending is counted, and apart. It reaches no key yet, so it is not in the numbers that
     -- answer "what do my keys use"; it is in the ones that answer "can this go".
     test("counting a switch's users counts pending actions apart", function()

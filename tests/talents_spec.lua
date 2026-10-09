@@ -924,7 +924,7 @@ return function(DebindPrivate, _, harness)
         local mine = MySpec();
         local other = mine == 102 and 103 or 102;
         local action = {
-            type = Constants.SPELL, value = 585, key = "F1",
+            type = Constants.SPELL, value = 585, key = "F1", seq = 1,
             conditions = { talents = {
                 [mine] = { taken = { 700 } },
                 [other] = { taken = { 701 } },
@@ -941,7 +941,7 @@ return function(DebindPrivate, _, harness)
     -- specialization change can ever reach it.
     test("another class's entry counts and clears", function()
         local action = {
-            type = Constants.SPELL, value = 585, key = "F1",
+            type = Constants.SPELL, value = 585, key = "F1", seq = 1,
             -- 62 is a mage specialization; this character is a druid.
             conditions = { talents = { [62] = { taken = { 700 } } } },
         };
@@ -957,7 +957,7 @@ return function(DebindPrivate, _, harness)
         local mine = MySpec();
         local other = mine == 102 and 103 or 102;
         local action = {
-            type = Constants.SPELL, value = 585, key = "F1",
+            type = Constants.SPELL, value = 585, key = "F1", seq = 1,
             conditions = { talents = { [other] = { taken = { 701 } } } },
         };
         DebindPrivate.ActionMenu.ClearOtherSpecTalents({ actions = { action } });
@@ -972,7 +972,7 @@ return function(DebindPrivate, _, harness)
         local root = Element("root");
         local panel = rawget(_G, "DebindLayerPanel");
         _G.DebindLayerPanel = { Tabs = {}, SideTabs = {} };
-        local action = { type = Constants.SPELL, value = 585, key = "F1" };
+        local action = { type = Constants.SPELL, value = 585, key = "F1", seq = 1 };
         local ctx = { actions = { action } };
         local ok, err = pcall(DebindPrivate.DebindUI.SetupActionDropdownMenu, nil, root, ctx);
         _G.DebindLayerPanel = panel;

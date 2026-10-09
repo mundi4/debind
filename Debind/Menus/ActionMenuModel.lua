@@ -248,7 +248,7 @@ local function OnActionsChanged(actions)
     for i = 1, #actions do
         DebindPrivate.RenumberKeyGroupForAction(actions[i]);
     end
-    DebindPrivate.UpdateBindings();
+    DebindPrivate.ActionsChanged(actions);
     return MenuResponse.Refresh;
 end
 
@@ -584,6 +584,11 @@ local ActionValues = {
     end,
 
     Set = function(action, key, value)
+        -- The kit's cleared box writes `false` (`MenuKit.TOGGLE`), and an action that is on is
+        -- stored with no `disabled` at all.
+        if (key == "disabled" and value == false) then
+            value = nil;
+        end
         local holder, field = CastingHolder(action, key, value ~= nil);
         if (holder) then
             holder[field] = value;

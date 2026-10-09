@@ -1,8 +1,9 @@
 --- **Every action in the profile has to be one that could be saved or exported at this moment.**
 --- The writers keep that shape rather than leaving it to a clean-up. This net looks at every layer
 --- right before each `UpdateBindings` and each `SanitizeLoadedLayers` (the load, the import at login,
---- the logout), which is where a writer that relied on the clean-up shows: each test stands its own
---- profile up, so by the end of a spec only the last test's few actions are left to look at.
+--- the logout), and at what each writer hands `SanitizeWrittenActions`, which is where a writer that
+--- relied on the clean-up shows: each test stands its own profile up, so by the end of a spec only
+--- the last test's few actions are left to look at.
 ---
 --- **The field tables are the store's** (`ACTION_FIELDS`, `CONDITION_TYPES`, `CASTING_TYPES`), read
 --- off Debind's own. The other rules restate the shape here rather than calling
@@ -161,6 +162,9 @@ local function Problems(DebindPrivate, DebindStorage, action)
     if (action.priority == Constants.DEFAULT_IMPORTANCE) then
         bad("priority is the default");
     end
+    if (action.disabled == false) then
+        bad("disabled is false, which is stored as none");
+    end
     if (action.skipWhenUnusable == false) then
         bad("skipWhenUnusable is false, which is stored as none");
     end
@@ -216,7 +220,7 @@ local function Sweep(DebindPrivate, DebindStorage, where, report)
     end
 end
 
---- Puts the net in front of the two calls. `report` is handed each finding once.
+--- Puts the net in front of the three calls. `report` is handed each finding once.
 function M.Install(DebindPrivate, DebindStorage, report)
     local reported = {};
     local function once(message)
@@ -232,6 +236,24 @@ function M.Install(DebindPrivate, DebindStorage, report)
             return original(...);
         end;
     end
+
+    -- **The writers' own entry point sanitizes what it is handed**, so the sweeps above would only
+    -- ever meet what it already fixed, and a writer that left a shape nothing stores would pass.
+    -- What it is handed is read here first. `ActionsChanged` and the two writers outside the window
+    -- (`PlaceArrivedActions`, the switch rename) all hand theirs to this one.
+    local sanitizeWritten = DebindPrivate.SanitizeWrittenActions;
+    DebindPrivate.SanitizeWrittenActions = function(actions, ...)
+        local frame;
+        for _, action in ipairs(actions) do
+            if (type(action) == "table" and not handMade[action]) then
+                for _, problem in ipairs(Problems(DebindPrivate, DebindStorage, action)) do
+                    frame = frame or SpecFrame();
+                    once(("%s, written: %s (%s)"):format(frame, problem, Describe(action)));
+                end
+            end
+        end
+        return sanitizeWritten(actions, ...);
+    end;
 end
 
 return M;

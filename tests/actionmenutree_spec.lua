@@ -416,5 +416,18 @@ return function(DebindPrivate, _, harness)
         check(replace ~= nil and replace.enabled ~= false, "no Replace on the menu");
     end);
 
+    -- **What a row writes goes through the one entry point** (`ActionsChanged`,
+    -- `sanitizing-actions-with-one-function.md` §2-2), which sanitizes the actions it is handed.
+    test("an action a row writes is sanitized", function()
+        local rez = harness.HandMade({ type = Constants.RESURRECT, key = "F", junk = 1 });
+        ResetProfile({ rez });
+        rez.junk = 1;
+        local mass = FindChoice(Build({ rez }), LLL["REZ_NO_TARGET_MASS"]);
+        check(mass, "no resurrection switch");
+        mass.setSelected(mass.data);
+        check(rez.noTargetMassRez == false, "the row did not write");
+        check(rez.junk == nil, "a field nothing saves survived the write");
+    end);
+
     return T;
 end

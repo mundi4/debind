@@ -17,7 +17,7 @@
 -- Everything built here also has to arrive quarantined. An action that landed without `imported`
 -- is bound the moment it lands, which is the one thing this whole path promises not to do.
 
-return function(DebindPrivate, DebindStorage)
+return function(DebindPrivate, DebindStorage, ctx)
     local T = { passed = 0, failures = {} };
 
     local function test(name, fn)
@@ -219,6 +219,19 @@ return function(DebindPrivate, DebindStorage)
 
         check(first[1].action.arrivalID ~= second[1].action.arrivalID,
             "두 arrival이 같은 번호를 받았다: " .. tostring(second[1].action.arrivalID));
+    end);
+
+    -- **What a placement writes into a loaded layer is sanitized there** (`sanitizing-actions-with-one-
+    -- function.md` §2-2, "every time an action changes"). It writes the resolved name and the number.
+    test("what a placement writes into this character's layers is sanitized", function()
+        ResetProfile();
+        local placements = DebindStorage.PlanArrival(General({
+            { type = Constants.SPELL, value = 1, key = "F", seq = 1 } }));
+        local action = ctx.HandMade(placements[1].action);
+        action.junk = 1;
+        DebindPrivate.PlaceArrivedActions(placements);
+        check(DebindPrivate.FindLayerID(action), "the action did not land");
+        check(action.junk == nil, "a field nothing saves survived the placement");
     end);
 
     -- **같은 페이로드를 두 번 가져와도 그룹이 안 섞인다.** 키가 같으니 키만으로는 한 덩어리로

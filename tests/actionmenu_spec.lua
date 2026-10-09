@@ -144,7 +144,8 @@ return function(DebindPrivate, _, harness)
         check(actions[1].disabled == true and actions[2].disabled == true,
             "first press: " .. tostring(actions[1].disabled) .. " " .. tostring(actions[2].disabled));
         ActionMenu.setActionValue(data);
-        check(actions[1].disabled == false and actions[2].disabled == false,
+        -- Off is stored as none.
+        check(actions[1].disabled == nil and actions[2].disabled == nil,
             "second press: " .. tostring(actions[1].disabled) .. " " .. tostring(actions[2].disabled));
     end);
 
@@ -154,7 +155,7 @@ return function(DebindPrivate, _, harness)
 
         check(ActionMenu.actionValueEquals(data), "the one action's box is on");
         ActionMenu.setActionValue(data);
-        check(actions[1].disabled == false, "pressed: " .. tostring(actions[1].disabled));
+        check(actions[1].disabled == nil, "pressed: " .. tostring(actions[1].disabled));
     end);
 
     test("a bit box moves that bit on every action and leaves the other bits", function()
