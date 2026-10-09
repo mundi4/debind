@@ -300,7 +300,7 @@ function DebindStorage.PayloadIsImpossible(payload)
     local found = false;
     DebindStorage.ForEachPayloadLayer(payload, function(list)
         for _, source in ipairs(list) do
-            if (luatype(source) == "table" and source.key ~= nil and source.key ~= source.key) then
+            if (source.key ~= nil and source.key ~= source.key) then
                 found = true;
             end
         end
@@ -547,47 +547,6 @@ function DebindStorage.DescribePayload(payload)
     end
 
     return out;
-end
-
---- A sender's free text (`payload.name`, `payload.description`) made safe to draw: at most
---- `maxChars` characters, and every `|` doubled. **A `|` is the client's markup** (`|c` colour,
---- `|H` link, `|T` texture, `|n` line break), and text from a string somebody else wrote could
---- recolour a row, fake a link or stretch the list. Doubled, it draws as itself.
----
---- One line unless `multiline`: a name sits on a row, and a description is typed in a box that
---- takes line breaks. Every other control character is a space either way.
----
---- Cut before it is escaped, so the cut cannot split a doubled `|` and leave a live one. Nil for
---- anything that is not a string or is empty once trimmed.
-function DebindStorage.PlainText(text, maxChars, multiline)
-    if (luatype(text) ~= "string") then
-        return nil;
-    end
-    if (multiline) then
-        text = text:gsub("\r\n?", "\n"):gsub("[^%S\n]+", " "):gsub("[%c]", function(c)
-            return c == "\n" and c or " ";
-        end);
-        text = strtrim(text);
-    else
-        text = strtrim((text:gsub("[%c]+", " ")));
-    end
-    if (text == "") then
-        return nil;
-    end
-
-    local count, cut = 0, nil;
-    for start in text:gmatch("()[%z\1-\127\194-\244][\128-\191]*") do
-        count = count + 1;
-        if (count > maxChars) then
-            cut = start;
-            break;
-        end
-    end
-    if (cut) then
-        text = strtrim(text:sub(1, cut - 1)) .. "...";
-    end
-
-    return (text:gsub("|", "||"));
 end
 
 --- Seats a payload in the store and hands back the row it became.

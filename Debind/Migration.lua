@@ -889,9 +889,10 @@ local function MigrateLayer(layerTbl, dbver, to)
         end
 
         -- **What every earlier step and every shipped writer left behind goes, once** (owner,
-        -- 2026-10-09; `checking-pasted-strings-and-keeping-actions-canonical.md` §3, item 4). Each
-        -- rule answers something a shipped build left in a profile, a string or a drawer entry, and
-        -- nothing else: a value only a hand could have made is the import gate's (`BuildAction`).
+        -- 2026-10-09). Each rule answers something a shipped build left in a profile, a string or a
+        -- drawer entry, and nothing else: a value only a hand could have made is `SanitizeAction`'s,
+        -- which runs after every ladder. It takes most of these off as well; why the step keeps its
+        -- own copy is the paragraph below.
         --
         --   - the old unit fields, which the 1 -> 2 step moves only from a version 1 profile and only
         --     when it can read them (1.11 to 1.15 wrote them at version 2), and `reactions`, which the
@@ -911,8 +912,8 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- when the live rules change, bringing data already raised along is a new step's job, and
         -- this copy stays as version 8 left it.
         --
-        -- A received payload rides this before `SanitizeAction` asks its types (`BuildAction`), so
-        -- nothing here may raise on one that is wrong.
+        -- A received payload rides this before `SanitizeAction` asks its types (`SanitizePayload`),
+        -- so nothing here may raise on one that is wrong.
         --
         -- Running twice is safe: what it takes off is not put back.
         local SPEC_RESOLVED_AT_8 = { dispel = true, dispel2 = true, raidbuff = true, resurrect = true };

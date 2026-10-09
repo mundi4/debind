@@ -102,12 +102,11 @@ end
 --- One class's mask off a stored condition. nil where the class holds nothing, and **0 where what
 --- is stored is not a mask at all.**
 ---
---- **The wire does not reach this deep.** `ConditionAllowed` types the condition itself and stops
---- (`DebindStorage/Import.lua`), the way it does for `units` and `talents`, so a hand-made string
---- can leave anything under a class id. It used to be read by indexing and anything was harmless;
---- it is arithmetic now, and `band` on a boolean raises inside the rebuild. 0 rather than nil,
---- because a value nobody can read must make the condition true less often rather than more: the
---- direction a keybinding addon must not fail in is the one that takes somebody else's key.
+--- **The guard under `SanitizeAction`**, which drops a class whose value is no mask at every door.
+--- An edit made with `/run` in the session reaches the rebuild through none of them, and
+--- `band` on a boolean raises inside it. 0 rather than nil, because a value nobody can read must make
+--- the condition true less often rather than more: the direction a keybinding addon must not fail
+--- in is the one that takes somebody else's key.
 local function MaskFor(specs, classID)
     local mask = specs[classID];
     if (mask == nil) then

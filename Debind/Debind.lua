@@ -326,8 +326,8 @@ do
 				-- nothing is a key the game cannot use.
 				--
 				-- **Escape is read as no key here too.** The data paths take it off (`MigrateLayer`'s
-				-- 7 -> 8 step, `BringPayloadDataForward`); this is for one that reaches a live layer
-				-- some other way, which would take the game menu with it for as long as it stays there.
+				-- 7 -> 8 step, `SanitizeAction`); this is for one that reaches a live layer some other
+				-- way, which would take the game menu with it for as long as it stays there.
 				local binding, list, outcome;
 				if (action.key and action.key ~= "ESCAPE" and not action.arrivalID and not action.disabled) then
 					list = DebindPrivate.GetBindingsForAction(action);

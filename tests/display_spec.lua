@@ -496,6 +496,24 @@ return function(DebindPrivate)
         check(tooltip:text():find(sentence, 1, true), "the sentence is missing: " .. tooltip:text());
     end);
 
+    --- **What it was came from somebody else's string**, so it is drawn as text: a `|` is the client's
+    --- markup, and a long body would stretch the row.
+    test("a broken action's old type and value are drawn as text, on one short line", function()
+        Bind({
+            { type = "|cffff0000bad", value = "|Hitem:1|h[x]|h", key = "F1", seq = 1 },
+            { type = "zz", value = string.rep("a", 200) .. "\nsecond line", key = "F2", seq = 1 },
+        }, {});
+
+        local _, _, name = DebindPrivate.DebindUI.NameAndIconForAction(
+            DebindPrivate.CollectActionsForKey("F1")[1].action);
+        check(name == "||cffff0000bad ||Hitem:1||h[x]||h", "markup reached the row: " .. name);
+
+        _, _, name = DebindPrivate.DebindUI.NameAndIconForAction(
+            DebindPrivate.CollectActionsForKey("F2")[1].action);
+        check(#name < 100, "a long value stretched the row: " .. #name .. " bytes");
+        check(not name:find("\n", 1, true), "the row's name broke onto a second line");
+    end);
+
     --- **Only what differs is drawn.** One value changed is one line, in the menu's own words.
     test("one Cast Options value changed draws that one line", function()
         Bind({

@@ -1037,15 +1037,6 @@ local function BringPayloadDataForward(payload)
             if (luatype(action) == "table" and action.type == Constants.SPELL) then
                 action.value = DebindPrivate.CanonicalSpellID(action.value);
             end
-            -- **Escape arrives keyless**, as the ladder's 7 -> 8 step leaves it (`MigrateLayer`):
-            -- nothing can take the game menu's key, and no window of ours puts it on an action.
-            -- **This is for a string written at this `dbver`**, which reaches no step; one written
-            -- earlier has already lost the key in that step, and meets this as a no-op. Here
-            -- rather than in `BuildAction`, so the preview reads what will land.
-            if (luatype(action) == "table" and action.key == "ESCAPE") then
-                action.key = nil;
-                action.seq = nil;
-            end
         end
     end);
 

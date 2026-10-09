@@ -33,8 +33,8 @@
   `TYPE_GIVEBACK`, `TYPE_GIVEBACK_DESC`로 바꾼다.
 - **DB 판은 올리지 않는다.** 판 8은 아직 안 나갔고(v4.1.2가 7), 저장 값의 이름 바꾸기는 그 7→8 단계에 얹는다.
   `giveBackWhenActionExists`는 그 7→8 단계가 지운다(`MigrateAccount`). 처음에는 이미 판 8인 프로필도 지우려고 매번 읽을
-  때 지웠는데, 2026-10-09에 단계로 옮겼다. 이미 판 8인 개발 프로필은 손댄 데이터로 보고 따지지 않는다
-  (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-1).
+  때 지웠는데, 2026-10-09에 단계로 옮겼다. 이미 판 8인 개발 프로필에 남은 값은 따지지 않는다. 읽는 곳이 없어서 남아도
+  아무 일도 하지 않는다.
 - **"Filled buttons only"(`giveBackWhenActionExists`)는 없앤다.** 칸이 나중에 채워지면 다시 읽지 않는 구멍이 있다
   (`giving-keys-back.md`). 켰을 때의 실패가 차량 기술을 키로 못 누르는 것이라, 얻는 것(빈 칸 키에서 내 액션을 계속 씀)보다
   무겁다.

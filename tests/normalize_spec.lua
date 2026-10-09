@@ -284,14 +284,14 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- `known`은 참 아니면 없음이다. 이 블록의 다른 조건들과 달리 세 번째 값이 없다
+    -- `known` is true or nothing; unlike the other conditions in this block it has no third value
     --
-    -- 묻는 대상이 언제나 그 액션 자신의 주문이라, `false`는 "그 주문을 모를 때 그 주문을
-    -- 시전"이 된다. 성립하는 상태가 없다. UI도 체크박스 하나라 참/없음만 쓴다.
+    -- It always asks about the action's own spell, so `false` would be "cast that spell when it is
+    -- not known", which no state satisfies, and the menu is one checkbox.
     --
-    -- 그런데 `Export.lua`가 `known = "boolean"`이고 `Import.lua`의 `FieldAllowed`는 이름과
-    -- 타입만 보므로 `false`가 통과한다. 여기서 안 지우면 `UpdateBindings`가 참일 때와 **같은**
-    -- `[known:<값>]`을 굽고, 그 바인딩은 꺼져 있어야 할 상태에서 발동한다.
+    -- `SanitizeAction` folds a `false` at every door. The binding drops one as well: left in,
+    -- `UpdateBindings` bakes the **same** `[known:<value>]` as for true, and the binding fires in the
+    -- state it should be off in.
     ---------------------------------------------------------------------------
 
     test("주문이어도 거짓인 known은 사라진다", function()

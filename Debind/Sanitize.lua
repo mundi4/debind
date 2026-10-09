@@ -9,7 +9,6 @@ local luatype   = type;
 
 local KEYS_TO_SAVE          = DebindPrivate.KEYS_TO_SAVE;
 local VALUE_SHAPES          = Constants.VALUE_SHAPES;
-local CONDITION_FIELDS      = Constants.CONDITION_FIELDS;
 local CONDITION_MASKS       = Constants.CONDITION_MASKS;
 local CASTING_FIELDS        = Constants.CASTING_FIELDS;
 local UNIT_CONDITION_FIELDS = Constants.UNIT_CONDITION_FIELDS;
@@ -41,10 +40,6 @@ local function Fits(expected, value)
         typeSets[expected] = set;
     end
     return set[luatype(value)] == true;
-end
-
-local function IsScalar(value)
-    return luatype(value) == "string" or (luatype(value) == "number" and value == value);
 end
 
 --- A mask cut to the bits it can hold. **What is no mask at all reads as nothing picked**, 0, which
@@ -141,7 +136,7 @@ local function SanitizeConditions(action, conditions)
     for name, value in pairs(conditions) do
         local expected;
         if (luatype(name) == "string") then
-            expected = CONDITION_FIELDS[name] or (Constants.IsSwitchName(name) and "boolean");
+            expected = Constants.ConditionFieldType(name);
         end
         local all = expected and CONDITION_MASKS[name];
         if (all) then
@@ -263,8 +258,8 @@ function DebindPrivate.SanitizeAction(action)
         action.value = nil;
     elseif (shape == nil or not Fits(shape, action.value)) then
         local formerly = {};
-        formerly.type = IsScalar(action.type) and action.type or nil;
-        formerly.value = IsScalar(action.value) and action.value or nil;
+        formerly.type = Fits("number|string", action.type) and action.type or nil;
+        formerly.value = Fits("number|string", action.value) and action.value or nil;
         action.type = Constants.INVALID;
         action.value = nil;
         action.formerly = next(formerly) ~= nil and formerly or nil;
@@ -273,7 +268,7 @@ function DebindPrivate.SanitizeAction(action)
     local formerly = action.formerly;
     if (formerly) then
         for name, value in pairs(formerly) do
-            if ((name ~= "type" and name ~= "value") or not IsScalar(value)) then
+            if ((name ~= "type" and name ~= "value") or not Fits("number|string", value)) then
                 formerly[name] = nil;
             end
         end

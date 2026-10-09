@@ -1,6 +1,6 @@
 # 액션을 sanitize 함수 하나로 바로잡기
 
-> 상태: 되감기를 했다(3-4). 7절 4번(액션이 바뀔 때마다)까지 했고 다음은 6번이다. 5번은 2·3번에서 같이 됐다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
+> 상태: 되감기를 했다(3-4). 7절은 7번(5절의 값들을 다시 넣어 보기)만 남았다. 5번은 2·3번에서 같이 됐다. 2절은 2026-10-09에 소유자가 정했고, 같은 날 검토에서
 > 소유자가 더 정한 것(대기 액션, 계정 전체 페이로드는 사본만, 서랍, 클라이언트마다 다른 답)을 2-1·2-2에 넣었다. 2절에서
 > `debind-1b`가 덧붙인 줄에는 "(덧붙임)"을 달았다. 6절의 정답표도 다 정했다.
 > `checking-pasted-strings-and-keeping-actions-canonical.md`의 설계(가져오기 관문만 엄하게 하고, 접속 때는 아무것도 고치지
@@ -518,23 +518,40 @@
    2번과 3번에서 이미 그 모양이 됐다. `CleanUpDB`는 `SanitizeLoadedLayers`(sanitize와 `ArmAction`)와 `AttachCharacterTables`
    뿐이고, 불러올 때만 쓴다.
 6. **지운 계획 문서를 가리키는 주석과 문서를 고친다**(3-4).
+
+   했다(2026-10-09, `debind-6c`). 아래 8번과 한 커밋이다.
+   - 3-4가 꼽은 파일 가운데 `Profile.lua`, `DebindStorage/Import.lua`, `tests/canonical.lua`, `need-fixing.md`는 그 사이의
+     커밋이 이미 고쳐 두었다. 남은 셋을 고쳤다. `Migration.lua`의 7 -> 8 단계 주석, `import_spec`의 접기 테스트 주석,
+     `giving-keys-back-when-no-action-runs.md`의 한 줄이다. 마지막 것은 이미 판 8인 개발 프로필의 옵션 값을 "손댄 데이터라
+     따지지 않는다"로 지운 문서의 2-1을 들었는데, 그 규칙은 뒤집혔다. 옵션은 sanitize하지 않고, 그 값을 읽는 곳이 없다는 것을
+     까닭으로 바꿔 적었다.
+   - 이 문서 안의 언급(머리말, 3-1, 4절)은 되감기의 기록이라 그대로 둔다.
 7. **5절의 값들을 다시 넣어 본다**(`.zzz/sanitize-harness/`). 어디서도 터지지 않아야 한다.
-8. **`1dd02f1` 리뷰에서 나온 작은 것들.** 다른 번호에 속하지 않는다. 어느 세션이 고칠지는 아직 정하지 않았다.
-   - **지운 함수를 가리키는 주석.** `Talents.lua:142`와 `Specs.lua:105`는 지운 `ConditionAllowed`를 들어 "이 깊이까지는
-     페이로드가 안 닿는다"고 한다. `Migration.lua:894`는 "가져오기 관문(`BuildAction`)"을, `Issues.lua:252`는 "`BuildAction`이
-     붙여넣은 액션에서 그 필드를 거절한다"를 말한다. 이제는 가져올 때와 불러올 때 둘 다 `SanitizeAction`이 한다.
-   - **깨진 행의 이름이 원래 값을 그대로 그린다.** `ActionDisplay.lua`의 `INVALID` 갈래가 `tostring(formerly.value)`를 그대로
-     쓴다. 붙여넣은 문자열이 색 코드, 가짜 링크, 긴 본문을 거기에 넣을 수 있다. 이런 값을 거르는 `DebindStorage.PlainText`가
-     이미 있지만 `DebindStorage`에 있고 `ActionDisplay`는 Debind 쪽이다. Debind 쪽에 같은 것을 두거나 그 함수를 옮겨야 한다.
-   - **같은 물음을 두 번 적었다.** `Sanitize.lua`의 `SanitizeConditions`는 이름을 `CONDITION_FIELDS[name] or
-     (IsSwitchName(name) and "boolean")`로 묻는데, `Constants.IsConditionField`가 있다. `IsScalar`는
-     `Fits("number|string", value)`와 같다.
-   - **같은 규칙이 두 군데 있다: Escape 키.** `BringPayloadDataForward`(`Export.lua`)가 Escape에 걸린 액션의 키와 `seq`를
-     떼는데, `SanitizeAction`도 같은 일을 하고 7절 3번부터 서랍의 두 문에서 돈다. `import_spec`의 "an action sent on Escape
-     arrives with no key"가 그 일을 `BringPayloadForward`에 묶어 두고 있어서, 걷어내려면 그 테스트가 서랍의 문을 거쳐 묻게
-     바꿔야 한다(`debind-6c`가 3번 리뷰에서 찾았다).
-   - **죽은 검사.** `PayloadIsImpossible`의 `luatype(source) == "table"`이다. `ForEachPayloadLayer`가 이미 표인 원소만
-     넘긴다(`Import.lua`, 그 머리주석). 걷어낸다.
+8. **`1dd02f1` 리뷰에서 나온 작은 것들.** 다른 번호에 속하지 않는다.
+
+   했다(2026-10-09, `debind-6c`).
+   - **지운 함수를 가리키는 주석.** 넷을 고쳤고, 같은 이름을 든 테스트 주석 셋(`import_spec`, `normalize_spec`,
+     `talents_spec`)도 고쳤다. `Talents.ListOf`와 `Specs`의 `MaskFor`는 읽는 쪽 가드다. 3-3이 "남길지는 구현할 때 정한다"고
+     한 것이다. 남겼다. 모든 문이 sanitize를 거치지만, 세션 안에서 `/run`으로 고친 값은 어느 문도 지나지 않고 리빌드에
+     닿는다. 거기서 터지면 키 맵이 이미 비워진 뒤다. 주석에 그 까닭을 적었다.
+   - **깨진 행의 이름.** `PlainText`를 `DebindStorage/Import.lua`에서 `Debind/Misc.lua`로 옮겼다(`DebindPrivate.PlainText`).
+     서랍과 `ActionDisplay`가 같은 함수를 쓴다. 깨진 행은 옛 타입의 철자와 값을 그것으로 그리고, 48자로 자른다. 서랍
+     목록이 보낸 이름에 주는 폭과 같다. `display_spec`에 테스트를 더했고, 고치기 전에 빨갰다.
+   - **같은 물음을 두 번 적은 것.** 조건 이름이 어떤 타입으로 저장되는지를 `Constants.ConditionFieldType` 하나가 답한다.
+     스위치 이름은 불리언 조건이라는 규칙이 거기 있고, `IsConditionField`도 그것을 읽는다. `Sanitize.lua`의 `IsScalar`는
+     지우고 `Fits("number|string", ...)`를 쓴다. 스위치 타입을 빼면 `sanitize_spec`이 빨개지는 것을 봤다.
+   - **Escape.** `BringPayloadDataForward`의 Escape 줄을 걷었다. 이 판의 문자열은 서랍의 문(`SanitizePayload`)이 키를
+     뗀다. `import_spec`의 테스트는 `StorePayload`로 묻게 바꿨고, 넣을 때의 sanitize를 빼면 빨개지는 것을 봤다.
+   - **죽은 검사.** `PayloadIsImpossible`의 `luatype(source) == "table"`을 걷었다. `ForEachPayloadLayer`가 이미 표인 원소만
+     넘긴다.
+   - **이 단계의 리뷰(`/code-review high`)에서 고친 것.** Escape를 `BringPayloadDataForward`가 뗀다고 적은 주석 셋
+     (`Constants.lua`, `Debind.lua`, `Issues.lua`)을 `SanitizeAction`으로 고쳤다. `CONDITION_FIELDS` 머리주석이
+     `ConditionFieldType`도 가리키게 했다. `Specs`의 가드 주석이 sanitize가 0을 남긴다고 했는데 그 칸을 지운다. 그렇게
+     고쳤다. 깨진 행의 길이 한도가 서랍 목록의 상수를 베꼈다고 적었던 것을, 행 자체의 까닭으로 바꿨다.
+   - **택하지 않은 것: 목록 검색이 깨진 행의 잘린 이름으로 찾는 것.** 검색은 행에 그려진 이름을 읽는다. 잘린 뒤의 글은
+     화면에도 없다.
+   - **넘긴 것.** 깨진 행이 아닌 다른 갈래도 붙여넣은 글을 그대로 그린다. 찾지 못한 매크로의 이름, 이름으로 든 주문과
+     아이템, 명령의 값, `name`이 그렇다. 이 번호의 범위가 아니라 `need-fixing.md` 15번으로 갔다(`debind-4b`).
    - **택하지 않은 지적.** 옛 빌드로 되돌리면 새 타입이 `INVALID`가 되거나, 로그아웃 때 새 축이 지워진다는 것이다. 되돌리기는
      설계하지 않았다(소유자). 필드나 타입이 늘 때 `dbver`를 올려 옛 빌드가 물러서게 하는 것을 규칙으로 둘지는 소유자와
      아직 정하지 않았다.

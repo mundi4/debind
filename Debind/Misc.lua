@@ -53,6 +53,48 @@ function DebindPrivate.GetVersionLabel()
     return DebindPrivate.DEV_STAMP or "dev";
 end
 
+--- Somebody else's text made safe to draw: at most `maxChars` characters, and every `|` doubled.
+--- **A `|` is the client's markup** (`|c` colour, `|H` link, `|T` texture, `|n` line break), and
+--- text from a string somebody else wrote could recolour a row, fake a link or stretch the list.
+--- Doubled, it draws as itself. A pasted entry's name and description go through it, and so does
+--- what a broken action was (`NameAndIconForAction`).
+---
+--- One line unless `multiline`: a name sits on a row, and a description is typed in a box that
+--- takes line breaks. Every other control character is a space either way.
+---
+--- Cut before it is escaped, so the cut cannot split a doubled `|` and leave a live one. Nil for
+--- anything that is not a string or is empty once trimmed.
+function DebindPrivate.PlainText(text, maxChars, multiline)
+    if (type(text) ~= "string") then
+        return nil;
+    end
+    if (multiline) then
+        text = text:gsub("\r\n?", "\n"):gsub("[^%S\n]+", " "):gsub("[%c]", function(c)
+            return c == "\n" and c or " ";
+        end);
+        text = strtrim(text);
+    else
+        text = strtrim((text:gsub("[%c]+", " ")));
+    end
+    if (text == "") then
+        return nil;
+    end
+
+    local count, cut = 0, nil;
+    for start in text:gmatch("()[%z\1-\127\194-\244][\128-\191]*") do
+        count = count + 1;
+        if (count > maxChars) then
+            cut = start;
+            break;
+        end
+    end
+    if (cut) then
+        text = strtrim(text:sub(1, cut - 1)) .. "...";
+    end
+
+    return (text:gsub("|", "||"));
+end
+
 function DebindPrivate.DisplayMessage(message, r, g, b)
     if (b == nil) then
         local info = ChatTypeInfo["SYSTEM"];

@@ -92,6 +92,10 @@ local IMPORTED_FONT_COLOR    = BRIGHTBLUE_FONT_COLOR;
 local QUESTION_MARK_ICON_NUM = Constants.QUESTION_MARK_ICON;
 local TEMP_MACRO_NAME        = "zzDbncTmpMcr"
 
+--- The longest old type or value a broken action's row draws. A row is one line, and what a broken
+--- action held can be a whole macro body.
+local FORMER_MAX_CHARS       = 48;
+
 local _macrotextIconCache    = {};
 local function GetMacrotextIcon(macrotext)
 	if (macrotext == nil or macrotext == "") then
@@ -494,9 +498,14 @@ local function NameAndIconForAction(action)
 		-- **The name is what it was**: the old type's own name where this build has one, its stored
 		-- spelling where it has none, and the value as it was stored. Nothing is looked up from the
 		-- value, since what it was is exactly what could not be read.
+		--
+		-- **Both came from somebody else's string**, so they are drawn as text and cut to a row's
+		-- width (`PlainText`): a `|` would be the client's markup, and a body would stretch the row.
 		local formerly = action.formerly or {};
-		local formerType = formerly.type ~= nil and (BINDING_TYPE_NAMES[formerly.type] or tostring(formerly.type));
-		local formerValue = formerly.value ~= nil and tostring(formerly.value);
+		local formerType = formerly.type ~= nil and (BINDING_TYPE_NAMES[formerly.type]
+			or DebindPrivate.PlainText(tostring(formerly.type), FORMER_MAX_CHARS));
+		local formerValue = formerly.value ~= nil
+			and DebindPrivate.PlainText(tostring(formerly.value), FORMER_MAX_CHARS);
 		if (formerType and formerValue) then
 			actionName = formerType .. " " .. formerValue;
 		else

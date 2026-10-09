@@ -829,7 +829,7 @@ return function(DebindPrivate, DebindStorage)
     -- A sender's text on our screen (`PlainText`)
     ---------------------------------------------------------------------------
 
-    local Plain = DebindStorage.PlainText;
+    local Plain = DebindPrivate.PlainText;
 
     test("설명은 줄바꿈을 살리고 이름은 한 줄로 접는다", function()
         check(Plain("첫\r\n둘\r셋\t넷", 100, true) == "첫\n둘\n셋 넷", tostring(Plain("첫\r\n둘\r셋\t넷", 100, true)));

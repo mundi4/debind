@@ -318,7 +318,7 @@ end
 --- caller that has it already.
 local function EntryName(entry, held)
     local payload = type(entry.payload) == "table" and entry.payload or {};
-    local text = Store().PlainText(payload.name, NAME_MAX_CHARS) or LLL["STORAGE_ENTRY_UNNAMED"];
+    local text = DebindPrivate.PlainText(payload.name, NAME_MAX_CHARS) or LLL["STORAGE_ENTRY_UNNAMED"];
     local color = TitleColor(entry, held or DescribeEntry(entry));
     return color and color:WrapTextInColorCode(text) or text;
 end
@@ -436,7 +436,7 @@ function DebindStorageEntryRowMixin:OnEnter()
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
     GameTooltip_SetTitle(GameTooltip, EntryName(entry, held));
 
-    local description = Store().PlainText(payload.description, DESCRIPTION_MAX_CHARS, true);
+    local description = DebindPrivate.PlainText(payload.description, DESCRIPTION_MAX_CHARS, true);
     if (description) then
         GameTooltip_AddHighlightLine(GameTooltip, description);
         GameTooltip_AddBlankLineToTooltip(GameTooltip);

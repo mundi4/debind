@@ -139,11 +139,10 @@ end
 
 --- One of an entry's two lists, **or nil where what is stored is not a list at all.**
 ---
---- **The wire does not reach this deep.** `ConditionAllowed` types the condition itself and stops
---- (`DebindStorage/Import.lua`), the way it does for `specs` and `units`; those two are read by
---- indexing, so anything inside them is harmless, while these are walked. A hand-made string
---- carrying `talents = { [102] = { taken = 5 } }` otherwise raises on `#taken` inside the rebuild,
---- which has already wiped the key map -- the character comes out with no bindings at all.
+--- **The guard under `SanitizeAction`**, which takes a list that is no table out at every door. An
+--- edit made with `/run` in the session reaches the rebuild through none of them, and
+--- `talents = { [102] = { taken = 5 } }` would raise on `#taken` there, after the key map is
+--- wiped -- the character comes out with no bindings at all.
 function Talents.ListOf(entry, name)
     local list = type(entry) == "table" and entry[name];
     if (type(list) ~= "table") then

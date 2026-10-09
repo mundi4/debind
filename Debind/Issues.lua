@@ -29,7 +29,7 @@ local SOURCE_AT               = DebindPrivate.UNIT_SOURCE_AT;
 --- canonicalized, and `META-CTRL-BUTTON2` comes back as `CTRL-` with the META already dropped.
 ---
 --- **Escape is not asked about here.** No window puts it on an action and the data paths take it
---- off (`MigrateLayer`'s 7 -> 8 step, `BringPayloadDataForward`); one put there by hand,
+--- off (`MigrateLayer`'s 7 -> 8 step, `SanitizeAction`); one put there by hand,
 --- `BuildKeyMap` reads as keyless.
 function DebindPrivate.IsKeyInvalidForAction(action, key)
     if (type(key) == "string" and key:find("META-", 1, true)
@@ -249,8 +249,8 @@ function DebindPrivate.GetMissingMacroName(action)
     -- action out of `KeyMap` entirely (`GetBindingIssue` -> `BuildKeyMap`). Nothing in the addon
     -- writes one: the picker (`ActionCatalog.lua`) reads a name out of the index it is looping
     -- over, the cursor drop (`GetActionTypeAndValueFromCursorInfo`) does the same and builds no
-    -- action when no name comes back, and `BuildAction` (`DebindStorage/Import.lua`) refuses the
-    -- field on a pasted one. This is the backstop under all three.
+    -- action when no name comes back, and `SanitizeAction` turns a loaded or pasted one that is no
+    -- string into a broken action (`INVALID`). This is the backstop under all three.
     local value = action.value;
     if (type(value) ~= "string") then
         -- Truthy whatever it holds, so the action is flagged instead of bound. An action with no

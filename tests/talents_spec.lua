@@ -156,10 +156,10 @@ return function(DebindPrivate, _, harness)
         check(Holds(world, { notTaken = { 4242 } }) == true);
     end);
 
-    -- **The wire types the condition and stops there.** `ConditionAllowed` checks that `talents`
-    -- is a table, the way it does for `specs` and `units`; those two are read by indexing and this
-    -- one is walked, so a hand-made string reaches the rebuild with a number where a list belongs.
-    -- `#` on one raises, and the rebuild has already wiped the key map by then.
+    -- **The guard under `SanitizeAction`.** Every door takes a list that is no table out
+    -- (`sanitizing-actions-with-one-function.md` §6-4); an edit made with `/run` in the session
+    -- reaches the rebuild through none of them. `#` on a number raises, and the rebuild has already
+    -- wiped the key map by then.
     test("an entry that is not a pair of lists is survivable", function()
         local world = { nodes = { Class({ { id = 10, name = "Ravage", taken = true } }) } };
         local index, GetSpellName = Index(world);

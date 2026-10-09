@@ -304,8 +304,9 @@ Constants.CASTMOD_ALL   = 7;
 --- `casting` is which press's row it stands in. Why the two heights split is carried by the
 --- `dbver <= 5` step in `Migration.lua`.
 ---
---- **Do not read this table to ask whether a name is a condition.** Ask `IsConditionField`; only it
---- also answers for the names that start with a dollar sign, which are booleans.
+--- **Do not read this table to ask whether a name is a condition, or what it holds.** Ask
+--- `IsConditionField` or `ConditionFieldType`; only they also answer for the names that start with
+--- a dollar sign, which are booleans.
 ---
 --- **The value is the Lua type the condition is stored as**, `|`-separated where more than one is
 --- real, and `SanitizeAction` drops a value that is not one of them.
@@ -442,12 +443,15 @@ function Constants.IsValidSwitchName(name)
     return type(name) == "string" and strmatch(name, "^%$[a-zA-Z0-9_]+$") ~= nil;
 end
 
+--- The Lua type a condition under `name` is stored as, or nil where `name` is no condition. A
+--- switch's name is a condition of its own, held as a boolean.
+function Constants.ConditionFieldType(name)
+    return Constants.CONDITION_FIELDS[name] or (Constants.IsSwitchName(name) and "boolean") or nil;
+end
+
 --- 이 이름이 조건 필드인가. 스위치 이름까지 같이 답한다.
 function Constants.IsConditionField(name)
-    if (Constants.CONDITION_FIELDS[name]) then
-        return true;
-    end
-    return Constants.IsSwitchName(name);
+    return Constants.ConditionFieldType(name) ~= nil;
 end
 
 --- **The names the five numbered rows became.** Nothing here says how many switches there can be:
@@ -866,7 +870,7 @@ Constants.BINDING_ISSUE_INVALID_ACTION                    = "INVALID_ACTION";
 --
 -- **No outcome takes the key itself** (owner, 2026-10-07). An issue is about its action alone. The
 -- one that did, the game menu key, went when Escape stopped being kept as a key at all
--- (`MigrateLayer`'s 7 -> 8 step, `BringPayloadDataForward`).
+-- (`MigrateLayer`'s 7 -> 8 step, `SanitizeAction`).
 --
 -- **Lower is stronger**, and an action carrying several issues reports the strongest.
 Constants.ISSUE_OUTCOME_OMIT    = 1;

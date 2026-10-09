@@ -608,7 +608,7 @@ return function(DebindPrivate, DebindStorage, ctx)
     end);
 
     -- **A value the addon reads the same as its stored spelling is not wrong data**, so it is taken
-    -- and folded into that spelling (`checking-pasted-strings-and-keeping-actions-canonical.md` 2-2).
+    -- and folded into that spelling (`sanitizing-actions-with-one-function.md` §6-1).
     test("what reads the same is folded on the way in", function()
         ResetProfile();
         local placements = DebindStorage.PlanArrival(General({
@@ -1026,14 +1026,15 @@ return function(DebindPrivate, DebindStorage, ctx)
         ArrivesInvalid(payload, "setstate", nil);
     end);
 
-    -- **정의가 없는 이름은 그대로 도착한다. 이것이 바뀐 자리다.**
+    -- **A name nothing defines arrives as it is. This is where the answer changed.**
     --
-    -- 전에는 `SWITCH_INDICES`에 없는 이름이면 값이 안 만들어져서 문자열이 통째로 거절됐다.
-    -- 그 거절은 이름을 번호로 되돌려야 해서 생긴 것이지 판단이 아니었고, 저장 표현이 이름이
-    -- 된 지금은 되돌릴 것이 없다. 도착한 뒤의 답도 이미 있다 - 정의가 없는 스위치를 가리키는
-    -- 것은 조건 쪽에서 이미 평범하게 받아들이는 모양이고(`ConditionAllowed`), 누르면 아무
-    -- 일도 안 일어난다. 붙박이 다섯을 가리키면서 정의가 없는 액션은 이 리포에서 이미 만들 수
-    -- 있다 - 카탈로그에서 고르는 것은 정의를 안 심는다(`GetOrCreateSwitchDefinition`).
+    -- A name missing from `SWITCH_INDICES` used to leave no value to build, and the whole string was
+    -- refused. That came from having to turn the name back into an index, not from a judgment, and
+    -- with the stored form a name there is nothing to turn back. What happens after it lands is
+    -- already answered: a condition naming an undefined switch is a shape `SanitizeAction` keeps,
+    -- and a press does nothing. An action naming one of the five built-ins with no definition can
+    -- already be made here, since picking one from the catalog plants no definition
+    -- (`GetOrCreateSwitchDefinition`).
     test("정의가 없는 이름도 그대로 도착한다", function()
         ResetProfile();
         local action = PlanOne(Forwarded(V1Setstate("toggle", "$nosuchswitch")));
@@ -1110,18 +1111,21 @@ return function(DebindPrivate, DebindStorage, ctx)
             "멀쩡한 것이 걸렸다");
     end);
 
-    -- **Escape arrives keyless** (`BringPayloadForward`), as the ladder's 7 -> 8 step leaves a
-    -- stored one (`MigrateLayer`): a string written at this `dbver` reaches no migration step, and
-    -- nothing can take the game menu's key. The action itself comes through, and what the preview
-    -- describes is the same keyless action.
+    -- **Escape arrives keyless**: nothing can take the game menu's key. A string written at this
+    -- `dbver` reaches no migration step, so it is the drawer's door that takes the key off
+    -- (`SanitizePayload`). The action itself comes through, and what the preview describes is the
+    -- same keyless action.
     test("an action sent on Escape arrives with no key", function()
-        local payload = General({ { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 3 } });
-        local raised = assert(DebindStorage.BringPayloadForward(payload));
-        local arrived = raised.layers.account.GENERAL[0][1];
+        _G.DebindStorageVars = nil;
+        local entry = DebindStorage.StorePayload(General({
+            { type = Constants.SPELL, value = 585, key = "ESCAPE", seq = 3 } }));
+        _G.DebindStorageVars = nil;
+        check(entry, "the payload was refused");
+        local arrived = entry.payload.layers.account.GENERAL[0][1];
         check(arrived.key == nil, "Escape came through: " .. tostring(arrived.key));
         check(arrived.seq == nil, "the keyless action kept a number: " .. tostring(arrived.seq));
         check(arrived.type == Constants.SPELL and arrived.value == 585, "the action itself did not come through");
-        check(DebindStorage.DescribePayload(raised).key == nil, "the preview still names Escape");
+        check(DebindStorage.DescribePayload(entry.payload).key == nil, "the preview still names Escape");
     end);
 
     -- The UI reaches for `value` on these three without asking, so one arriving without it is not a
