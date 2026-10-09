@@ -844,13 +844,14 @@ end
 --- frozen. Adding it then would mean a later step correcting a field whose meaning moved here --
 --- a ladder that lies about which version changed what.
 ---
---- The step holds its own literals, for the reason the `setstate` step in `Migration.lua` does.
+--- The step holds its own literals, the old numbers and version 6's names alike, for the reason
+--- every step in `Migration.lua` does (`MigrateLayer`'s header).
 local function RenameManifestSwitchFields(definition)
     if (luatype(definition.mode) == "number") then
         if (definition.mode == 3) then
-            definition.mode = Constants.SWITCH_MODES.EXPR;
+            definition.mode = "expr";
         else
-            definition.mode = Constants.SWITCH_MODES.MANUAL;
+            definition.mode = "manual";
         end
     end
     if (definition.initialValue ~= nil) then

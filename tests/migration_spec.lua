@@ -273,7 +273,12 @@ return function(DebindPrivate, _, ctx)
                 },
             },
         };
-        DebindPrivate.RunLegacyMigration();
+        -- The repair reads the old file's own type name, so the live one is swapped while it runs.
+        local liveMacrotext = DebindPrivate.Constants.MACROTEXT;
+        DebindPrivate.Constants.MACROTEXT = "not a type";
+        local ok, err = pcall(DebindPrivate.RunLegacyMigration);
+        DebindPrivate.Constants.MACROTEXT = liveMacrotext;
+        check(ok, tostring(err));
 
         -- **Three renames meet in one body.** This file repairs the addon's rename before the
         -- ladder runs, `dbver <= 6` renames the unit after it, and `dbver <= 7` carries the switch
@@ -3329,6 +3334,166 @@ return function(DebindPrivate, _, ctx)
         DebindPrivate.MigrateLayer(list, 1);
         for _, name in ipairs({ "checkUnitExists", "checkedUnit", "checkedUnitValue", "reactions" }) do
             check(list[1][name] == nil, name .. " stayed: " .. tostring(list[1][name]));
+        end
+    end);
+
+    ---------------------------------------------------------------------------
+    -- A step holds its own version's values
+    --
+    -- **A step is frozen once written, and what it reads has to be too.** One that asks a live table
+    -- or a live constant moves the day that table does, on profiles nobody can raise again. Each
+    -- case swaps the live value for a wrong one while one step runs, and asks for that version's
+    -- answer all the same.
+    ---------------------------------------------------------------------------
+
+    local function WithLive(name, value, fn)
+        local real = Constants[name];
+        Constants[name] = value;
+        local ok, err = pcall(fn);
+        Constants[name] = real;
+        if (not ok) then
+            error(err, 0);
+        end
+    end
+
+    -- Version 1's own list: today's names the pointed frame's unit `unitframe`, version 1 `hover`.
+    test("the 1 -> 2 step reads version 1's units", function()
+        local list = { { type = "spell", value = 1, unit = "hover", checkUnitExists = true } };
+        DebindPrivate.MigrateLayer(list, 1, 2);
+        check(list[1].checkUnitExists == nil and list[1].checkedUnits and list[1].checkedUnits["@"] == true,
+            "a version 1 check on hover was not moved: " .. Show(list[1]));
+    end);
+
+    test("the 5 -> 6 step names a switch by version 6's index", function()
+        local list = { { type = "setstate", value = 0x100 + 3 } };
+        WithLive("SWITCH_NAMES", {}, function()
+            DebindPrivate.MigrateLayer(list, 5, 6);
+        end);
+        check(list[1].type == "setstate_on" and list[1].value == "$state3", "got " .. Show(list[1]));
+    end);
+
+    test("the 6 -> 7 step reads version 7's action button commands and type names", function()
+        local list = { { type = "command", value = "ACTIONBUTTON1" }, { type = "equipslot", value = 13 } };
+        WithLive("ACTION_BUTTON_COMMANDS", {}, function()
+            WithLive("COMMAND", "not a type", function()
+                WithLive("ACTIONBUTTON", "not a type", function()
+                    WithLive("USESLOT", "not a type", function()
+                        DebindPrivate.MigrateLayer(list, 6, 7);
+                    end);
+                end);
+            end);
+        end);
+        check(list[1].type == "actionbutton", "the command was not raised: " .. Show(list[1]));
+        check(list[2].type == "useslot", "the slot was not renamed to version 7's: " .. Show(list[2]));
+    end);
+
+    -- An old scalar on the pointed frame's row is spread into a table so the frame-type mask has
+    -- somewhere to go, with version 7's reaction bit.
+    test("the 6 -> 7 step writes version 7's reaction bit", function()
+        local list = { { type = "spell", value = 1,
+            conditions = { frameTypes = 4, units = { unitframe = "help" } } } };
+        WithLive("REACTION_HELP", 64, function()
+            DebindPrivate.MigrateLayer(list, 6, 7);
+        end);
+        local units = list[1].conditions and list[1].conditions.units;
+        local row = units and units.unitframe;
+        check(row and row.reaction == 1 and row.frameTypes == 4, "got " .. Show(list[1]));
+    end);
+
+    test("the 6 -> 7 step keeps known on version 7's spec-resolved types", function()
+        local list = { { type = "resurrect", conditions = { known = true } } };
+        WithLive("SPEC_RESOLVED_TYPES", {}, function()
+            DebindPrivate.MigrateLayer(list, 6, 7);
+        end);
+        check(list[1].conditions and list[1].conditions.known == true, "got " .. Show(list[1]));
+    end);
+
+    test("the 7 -> 8 step writes version 8's switch action types", function()
+        local list = { { type = "setstate_toggle", value = "$a" } };
+        WithLive("SETSWITCH_TOGGLE", "not a type", function()
+            DebindPrivate.MigrateLayer(list, 7, 8);
+        end);
+        check(list[1].type == "setswitch_toggle", "got " .. Show(list[1]));
+    end);
+
+    test("the rank pass in MigrateDB reads version 8's spell type", function()
+        local spells = DebindPrivate.CamelotSpells;
+        DebindPrivate.CamelotSpells = { [686] = { 1 }, [705] = 686 };
+        local profile = ProfileAt7();
+        profile.shared.GENERAL[1].value = 705;
+        local ok, err = pcall(WithLive, "SPELL", "not a type", function()
+            DebindPrivate.MigrateDB(profile);
+        end);
+        DebindPrivate.CamelotSpells = spells;
+        check(ok, tostring(err));
+        local action = profile.layers.account.GENERAL[0][1];
+        check(action.value == 686, "the spell was not put on its first rank: " .. Show(action));
+    end);
+
+    test("the dbver 5 switch step reads version 6's names and writes version 6's modes", function()
+        local db = {
+            shared = { GENERAL = { { type = "spell", value = 1, conditions = { ["$state2"] = true } } } },
+            customStates = { [2] = { mode = 0 }, [3] = { mode = 3, expr = "[combat]" }, [4] = { mode = 0 } },
+        };
+        WithLive("IsSwitchName", function() return false; end, function()
+            WithLive("SWITCH_NAMES", {}, function()
+                WithLive("SWITCH_MODES", { MANUAL = "not a mode", EXPR = "not a mode" }, function()
+                    DebindPrivate.MigrateSwitches(db, 5, 6);
+                end);
+            end);
+        end);
+        check(db.switches["$state2"] and db.switches["$state2"].mode == "manual",
+            "the referenced switch: " .. Show(db.switches));
+        check(db.switches["$state3"] and db.switches["$state3"].mode == "expr",
+            "the computed switch's mode: " .. Show(db.switches["$state3"]));
+        -- Never referenced, never touched: version 6's manual is what reads as untouched.
+        check(db.switches["$state4"] == nil, "the planted switch was kept: " .. Show(db.switches));
+    end);
+
+    -- **The whole layer ladder, with every value its steps used to read from `Constants` swapped for
+    -- a wrong one.** A step that reads one of them again comes out different from the run with the
+    -- real values, whichever step it is and whether it reads or writes the value.
+    test("the layer ladder does not move with today's constants", function()
+        local function Old()
+            return {
+                { type = "spell", value = 1, unit = "hover", checkUnitExists = true, key = "F1" },
+                { type = "spell", value = 2, checkedUnit = "target", checkedUnitValue = "help", key = "F2" },
+                { type = "setstate", value = 0x400 + 2, key = "F3" },
+                { type = "equipslot", value = 13, key = "F4" },
+                { type = "command", value = "ACTIONBUTTON1", key = "F5" },
+                { type = "command", value = "JUMP", key = "F6" },
+                { type = "resurrect", known = true, key = "F7" },
+                { type = "macrotext", value = "/click DebindStates", key = "F8" },
+                { type = "macrotext", value = "/cast [@hover] Rejuvenation", key = "F11" },
+                { type = "spell", value = 5, pinRank = true, key = "F9" },
+                { type = "spell", value = 10, key = "F10", priority = 2 },
+                { type = "spell", value = 11, key = "F10" },
+            };
+        end
+        local real = Old();
+        DebindPrivate.MigrateLayer(real, 1, Constants.DB_VERSION);
+
+        local swapped = Old();
+        local WRONG = {
+            SPELL = "x1", MACROTEXT = "x2", COMMAND = "x3", ACTIONBUTTON = "x4", USESLOT = "x5",
+            BLOCK = "x6", SETSWITCH_ON = "x7", SETSWITCH_OFF = "x8", SETSWITCH_TOGGLE = "x9",
+            DEFAULT_IMPORTANCE = 1, REACTION_HELP = 64, REACTION_HARM = 128,
+            SPEC_RESOLVED_TYPES = {}, ACTION_BUTTON_COMMANDS = {}, SWITCH_NAMES = {},
+            BASIC_UNITS = {}, SPECIAL_UNITS = {},
+        };
+        local saved = {};
+        for name, value in pairs(WRONG) do
+            saved[name] = Constants[name];
+            Constants[name] = value;
+        end
+        local ok, err = pcall(DebindPrivate.MigrateLayer, swapped, 1, Constants.DB_VERSION);
+        for name in pairs(WRONG) do
+            Constants[name] = saved[name];
+        end
+        check(ok, "raised: " .. tostring(err));
+        for i = 1, #real do
+            check(Show(swapped[i]) == Show(real[i]),
+                ("[%d] moved with today's constants: %s, against %s"):format(i, Show(swapped[i]), Show(real[i])));
         end
     end);
 

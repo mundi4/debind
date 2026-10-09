@@ -1371,8 +1371,12 @@ return function(DebindPrivate, DebindStorage, harness)
     -- **v1 매니페스트도 같은 단계가 받는다.** 3.2가 이 표를 실어 보냈으므로 v1 문자열이
     -- 남의 노트에 옛 모양으로 앉아 있다. 아직 매니페스트를 읽는 쪽은 없지만 단계는 한 번
     -- 쓰면 얼어붙어서, 읽는 쪽이 생기는 날 붙일 자리가 여기 말고는 없다.
+    -- **The modes it writes are version 6's**, so the live table is swapped while it runs
+    -- (`MigrateLayer`'s header in `Migration.lua`).
     test("v1 매니페스트의 정의도 새 이름으로 올라온다", function()
-        local payload = DebindStorage.BringPayloadForward({
+        local liveModes = Constants.SWITCH_MODES;
+        Constants.SWITCH_MODES = { MANUAL = "not a mode", EXPR = "not a mode" };
+        local ok, payload = pcall(DebindStorage.BringPayloadForward, {
             v = 1, class = CLASS,
             states = {
                 ["$state1"] = { mode = 0, initialValue = true },
@@ -1380,11 +1384,13 @@ return function(DebindPrivate, DebindStorage, harness)
                 ["$state3"] = { mode = 0, initialValue = false },
             },
         });
+        Constants.SWITCH_MODES = liveModes;
+        check(ok, tostring(payload));
         check(payload, "v1이 거절당했다");
 
         local states = Definitions(payload);
-        check(states["$state1"].mode == Constants.SWITCH_MODES.MANUAL, "수동 모드");
-        check(states["$state2"].mode == Constants.SWITCH_MODES.EXPR,
+        check(states["$state1"].mode == "manual", "수동 모드");
+        check(states["$state2"].mode == "expr",
             "계산식 모드가 " .. tostring(states["$state2"].mode) .. "로 남았다");
         check(states["$state1"].initialValue == nil, "옛 필드가 남았다");
         check(states["$state1"].resetValue == true, "true가 안 옮겨졌다");

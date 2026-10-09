@@ -80,7 +80,8 @@ local function RepairLegacyClickTargets(layerTbl)
     end
     for i = 1, #layerTbl do
         local action = layerTbl[i];
-        if (action and action.type == Constants.MACROTEXT and type(action.value) == "string") then
+        -- The old file's own type name: this runs before the ladder (`MigrateLayer`'s header).
+        if (action and action.type == "macrotext" and type(action.value) == "string") then
             for j = 1, #LEGACY_CLICK_TARGETS do
                 local old, new = LEGACY_CLICK_TARGETS[j][1], LEGACY_CLICK_TARGETS[j][2];
                 action.value = action.value:gsub(old, new);

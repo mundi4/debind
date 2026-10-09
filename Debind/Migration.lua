@@ -5,6 +5,36 @@ local luatype             = type;
 -- One caller: the `dbver` 5 step that opens the old `setstate` bitpack.
 local band                = bit.band;
 
+-- Each step's own version's values (`MigrateLayer`'s header), built once rather than per list.
+
+--- The units a version 1 profile could name.
+local UNITS_AT_1          = {
+    mouseover = true, player = true, pet = true, target = true, focus = true, none = true,
+    tank = true, healer = true, maintank = true, mainassist = true, custom1 = true, custom2 = true,
+    hover = true,
+};
+
+--- The names version 6 gave the five numbered switches, by number. Both `dbver <= 5` steps read it:
+--- the layer step opens the `setstate` bitpack into it, and `MigrateSwitches` re-files the
+--- definitions by it.
+local SWITCH_NAMES_AT_6   = { "$state1", "$state2", "$state3", "$state4", "$state5" };
+
+local SPEC_RESOLVED_AT_7  = { dispel = true, raidbuff = true, resurrect = true };
+
+--- The command names version 7 ran as an action button: the main bar, the seven fixed bars, the
+--- extra button, and the pet and stance bars.
+local ACTION_BUTTON_COMMANDS_AT_7 = { EXTRAACTIONBUTTON1 = true };
+for i = 1, 12 do
+    ACTION_BUTTON_COMMANDS_AT_7["ACTIONBUTTON" .. i] = true;
+    for bar = 1, 7 do
+        ACTION_BUTTON_COMMANDS_AT_7["MULTIACTIONBAR" .. bar .. "BUTTON" .. i] = true;
+    end
+end
+for i = 1, 10 do
+    ACTION_BUTTON_COMMANDS_AT_7["BONUSACTIONBUTTON" .. i] = true;
+    ACTION_BUTTON_COMMANDS_AT_7["SHAPESHIFTBUTTON" .. i] = true;
+end
+
 --- Raises one layer's array of actions from `dbver` to `Constants.DB_VERSION`.
 ---
 --- **Every step opens with `dbver <= N and N < to`, never `== N`.** With `==`, a profile two
@@ -33,6 +63,13 @@ local band                = bit.band;
 --- drawer keeps a payload in the shape the ladder leaves it, so a field one step leaves is there for
 --- good. A step that needs a clean-up pass of its own has a conversion that is wrong. The last
 --- pass of the `dbver <= 7` step is the one exception, clearing out once what came before this.
+---
+--- **A step holds its own version's values**: the type names it compares and writes, the tables it
+--- asks, the bits it writes, as literals or as a local named for the version (`_AT_N`). A step is
+--- frozen once written and a profile meets it once; what `Constants` holds is today's, and moves. A
+--- value read from there stops matching the old data the day it changes, and a value written from
+--- there skips the later step that would have moved it. **Do not tidy these back into
+--- `Constants`.**
 local function MigrateLayer(layerTbl, dbver, to)
     if (layerTbl == nil) then
         return;
@@ -42,7 +79,7 @@ local function MigrateLayer(layerTbl, dbver, to)
     if (dbver <= 1 and 1 < to) then
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            if (action.checkUnitExists and (Constants.BASIC_UNITS[action.unit] or Constants.SPECIAL_UNITS[action.unit])) then
+            if (action.checkUnitExists and UNITS_AT_1[action.unit]) then
                 if (action.checkedUnits == nil or action.checkedUnits["@"] == nil) then
                     action.checkedUnits = action.checkedUnits or {};
                     action.checkedUnits["@"] = true;
@@ -59,7 +96,7 @@ local function MigrateLayer(layerTbl, dbver, to)
                 end
             end
 
-            if ((Constants.BASIC_UNITS[action.checkedUnit] or Constants.SPECIAL_UNITS[action.checkedUnit]) and action.checkedUnitValue ~= nil) then
+            if (UNITS_AT_1[action.checkedUnit] and action.checkedUnitValue ~= nil) then
                 if (action.checkedUnits == nil or action.checkedUnits[action.checkedUnit] == nil) then
                     action.checkedUnits = action.checkedUnits or {};
                     action.checkedUnits[action.checkedUnit] = action.checkedUnitValue;
@@ -134,6 +171,9 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- `UnitConditionForBinding`'s job.
         --
         -- Safe to run again: a value already a table is left alone.
+        --
+        -- Version 5's reaction bits (`MigrateLayer`'s header).
+        local HELP_AT_5, HARM_AT_5 = 1, 2;
         for i = 1, #layerTbl do
             local checkedUnits = layerTbl[i].checkedUnits;
             if (checkedUnits) then
@@ -143,9 +183,9 @@ local function MigrateLayer(layerTbl, dbver, to)
                     elseif (value == false) then
                         checkedUnits[unit] = { exists = false };
                     elseif (value == "help") then
-                        checkedUnits[unit] = { reaction = Constants.REACTION_HELP };
+                        checkedUnits[unit] = { reaction = HELP_AT_5 };
                     elseif (value == "harm") then
-                        checkedUnits[unit] = { reaction = Constants.REACTION_HARM };
+                        checkedUnits[unit] = { reaction = HARM_AT_5 };
                     end
                 end
             end
@@ -268,7 +308,7 @@ local function MigrateLayer(layerTbl, dbver, to)
             local action = layerTbl[i];
             if (action.type == "setstate" and luatype(action.value) == "number") then
                 local newType = SETSTATE_BY_FLAG[band(action.value, 0x100 + 0x200 + 0x400)];
-                local name = Constants.SWITCH_NAMES[band(action.value, 0xf)];
+                local name = SWITCH_NAMES_AT_6[band(action.value, 0xf)];
                 if (newType and name) then
                     action.type = newType;
                     action.value = name;
@@ -319,6 +359,11 @@ local function MigrateLayer(layerTbl, dbver, to)
 
     --- Shipped in 4.0.
     if (dbver <= 6 and 6 < to) then
+        -- Version 7's values (`MigrateLayer`'s header).
+        local SPELL_AT_7, MACROTEXT_AT_7, COMMAND_AT_7 = "spell", "macrotext", "command";
+        local USESLOT_AT_7, ACTIONBUTTON_AT_7 = "useslot", "actionbutton";
+        local HELP_AT_7, HARM_AT_7, DEFAULT_IMPORTANCE_AT_7 = 1, 2, 3;
+
         -- `equipslot` becomes `useslot`. The action uses what is worn in a slot and equips nothing,
         -- and the game's own `/equipslot 13 <item>` means the opposite (`0-ROADMAP.md`,
         -- 2026-08-28). **The step holds the old string itself**: the constant is gone, and a dead
@@ -330,7 +375,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.type == "equipslot") then
-                action.type = Constants.USESLOT;
+                action.type = USESLOT_AT_7;
             end
         end
 
@@ -340,8 +385,8 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- as saved and binds as a block. Safe to run again, and payloads ride it too.
         for i = 1, #layerTbl do
             local action = layerTbl[i];
-            if (action.type == Constants.COMMAND and Constants.ACTION_BUTTON_COMMANDS[action.value]) then
-                action.type = Constants.ACTIONBUTTON;
+            if (action.type == COMMAND_AT_7 and ACTION_BUTTON_COMMANDS_AT_7[action.value]) then
+                action.type = ACTIONBUTTON_AT_7;
             end
         end
 
@@ -372,8 +417,8 @@ local function MigrateLayer(layerTbl, dbver, to)
             local action = layerTbl[i];
             local conditions = action.conditions;
             if (conditions and conditions.known ~= nil
-                    and not Constants.SPEC_RESOLVED_TYPES[action.type]) then
-                if (action.type ~= Constants.SPELL) then
+                    and not SPEC_RESOLVED_AT_7[action.type]) then
+                if (action.type ~= SPELL_AT_7) then
                     conditions.known = nil;
                 elseif (conditions.known == true) then
                     conditions.known = C_Spell.GetSpellName(action.value) or action.value;
@@ -491,7 +536,7 @@ local function MigrateLayer(layerTbl, dbver, to)
                 action.unit = "unitframe";
             end
 
-            if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+            if (action.type == MACROTEXT_AT_7 and luatype(action.value) == "string") then
                 action.value = DebindPrivate.RenameUnitInMacroText(action.value, "hover", "unitframe");
                 -- **A whole token after the frame name**, the way `/click` reads it and the way
                 -- `renameClickedSwitch` reads the switch in the same position. A pre-rename body
@@ -543,9 +588,9 @@ local function MigrateLayer(layerTbl, dbver, to)
                     if (row == true) then
                         row = { exists = true };
                     elseif (row == "help") then
-                        row = { exists = true, reaction = Constants.REACTION_HELP };
+                        row = { exists = true, reaction = HELP_AT_7 };
                     elseif (row == "harm") then
-                        row = { exists = true, reaction = Constants.REACTION_HARM };
+                        row = { exists = true, reaction = HARM_AT_7 };
                     else
                         row = { exists = false };
                     end
@@ -589,8 +634,8 @@ local function MigrateLayer(layerTbl, dbver, to)
             -- 가르므로, 남는 단계는 중요도·개체창·조건 유무·번호 넷이다.
             local function OlderOrder(lhs, rhs)
                 local lhsAction, rhsAction = lhs.action, rhs.action;
-                local lhsImportance = lhsAction.priority or Constants.DEFAULT_IMPORTANCE;
-                local rhsImportance = rhsAction.priority or Constants.DEFAULT_IMPORTANCE;
+                local lhsImportance = lhsAction.priority or DEFAULT_IMPORTANCE_AT_7;
+                local rhsImportance = rhsAction.priority or DEFAULT_IMPORTANCE_AT_7;
                 if (lhsImportance ~= rhsImportance) then
                     return lhsImportance < rhsImportance;
                 end
@@ -749,13 +794,13 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- name** (owner), so a line copied into the game's own macro window stays broken; the
         -- rename to Debind shipped the same way.
         --
-        -- **The step holds the old names itself**, for the reason the `dbver <= 5` step does.
+        -- **The step holds the old names and version 8's itself** (`MigrateLayer`'s header).
         --
         -- Running twice is safe: neither old name is left after the first pass.
         local RENAMED_TYPES = {
-            setstate_on     = Constants.SETSWITCH_ON,
-            setstate_off    = Constants.SETSWITCH_OFF,
-            setstate_toggle = Constants.SETSWITCH_TOGGLE,
+            setstate_on     = "setswitch_on",
+            setstate_off    = "setswitch_off",
+            setstate_toggle = "setswitch_toggle",
         };
         for i = 1, #layerTbl do
             local action = layerTbl[i];
@@ -763,7 +808,7 @@ local function MigrateLayer(layerTbl, dbver, to)
             if (renamed) then
                 action.type = renamed;
             end
-            if (action.type == Constants.MACROTEXT and luatype(action.value) == "string") then
+            if (action.type == "macrotext" and luatype(action.value) == "string") then
                 action.value = (action.value:gsub("DebindStates", "DebindSwitch"));
             end
         end
@@ -778,7 +823,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.pinRank ~= nil) then
-                if (action.pinRank == true and action.type == Constants.SPELL
+                if (action.pinRank == true and action.type == "spell"
                         and luatype(action.value) == "number") then
                     action.pinnedSpell = action.value;
                 end
@@ -800,7 +845,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         for i = 1, #layerTbl do
             local action = layerTbl[i];
             if (action.type == "command" or action.type == "unused") then
-                action.type = Constants.BLOCK;
+                action.type = "block";
                 action.value = nil;
             end
         end
@@ -1032,6 +1077,13 @@ local function ForEachActionList(db, fn)
     end
 end
 
+--- Version 6's rule for a condition naming a switch, and its two modes: the `dbver <= 5` switch
+--- step and its two helpers below read these (`MigrateLayer`'s header).
+local function IsSwitchNameAt6(name)
+    return luatype(name) == "string" and name:sub(1, 1) == "$";
+end
+local MANUAL_AT_6, EXPR_AT_6 = "manual", "expr";
+
 --- Every switch name this profile still names, gathered from all five layers of every character
 --- and every class.
 ---
@@ -1052,7 +1104,7 @@ local function CollectReferencedSwitches(db, found)
             local conditions = action.conditions;
             if (luatype(conditions) == "table") then
                 for name in pairs(conditions) do
-                    if (Constants.IsSwitchName(name)) then
+                    if (IsSwitchNameAt6(name)) then
                         found[name] = true;
                     end
                 end
@@ -1075,7 +1127,7 @@ end
 local function SwitchIsUntouched(definition)
     for key, value in pairs(definition) do
         if (key == "mode") then
-            if (value ~= Constants.SWITCH_MODES.MANUAL) then
+            if (value ~= MANUAL_AT_6) then
                 return false;
             end
         elseif (key ~= "value") then
@@ -1106,10 +1158,10 @@ local function MigrateSwitches(db, dbver, to)
         -- becomes `switches`, `mode` goes from a number to a string, and `initialValue` becomes
         -- `resetValue`.
         --
-        -- **The step holds the old numbers itself.** `Constants.SWITCH_MODES` no longer speaks
-        -- that language, and a dead name left there would sit beside the live ones for good. A
-        -- step is frozen once written, so there is nothing to drift (`NestPayloadConditions` in
-        -- `Export.lua` holds `checkedUnits` as a literal for the same reason).
+        -- **The step holds the old numbers and version 6's names itself** (`MigrateLayer`'s header).
+        -- `Constants.SWITCH_MODES` no longer speaks the old language, and what it speaks now may
+        -- move on (`NestPayloadConditions` in `Export.lua` holds `checkedUnits` as a literal for the
+        -- same reason).
         --
         -- Safe to run again: with nothing left under an old name it does nothing. A `mode` that is
         -- already a string is left alone, and `initialValue` is cleared as it moves.
@@ -1124,9 +1176,9 @@ local function MigrateSwitches(db, dbver, to)
                 if (luatype(definition) == "table") then
                     if (luatype(definition.mode) == "number") then
                         if (definition.mode == 3) then
-                            definition.mode = Constants.SWITCH_MODES.EXPR;
+                            definition.mode = EXPR_AT_6;
                         else
-                            definition.mode = Constants.SWITCH_MODES.MANUAL;
+                            definition.mode = MANUAL_AT_6;
                         end
                     end
 
@@ -1166,7 +1218,7 @@ local function MigrateSwitches(db, dbver, to)
             local keep = {};
             for index, definition in pairs(switches) do
                 if (luatype(definition) == "table" and definition.savedValue ~= nil) then
-                    local name = Constants.SWITCH_NAMES[index];
+                    local name = SWITCH_NAMES_AT_6[index];
                     if (name) then
                         keep[name] = true;
                     end
@@ -1176,7 +1228,7 @@ local function MigrateSwitches(db, dbver, to)
             CollectReferencedSwitches(db, keep);
 
             for index, definition in pairs(switches) do
-                local name = Constants.SWITCH_NAMES[index];
+                local name = SWITCH_NAMES_AT_6[index];
                 if (luatype(definition) == "table" and name and not keep[name]
                         and SwitchIsUntouched(definition)) then
                     switches[index] = nil;
@@ -1210,7 +1262,7 @@ local function MigrateSwitches(db, dbver, to)
             end
             for index, definition in pairs(numbered) do
                 switches[index] = nil;
-                local name = Constants.SWITCH_NAMES[index];
+                local name = SWITCH_NAMES_AT_6[index];
                 if (name and switches[name] == nil) then
                     switches[name] = definition;
                 end
@@ -1515,7 +1567,8 @@ local function MigrateDB(db, uiVars)
             ForEachActionList(db, function(list)
                 for i = 1, #list do
                     local action = list[i];
-                    if (action.type == Constants.SPELL) then
+                    -- Version 8's type name (`MigrateLayer`'s header).
+                    if (action.type == "spell") then
                         action.value = DebindPrivate.CanonicalSpellID(action.value);
                     end
                 end
