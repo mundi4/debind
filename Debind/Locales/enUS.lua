@@ -48,7 +48,7 @@ L["BIND_MODE_STOP"] = "Done"
 --
 -- The cost, taken knowingly: the client global came out in the reader's own language for free, and
 -- every locale now has to translate this. Korean and Russian read this English line until they do.
-L["BIND_MODE_UNBIND_HINT"] = "If you are pointing at an action, Escape clears its key.|nIf you are pointing at nothing, Escape puts back every key you changed and leaves."
+L["BIND_MODE_UNBIND_HINT"] = "If you are pointing at an action, Escape clears its key.|nIf you are pointing at nothing, Escape puts back every key you changed and turns the mode off."
 L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
@@ -69,7 +69,7 @@ L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
 -- One axis each, named by the axis. The frame type one said "reaction or frame type" while it was
 -- raised for frame types alone, and a reaction left empty said the conditions contradict.
-L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No frame type is selected."
+L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No kind is selected."
 L["BINDING_ERROR_REACTIONS_NONE_SELECTED"] = "No reaction is selected."
 L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 -- The same empty role beside frame types other than party and raid frames. A role is only measured
@@ -90,7 +90,7 @@ L["BINDING_ERROR_SPECS_NONE_SELECTED"] = "No specialization is selected."
 -- action itself has not been told which switch it works. Kept apart from the line below on
 -- purpose. "You have not picked one" and "the one you picked is gone" send the reader to two
 -- different places, and the second names a switch while this one has none to name.
-L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, this binding does not fire at all."
+L["BINDING_ERROR_SWITCH_NONE_SELECTED"] = "No Switch is picked. Until one is, this action does not run at all."
 -- **META, because that is the word the reader has already seen on this key.** It is what the client
 -- writes wherever the key is named (`META_KEY_TEXT`), including in the key this very line is about.
 -- The Mac keyboard says Command, and naming it that would put a second word on one key.
@@ -131,13 +131,15 @@ L["BINDING_ERROR_INVALID_ACTION"] = "What this action was saved with is broken, 
 -- which is what this line said before, and it was true of the healthy rows just as much.
 L["BINDING_ERROR_UNREACHABLE"] = "This action never runs. No matter what, another action on this key gets there first."
 L["BINDING_TITLE"] = "%2$s (%1$s)"
-L["BLIZZARD_UNIT_FRAMES_ARENA"] = "Arena Frames"
-L["BLIZZARD_UNIT_FRAMES_BOSS"] = "Boss Frames"
-L["BLIZZARD_UNIT_FRAMES_PARTY"] = "Party Frames"
-L["BLIZZARD_UNIT_FRAMES_PET"] = "Pet Frame"
-L["BLIZZARD_UNIT_FRAMES_PLAYER"] = "Player Frame"
-L["BLIZZARD_UNIT_FRAMES_RAID"] = "Raid Frames"
-L["BLIZZARD_UNIT_FRAMES_TARGET"] = "Target and Focus"
+-- **The client's own names for these frames**, the ones its Edit Mode labels them with, so every
+-- language gets them for free. Assigned here only, and the same for `FRAMETYPE_*` below.
+L["BLIZZARD_UNIT_FRAMES_ARENA"] = HUD_EDIT_MODE_ARENA_FRAMES_LABEL
+L["BLIZZARD_UNIT_FRAMES_BOSS"] = HUD_EDIT_MODE_BOSS_FRAMES_LABEL
+L["BLIZZARD_UNIT_FRAMES_PARTY"] = HUD_EDIT_MODE_PARTY_FRAMES_LABEL
+L["BLIZZARD_UNIT_FRAMES_PET"] = HUD_EDIT_MODE_PET_FRAME_LABEL
+L["BLIZZARD_UNIT_FRAMES_PLAYER"] = HUD_EDIT_MODE_PLAYER_FRAME_LABEL
+L["BLIZZARD_UNIT_FRAMES_RAID"] = HUD_EDIT_MODE_RAID_FRAMES_LABEL
+L["BLIZZARD_UNIT_FRAMES_TARGET"] = HUD_EDIT_MODE_TARGET_AND_FOCUS
 -- **It names a subject and not an action.** What is under it is every unit frame decision the
 -- addon has, and not only the taking away.
 L["UNIT_FRAME_SUPPORT"] = "Unit Frame Support"
@@ -207,7 +209,7 @@ L["CONDITION_FLYING_NO"] = "While not airborne"
 L["CONDITION_FLYING_YES"] = "While airborne"
 L["CONDITION_FLYING"] = "Airborne"
 L["CONDITION_FORM_N"] = "Form %d"
-L["CONDITION_FRAMETYPES"] = "Frame Type"
+L["CONDITION_FRAMETYPES"] = "Kind"
 -- **두 반쪽을 다 말해야 한다.** 이 줄은 개체창 유닛 아래에도, Resolved Unit 아래에도 선다.
 -- 앞 문장이 "어느 개체창이냐"를, 뒤 문장이 "이 개체가 그 개체창의 개체냐"를 답한다. 뒤를
 -- 빼면 대상을 따로 고른 액션에서 상자를 켠 사람이 아무 일도 안 일어나는 것을 보게 된다.
@@ -352,15 +354,15 @@ L["CURRENT_TAB_SUFFIX"] = "%s |cnLIGHTGRAY_FONT_COLOR:(current)|r"
 --
 -- **The example shows two groups on purpose.** The field goes to `SecureCmdOptionParse`, so the
 -- whole grammar works, and a one-group example reads as the limit.
-L["SWITCH_EDIT_VALUE_DESC"] = "The Switch is on while this passes, off while it does not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The Switch is worked out before the press has a unit, so there is nothing for it to point at."
-L["SWITCH_MODE_MACRO_CONDITIONAL_DESC"] = "The addon turns it on and off from a macro conditional you write (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
+L["SWITCH_EDIT_VALUE_DESC"] = "The Switch is on while this is true, off while it is not. Checked each time you press a key that uses it.|n|nExample: |cnHIGHLIGHT_FONT_COLOR:[combat,nostealth]|r or |cnHIGHLIGHT_FONT_COLOR:[@tank,exists][combat]|r|n|n|cnHIGHLIGHT_FONT_COLOR:@@|r (two at signs) does not work here. The Switch is worked out before the press has a unit, so there is nothing for it to point at."
+L["SWITCH_MODE_MACRO_CONDITIONAL_DESC"] = "On while a macro conditional you write is true, off while it is not (Example: |cnHIGHLIGHT_FONT_COLOR:[@healer,exists]|r)."
 L["SWITCH_MODE_MACRO_CONDITIONAL"] = "Set automatically"
 L["SWITCH_OFF"] = "Off"
 L["SWITCH_ON"] = "On"
 -- What a switch is, said once. The Switches tab's own tooltip prints it (PANELS in DebindUI.lua)
 -- and so does the condition menu's switch group, which is handed this key explicitly
 -- (`ActionMenuNodes.lua`), so no locale translates the same paragraph twice.
-L["SWITCHES_DESC"] = "These are ON/OFF Switches that can be used as special conditions or macro conditional expressions in |cnLIGHTBLUE_FONT_COLOR:Custom Macros|r (Example: |cnHIGHLIGHT_FONT_COLOR:[$state1]|r). You can turn these Switches on or off at any time, or you can set them as macro conditionals themselves."
+L["SWITCHES_DESC"] = "On/off Switches you can use as a condition on an action, or as a macro conditional in a Custom Macro (for example |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r). You turn one on and off yourself, or set it to follow a macro conditional you write. Turning it with a key works even in combat."
 L["SWITCHES"] = "Switches"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
@@ -412,17 +414,17 @@ L["OVERVIEW_EMPTY"] = "No key is bound yet. Give an action a key on the right an
 -- `All` stays on the Units one because that row has no values beside it to be read against, only
 -- the unit submenus under it, each carrying an `Off` of its own.
 L["DISABLE"] = "Off"
-L["DISABLE_ALL"] = "All Off"
+L["DISABLE_ALL"] = "All off"
 L["EDIT_MACRO"] = "Edit this Custom Macro"
 L["ERROR_MESSAGE_CANNOT_SET_CUSTOM_TARGET_IN_COMBAT"] = "Cannot set a custom target by command while in combat."
-L["EXCLUDE_PLAYER_DESC"] = "An action aimed at Tank, Healer, Main Tank or Main Assist goes to whoever in your group holds it, and a ticked one never resolves to you. These targets stand only while exactly one member holds them, so excluding yourself is how a tank aims at the other tank."
-L["EXCLUDE_PLAYER"] = "Exclude self"
-L["FRAMETYPE_ARENA"] = "Arena Frames"
-L["FRAMETYPE_BOSS"] = "Boss Frames"
+L["EXCLUDE_PLAYER_DESC"] = "An action aimed at one of the targets below goes to whoever in your group holds it, and a ticked one never resolves to you. These targets stand only while exactly one member holds them, so excluding yourself is how a tank aims at the other tank."
+-- Taken from the client as `BLIZZARD_UNIT_FRAMES_*` are, except the two it has no name for.
+L["FRAMETYPE_ARENA"] = HUD_EDIT_MODE_ARENA_FRAMES_LABEL
+L["FRAMETYPE_BOSS"] = HUD_EDIT_MODE_BOSS_FRAMES_LABEL
 L["FRAMETYPE_GROUP"] = "Party/Raid Frames"
-L["FRAMETYPE_PET"] = "Pet Frame"
-L["FRAMETYPE_PLAYER"] = "Player Frame"
-L["FRAMETYPE_TARGET"] = "Target And Focus"
+L["FRAMETYPE_PET"] = HUD_EDIT_MODE_PET_FRAME_LABEL
+L["FRAMETYPE_PLAYER"] = HUD_EDIT_MODE_PLAYER_FRAME_LABEL
+L["FRAMETYPE_TARGET"] = HUD_EDIT_MODE_TARGET_AND_FOCUS
 L["FRAMETYPE_UNKNOWN"] = "Others"
 L["GENERAL"] = "General"
 -- 목록 위의 체크박스. 묶어도 줄 순서는 이름순이라는 것과, 진짜 발동 순서는 어디서
@@ -438,11 +440,11 @@ L["GROUP_RAID"] = "When in a raid";
 -- layer's precedence in the present tense, which is not true while the layer is out of play; this
 -- says when it starts being true.
 --
--- **No verb for entering the spec.** "Switch to it" and the like read equally well as "click this
--- tab" -- which is what the reader's cursor is on and what they are about to do -- and that
--- reading is false, since clicking does not make the layer apply. A state ("when you're in this
--- spec") cannot be read the second way.
-L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this spec."
+-- **No verb for entering the specialization.** "Switch to it" and the like read equally well as
+-- "click this tab" -- which is what the reader's cursor is on and what they are about to do -- and
+-- that reading is false, since clicking does not make the layer apply. A state ("when you're in
+-- this specialization") cannot be read the second way.
+L["INACTIVE_SPEC_DESC"] = "Keys you put here start working when you're in this specialization."
 L["INACTIVE_SPEC_LABEL"] = "%s (Inactive)"
 -- **Named for what it does to the action, beside Delete, which is the other way to stop one.** What
 -- turning off keeps is left out: a checkbox already promises the way back, and the tooltip's one job
@@ -668,7 +670,7 @@ L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to every
 --- screen**: the first is how the row's tooltip names the same click
 --- (`LINE_TOOLTIP_INSTRUCTION_MESSAGE1`), the second is how the line above names the same set. One
 --- act and one set, one wording each per screen.
-L["KEY_HEADER_TOOLTIP_SELECT"] = "Left click to select everything under this heading."
+L["KEY_HEADER_TOOLTIP_SELECT"] = "Left-click to select everything under this heading."
 --- What the greyed key name in the column means, said once for the whole group. **The outcome and
 --- not the cause**: a group is grey because every action in it is turned off, because they all
 --- belong to a specialization you are not in, or, with `giveBackWhenNoActionRuns` on, because none
@@ -781,7 +783,7 @@ L["MARK_TOOLTIP_GROUP_ISSUE_INSTRUCTION"] = "Look over those actions to see what
 -- reading `DebindStorage`'s saved variables, and that addon is load-on-demand - a tooltip that says
 -- where a string came from only after some other window has been opened is worse than one that
 -- never claims to.
-L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you accept it."
+L["LINE_TOOLTIP_IMPORTED"] = "Came in from a snapshot. It reaches no key until you accept it."
 -- 한때 "and set its key"가 붙어 있었다. 그 시절에는 행을 고르면 왼쪽 열이 그 액션의 상세
 -- 패널이 되고 거기서 키를 걸었다. 지금 왼쪽 열은 키보드 사영이라 보여주기만 하고, 키는
 -- 목록 위의 [키 지정] 모드에서 건다 - 좌클릭은 고르는 것이 전부다.
@@ -797,17 +799,13 @@ L["LINE_TOOLTIP_IMPORTED"] = "Came in from a string. It reaches no key until you
 -- (TIP_MULTI_SELECT)이 통 아래에 떴는데, 이 줄이 그 말을 하게 된 뒤로는 묻지도 않은 사람을
 -- 한 번 붙잡는 값이 남지 않아 풍선 쪽을 지웠다. 그러니 이 문장에서 수식어를 덜어내면
 -- CTRL/SHIFT-클릭을 알리는 곳이 UI에 하나도 없어진다.
-L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left click to select this action. Hold CTRL or SHIFT while clicking to select more than one."
+L["LINE_TOOLTIP_INSTRUCTION_MESSAGE1"] = "Left-click to select this action. Hold CTRL or SHIFT while clicking to select more than one."
 -- In bind mode, pointing at the row shows this alone in place of the two lines above
 -- (`DebindLayerRowMixin:OnEnter`). **It has to say something other than BIND_MODE_OVERLAY**, which
 -- tells the reader to point at an action; whoever reads this line is already pointing, and one
 -- question is left.
-L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key or mouse button to give it to this action."
-L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right click for more options."
--- The value the line above pushes aside, where the reader chose no target of their own. It names
--- the rule and not an outcome: the game answers this with the current target for one action and
--- with the player for another under auto self cast, and naming one makes the other a lie.
-L["LINE_TOOLTIP_TARGET_NORMAL"] = "Where it normally goes"
+L["LINE_TOOLTIP_INSTRUCTION_BIND"] = "Press any key, mouse button or the wheel to give it to this action."
+L["LINE_TOOLTIP_INSTRUCTION_MESSAGE2"] = "Right-click for more options."
 -- Under the numbers, the way the unreachable line sits under the key: the action is set up right
 -- and this says only that the world is not the one it asked for.
 L["LINE_TOOLTIP_SPEC_INACTIVE"] = "You are on a different specialization, so it does not run."
@@ -838,18 +836,17 @@ L["LAYER_PATH_CHARACTER"] = "This character"
 L["LAYER_PATH_CHARACTER_SPEC"] = "This character, in %s"
 -- %d는 MACRO_NAME_CHAR_LIMIT다. 한때 32가 글자로 박혀 있었는데, 호출부는 그때도 한계값을
 -- 넘기고 있었다(DebindUI.lua의 OpenForAction) - 받을 자리가 없어서 조용히 버려졌을 뿐이다.
-L["MACRO_POPUP_TEXT"] = "Enter Macro Name (Max %d Characters):"
+L["MACRO_POPUP_TEXT"] = "Enter macro name (max %d characters):"
 -- The macro editor's bottom-left button carries this label only when the conversion menu item
 -- opened the window. Pressing it there undoes the conversion and the window closes with it, which
 -- is what cancelling the conversion means; [Revert] below is the other label on that one button.
-L["MACROFRAME_CANCEL"] = "Cancel"
+-- **The client's own**, assigned here only: in the client, cancelling is leaving too.
+L["MACROFRAME_CANCEL"] = CANCEL
 -- The tooltip on that button while it reads [Cancel]. The label alone would be read as "undo my
 -- typing", and this button is bigger than that: the action goes back to what it was and the body
 -- goes with it. The second sentence is the one that has to be there, since nothing on screen shows
 -- that cost.
 L["MACROFRAME_CANCEL_DESC"] = "Puts this action back to what it was before it became a Custom Macro. Anything typed here is lost."
--- 둘째 %d는 MACRO_CHAR_LIMIT다. 위와 같은 이유로 1000이 박혀 있었다.
-L["MACROFRAME_CHAR_LIMIT"] = "%1$d/%2$d Characters Used"
 -- The same button's other label, the one it carries while the window was opened to edit a body.
 -- It puts the edit box back and leaves the window standing, so [Cancel] is the wrong word for it:
 -- in every dialog the client has, cancelling is leaving.
@@ -903,10 +900,9 @@ L["ORDER_FLAG_OFFSPEC"] = "Inactive specialization"
 L["ORDER_FLAG_NO_SPELL"] = "No spell"
 -- %s는 그 액션이 사는 레이어의 라벨(ORDER_LAYER_LABEL)이다.
 L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
-L["ORDER_GOTO_ACTION"] = "Go to it in %s"
 -- 우클릭 줄은 오른쪽 목록의 것을 그대로 쓴다(LINE_TOOLTIP_INSTRUCTION_MESSAGE2). 두 목록 다
 -- 그 액션의 메뉴가 열리므로 여기만 다른 말을 쓸 이유가 없다.
-L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left click to go to this action. Hold CTRL or SHIFT while clicking to select more than one."
+L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left-click to go to this action. Hold CTRL or SHIFT while clicking to select more than one."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
 -- **The subject of item 3 is not "the one bound first".** A copy, a move and a move to another
@@ -943,7 +939,7 @@ L["OVERVIEW"] = "Overview"
 -- 그래서 그 약속은 이제 문장에 없고, 대신 **자리가 무엇을 뜻하는지**를 말한다: 다른 전문화의
 -- 행동은 그 전문화였다면 섰을 자리에 서고, 지금 안 돈다는 것은 옆 칸이 말한다. 약속을 지킬 수
 -- 없게 됐을 때 문장을 안 고치면 읽는 사람은 그것을 고장으로 읽는다.
-L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the key it is on. Within a key, they are listed in the order Debind tries them.|n|nActions on an inactive specialization are listed too, in the place they would take if that specialization were active. The line beside them says so, and they reach no key until you activate it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end: what came in from a string keeps the set it arrived in, and everything else is one pile in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you say so."
+L["OVERVIEW_DESC"] = "Everything in this character's bindings, grouped by the key it is on. Within a key, they are listed in the order Debind tries them.|n|nActions on an inactive specialization are listed too, in the place they would take if that specialization were active. The line beside them says so, and they reach no key until you activate it. Opening another tab on the right does not change what is listed here.|n|nActions with no key are gathered at the end, in name order. Anything still waiting to be accepted is listed as well, and reaches no key until you accept it."
 -- The two balloons on Overview's help plate, one per column.
 --
 -- **Not `OVERVIEW_DESC` split in two.** That one hangs off the tab and answers "what is this tab",
@@ -996,9 +992,9 @@ L["ORDER_ACCEPT_DESC"] = "This one starts working on the key it came in on."
 -- The item under it does both halves in one press (`ACTION_SET_KEY_ACCEPT`), which is what a reader
 -- who wanted this working wants instead.
 L["ORDER_ACCEPT_NO_KEY_DESC"] = "This one came in with no key. Accepting takes it, but it does nothing until you give it one."
-L["ORDER_MOVE_UP"] = "Run Sooner"
+L["ORDER_MOVE_UP"] = "Run sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key."
-L["ORDER_MOVE_DOWN"] = "Run Later"
+L["ORDER_MOVE_DOWN"] = "Run later"
 L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key."
 L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
 L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
@@ -1034,11 +1030,11 @@ L["ORDER_BLOCKED_LAYER"] = "This action cannot move past the one next to it -- t
 -- **더 중요하다고는 안 한다.** 그건 사용자가 고른 값이지 우리가 매길 것이 아니다.
 L["ORDER_BLOCKED_IMPORTANCE"] = "This action cannot move past the one next to it -- they have different Importance, and the higher one is tried first."
 -- **Not the shape the rest of this family uses**, and it should not be: the others say why this
--- action cannot pass the one beside it, and this one is not in the running at all. What came in a
--- string reaches no key until it is accepted, so there is no order for it to have a place in.
+-- action cannot pass the one beside it, and this one is not in the running at all. What arrived
+-- reaches no key until it is accepted, so there is no order for it to have a place in.
 -- The second sentence is the one `LINE_TOOLTIP_IMPORTED` already says, because it is the same fact
 -- and a reader who has met it once should not have to learn it twice.
-L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a string, and it reaches no key until you accept it."
+L["ORDER_BLOCKED_IMPORTED"] = "This action is not in the key's order yet. It came in from a snapshot, and it reaches no key until you accept it."
 -- **Not held, just nothing to contend for.** The four above cannot pass because one step
 -- splits them, and changing that step lets them; these two are never on one list together, so
 -- an order between them settles nothing. That is the grey branch, with no red
@@ -1056,12 +1052,11 @@ L["IMPORTANCE2"] = "High"
 L["IMPORTANCE3"] = "Normal"
 L["IMPORTANCE4"] = "Low"
 L["IMPORTANCE5"] = "Very Low"
-L["REACTION_ALL"] = "All"
 L["REACTION_HARM"] = "Enemy"
 L["REACTION_HELP"] = "Friendly"
 L["REACTION_OTHER"] = "Others"
 -- 순서 목록의 행 툴팁에서 쓰는 이름표. 값은 ORDER_LAYER_LABEL이다.
-L["SCOPE"] = "Scope"
+L["SCOPE"] = "Layer"
 L["SHARED_BINDINGS"] = "Account"
 L["CONDITIONS"] = "Conditions"
 L["SPECIAL_UNIT_SET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s"
@@ -1075,7 +1070,7 @@ L["SPECIAL_UNITS"] = "Exclude Self from Role Targets"
 -- address carries, which is where a reader looking for a spell outside their book gets one.
 -- The popup's line above the box is blank until a number is typed: a found spell shows its name
 -- there (no rank - a row adds the highest one known), anything else this line.
-L["SPELL_PICKER_ADD_SPELL_BY_ID"] = "Add a Spell by ID"
+L["SPELL_PICKER_ADD_SPELL_BY_ID"] = "Add a spell by ID"
 L["SPELL_PICKER_ADD_SPELL_PROMPT"] = "Enter a spell ID."
 L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "No spell has this ID."
 -- Title over the right-click menu's list. The list itself is tab names, so this line is what
@@ -1083,8 +1078,10 @@ L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "No spell has this ID."
 -- on purpose: three menus showing the same list should not each name it differently.
 L["SPELL_PICKER_ADD_TO"] = "Add to..."
 L["SPELL_PICKER_EMPTY"] = "Nothing here."
-L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = "Account Macros"
-L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = "Character Macros"
+-- **The client's own names for the macro window's two tabs**, so every language gets them for free.
+-- Assigned here only. The second carries a `%s` for the character's name, as the client's tab does.
+L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = GENERAL_MACROS
+L["SPELL_PICKER_GROUP_CHARACTER_MACROS"] = CHARACTER_SPECIFIC_MACROS
 -- The two groups of the Items tab. The first names what the key follows -- the slot, not the item
 -- in it today -- because that is the whole difference between the two groups.
 --
@@ -1106,31 +1103,30 @@ L["SPELL_PICKER_GROUP_USER"] = "Spells You Added"
 -- The tooltip of the button on each of that group's rows. It takes the spell off the list, not off
 -- any action already made from it.
 L["SPELL_PICKER_REMOVE_USER_SPELL"] = "Remove from this list"
--- 행 툴팁의 안내 줄 둘(이 줄과 SPELL_PICKER_RIGHT_CLICK_TO_ADD). **왼쪽/오른쪽을 부르는 말은
--- 왼쪽 목록 행 툴팁의 것을 그대로 쓴다**("Left click to ..." / "Right click ..." -
--- LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2). 같은 애드온의 두 목록이 같은 조작을 다르게 부르면
--- 다른 조작으로 읽힌다.
+-- The row tooltip's two instruction lines (this one and `SPELL_PICKER_RIGHT_CLICK_TO_ADD`). **The
+-- clicks are named as the left list's row tooltip names them** (`LINE_TOOLTIP_INSTRUCTION_MESSAGE1`
+-- and `2`): two lists in one addon naming one gesture two ways read as two gestures.
 --
--- **하이픈은 안 쓴다.** 클라이언트 표기가 두 낱말이다 - GlobalStrings에 "Right Click to Open"
--- 꼴은 있어도 "Left-Click"/"Right-Click"은 한 줄도 없다(wago.tools GlobalStrings 조회).
+-- **"Left-click", hyphenated, as a verb.** The client spells the click every way there is, so it
+-- settles nothing, and the hyphen is the English verb form (2026-10-11, owner).
 --
--- %s는 지금 열려 있는 탭의 이름(GetLayerLabel)이다. "현재 탭"이라고만 적지 않는 이유: 창 둘이
--- 나란히 서 있고 탭은 저쪽 창에만 있어서, 이 창의 툴팁이 "현재"라고 말하면 어느 창의 현재인지를
--- 읽는 사람이 눈으로 찾아야 한다. 이름을 적으면 커서가 있는 자리에서 답이 끝난다.
-L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Left click to add it to |cnHIGHLIGHT_FONT_COLOR:%s|r."
+-- `%s` is the open layer's name (`GetLayerLabel`) rather than "the current one": two windows stand
+-- side by side and only the other one has the tabs, so "current" would send the reader looking for
+-- which window it means.
+L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Left-click to add it to |cnHIGHLIGHT_FONT_COLOR:%s|r."
 L["SPELL_PICKER_MENU_DESC"] ="Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "New Custom Macro"
 L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
 -- SPELL_PICKER_LEFT_CLICK_TO_ADD의 짝. 오른쪽 클릭이 있다는 것을 말하는 자리가 화면에
 -- 여기뿐이다 - 행은 있으나 없으나 같은 모양이다.
-L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right click to add it to another layer."
+L["SPELL_PICKER_RIGHT_CLICK_TO_ADD"] = "Right-click to add it to another layer."
 -- 바꾸기 중의 안내 줄. 한 줄뿐이라 SPELL_PICKER_RIGHT_CLICK_TO_ADD의 짝이 없다 - 넣을 탭을
 -- 고를 일이 없어서 오른쪽 클릭도 할 일이 없다.
-L["SPELL_PICKER_LEFT_CLICK_TO_REPLACE"] = "Left click to replace with it."
+L["SPELL_PICKER_LEFT_CLICK_TO_REPLACE"] = "Left-click to replace with it."
 -- SPELL_PICKER_TITLE과 같은 창의 제목이다. 이 창이 지금 무엇을 하는 중인지를 말하는 자리가
 -- 제목 말고는 없어서, 두 모드가 같은 제목을 달면 클릭이 무엇을 할지 알 수 없다.
-L["SPELL_PICKER_REPLACE_TITLE"] = "Replace an Action"
+L["SPELL_PICKER_REPLACE_TITLE"] = "Replace an action"
 -- Same thing the overview's `ORDER_FLAG_OFFSPEC` names, so it has to be the same word: two names
 -- for one thing in one window is how a reader ends up thinking there are two things.
 L["SPELL_PICKER_SHOW_OFFSPEC"] = "Inactive specializations"
@@ -1149,7 +1145,7 @@ L["SPELL_PICKER_TAB_SPELL"] = "Spells"
 -- 창 제목이자 그 창을 여는 [+] 버튼의 툴팁 제목이다(DebindUI.xml의 AddPortrait).
 -- 버튼 쪽은 "Add..."라는 따로 놀던 낱말을 쓰고 있었는데, 눌러서 열리는 창이 다른 이름을
 -- 달고 있으면 같은 것인지 알 수가 없다.
-L["SPELL_PICKER_TITLE"] = "Add an Action"
+L["SPELL_PICKER_TITLE"] = "Add an action"
 L["SWITCH_CHANGED_MESSAGE_OFF"] = "|cnRED_FONT_COLOR:OFF|r"
 L["SWITCH_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
 L["SWITCH_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
@@ -1181,12 +1177,11 @@ L["SWITCH_ANSWER_REMEMBER_DESC"] = "Comes back the way you left it when you log 
 -- fault, so which switches it covers is said here rather than left to be discovered.
 L["SWITCH_MESSAGES"] = "Switch change messages"
 L["SWITCH_MESSAGES_DESC"] = "Prints a line when a Switch changes. Only Switches you turn on and off yourself print one, never the ones the addon works out from a macro conditional."
--- The balloon on the gear, the first time this window is opened. **It names what is behind the
--- gear rather than saying "settings are here"**: the gear already says that much, and what the
--- reader cannot see is that the things under it are ones they have to set before Debind behaves
--- the way they expect. Three of the four sections are named in the reader's own words, from the
--- headings they will find there.
-L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are set here."
+-- The balloon on the gear, the first time this window is opened. The gear already says settings
+-- are behind it; what the reader cannot see is that these are worth reading before they set up
+-- their keys, and that is all this says. **No section is named** (2026-10-11, owner): what the
+-- balloon owes the reader is why to look, not a list of what is there.
+L["SETTINGS_TIP"] = "Settings that change how your keys behave. Worth a look before you set them up."
 -- The section on when a key Debind holds goes to whatever else is bound to it.
 --
 -- **"Give back" was kept against every rename tried** (2026-10-10, owner). Players never had this
@@ -1199,14 +1194,14 @@ L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are se
 L["GIVE_BACK_KEYS"] = "Keys Given Back"
 -- **The values say what the press comes to, not the names of the two actions that do the same for
 -- one key** (Give Key Back, Nothing). With those names the row read as a list of actions (owner,
--- 2026-10-07). **A capital on every word**, as the client's own dropdown values have it.
+-- 2026-10-07). **Sentence case**, because each value is a clause and not a name (2026-10-11, owner).
 L["GIVE_BACK_NO_ACTION_RUNS"] = "When no action runs"
 -- **The unit frame sentence is the one case a reader cannot infer**: a click is a press too, yet a
 -- click on a frame where no action runs goes to the frame whatever this is set to.
 L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key bound in Debind does on a press where none of its actions runs. A click on a unit frame where no action runs always goes to the frame."
-L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key Is Given Back"
+L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key is given back"
 L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none."
-L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press Does Nothing"
+L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press does nothing"
 L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever else is bound to the key."
 -- **One dropdown whose values say when the keys go back**, over two situations that do not depend on
 -- each other (owner, 2026-10-07). **The order is a / b / a and b**, as the client's Self Cast row has
@@ -1250,13 +1245,13 @@ L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"] = "While the House Editor is open, the key
 -- out of the window's furniture. So the caption over the dropdown asks which situation is being
 -- set rather than teaching a word for the set of them.
 L["SWITCH_LAYER_PICKER"] = "Set it for"
-L["SWITCH_OVERRIDE_DESC"] = "Say what this Switch comes up as for one class, one specialization or one character. Wherever you set none, the account-wide setting is used."
+L["SWITCH_OVERRIDE_DESC"] = "Set this Switch up differently for one class, one specialization or one character. A character's setting is used over a specialization's, a specialization's over a class's, and the account-wide one only where none of them is set."
 -- The delete on a row of that list. **"What you set" and not "the switch"**: the button under the
 -- column deletes the switch itself, and a reader who reads this as that one loses every character's
 -- settings from a row that named one class.
 L["SWITCH_OVERRIDE_REMOVE"] = "Remove what you set here"
-L["SWITCH_OVERRIDE_REMOVE_DESC"] = "The starting value and the expression here go with it. What you set one place out is used instead."
-L["SWITCH_OVERRIDE_REMOVE_CONFIRM"] = "Remove what |cnNORMAL_FONT_COLOR:%1$s|r sets for |cnNORMAL_FONT_COLOR:%2$s|r?"
+L["SWITCH_OVERRIDE_REMOVE_DESC"] = "Removes only this setting. The Switch itself is not deleted."
+L["SWITCH_OVERRIDE_REMOVE_CONFIRM"] = "Remove what you set for |cnNORMAL_FONT_COLOR:%1$s|r on |cnNORMAL_FONT_COLOR:%2$s|r?"
 -- Built like `HUD_EDIT_MODE_NEW_LAYOUT`, which takes the atlas as its one argument.
 --
 -- **It reads on into the entry the submenu is opened on**: "Set it for another > Druid / Feral".
@@ -1303,8 +1298,8 @@ L["SWITCH_USAGE_LOG_IN"] = "Log in there to change these."
 L["SWITCH_USAGE_GOTO"] = "Click to go to this action."
 L["SWITCH_USAGE_EMPTY"] = "Nothing uses this Switch."
 L["SWITCHES_DETAIL_EMPTY"] = "Pick a Switch."
-L["SWITCH_TURN_ON"] = "Turn On"
-L["SWITCH_TURN_OFF"] = "Turn Off"
+L["SWITCH_TURN_ON"] = "Turn on"
+L["SWITCH_TURN_OFF"] = "Turn off"
 -- Where the button would be on a switch that is set automatically, and the position is what it has
 -- to answer: why there is nothing here to press, and nothing beside the name saying on or off.
 --
@@ -1320,7 +1315,12 @@ L["SWITCH_TOGGLE_IN_COMBAT"] = "Not from here during combat. A key set up to wor
 L["SWITCH_RENAME"] = "Rename"
 -- **The rule is spelled out because the box refuses on it.** A reader who types a space and is told
 -- no learns the rule one refusal at a time; a reader who is told first types a name that takes.
-L["SWITCH_RENAME_PROMPT"] = "What should this Switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
+--
+-- **"Lowercase", though capitals are taken** (2026-10-11, owner). They are folded to lowercase on
+-- the way in (`CreateSwitch`, `RenameSwitch`), and a reader who typed `Burst` and later finds
+-- `$burst` feels something was changed behind their back. Said this way, nobody types a capital.
+-- The same goes for `SWITCH_CREATE_PROMPT` and `SWITCH_NAME_ERROR_INVALID`.
+L["SWITCH_RENAME_PROMPT"] = "What should this Switch be called?\nLowercase English letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
 L["SWITCH_RENAME_ERROR_GONE"] = "That Switch is not here any more."
 -- Making one. **Three places open this box**: the button under the Switches list, the condition
 -- menu, and an on/off/toggle action's own menu. All three exist because a reader finds out they
@@ -1336,11 +1336,11 @@ L["SWITCH_CREATE_BUTTON"] = "New Switch"
 -- yet. A reader expecting a row to appear presses once and gets a dialog instead.
 L["SWITCH_CREATE_BUTTON_INSTRUCTION"] = "Click and it asks what to call it."
 L["SWITCH_CREATE_DESC"] = "Makes a Switch and puts it on this action straight away."
-L["SWITCH_CREATE_PROMPT"] = "What should the new Switch be called?\nLetters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
+L["SWITCH_CREATE_PROMPT"] = "What should the new Switch be called?\nLowercase English letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r. The |cnHIGHLIGHT_FONT_COLOR:$|r in front is added for you."
 -- **The two refusals a typed name gets, and they are about the name rather than about which box
 -- it was typed into.** Renaming and creating both hand them back (`RenameSwitch`, `CreateSwitch`),
 -- which is why they are not called SWITCH_RENAME_ERROR_* any more.
-L["SWITCH_NAME_ERROR_INVALID"] = "A Switch name can hold only letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
+L["SWITCH_NAME_ERROR_INVALID"] = "A Switch name can hold only lowercase English letters, numbers and |cnHIGHLIGHT_FONT_COLOR:_|r."
 L["SWITCH_NAME_ERROR_TAKEN"] = "There is already a Switch by that name."
 -- The [Set Switch] menu on an on/off/toggle action: which switch the key works, and what it does
 -- to it. **The verbs are worded as what the key does, not as what the switch is.** "On" beside a
@@ -1371,8 +1371,11 @@ L["SWITCH_DELETE_CONFIRM_PENDING_ELSEWHERE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r wai
 L["SWITCH_DELETE_CONFIRM_OVERRIDES"] = "Its settings for a class, specialization or character will go too, including on your other characters."
 -- What the delete dialog's two answers do to the actions that use the Switch, since that is the
 -- whole difference between them (`resolving-switches-on-accept.md` 6-7).
-L["SWITCH_DELETE_CHOICES"] = "Delete leaves the actions that use it as they are, marked so you can find them. Merge makes them use another Switch instead."
-L["SWITCH_DELETE_MERGE"] = "Merge Into..."
+--
+-- **Verbs, not the buttons' labels** (2026-10-11, owner). "Merge into..." standing as a subject,
+-- dots and all, reads badly; the buttons are right under the sentence and the verbs match them.
+L["SWITCH_DELETE_CHOICES"] = "Deleting leaves the actions that use it as they are, marked so you can find them. Merging makes them use another Switch instead."
+L["SWITCH_DELETE_MERGE"] = "Merge into..."
 L["SWITCH_MERGE_MENU_TITLE"] = "Merge %s into"
 L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- The two balloons on the Switches tab's help plate, one per column.
@@ -1390,8 +1393,8 @@ L["SWITCHES_EMPTY"] = "No Switches yet.|n|nSwitches you make are listed here."
 -- **Neither names a tab or a button by its label.** The right column's two tabs are pointed at by
 -- position and by what each holds, so renaming either one cannot leave a sentence pointing at
 -- something that is not on screen.
-L["SWITCHES_HELP_LIST"] = "Every Switch on this account, and whether each one is on or off right now. You can hang a Switch on any action as a condition, or write it into a Custom Macro as |cnHIGHLIGHT_FONT_COLOR:[$state1]|r.|n|nClick one and the right side shows what it is set to. The button in the corner above makes a new Switch."
-L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how it is decided, and what it comes up as when you log in. You can set that one way for the whole account and another way for one class, one specialization or one character.|n|nThe two tabs above pick between those settings and a list of everything that uses this Switch."
+L["SWITCHES_HELP_LIST"] = "Every Switch on this account, and whether each one is on or off right now. You can hang a Switch on any action as a condition, or write it into a Custom Macro as |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r.|n|nClick one and the right side shows what it is set to. The button in the corner above makes a new Switch."
+L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how it is decided, and what it comes up as when you log in and when you change specialization. You can set that one way for the whole account and another way for one class, one specialization or one character.|n|nThe two tabs above pick between those settings and a list of everything that uses this Switch."
 -- Under a blank line in every layer tab's tooltip, bottom and side.
 L["TAB_LAYERS_TOGETHER"] = "Keys from every layer that covers this character work together."
 L["TAB_DESC_SHARED"] = "Every character on the account."
@@ -1547,7 +1550,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
 L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
 L["TYPE_BLOCK"] = "Nothing"
-L["TYPE_BLOCK_DESC"] = "The press does nothing. It takes the key for itself, so no action under it on the same key runs either.|n|nPut conditions on it to stop the actions under it in those cases only."
+L["TYPE_BLOCK_DESC"] = "The press does nothing. No action under it on the same key runs, and neither does anything else bound to the key.|n|nPut conditions on it to stop the actions under it in those cases only."
 -- **Named for where the command is picked from**, WoW's Key Bindings list (owner, 2026-10-06).
 L["TYPE_COMMAND"] = "WoW Binding"
 -- The two types after which a key no longer runs Debind's actions. Built on `TYPE_BLOCK_DESC`, since
@@ -1563,7 +1566,8 @@ L["TAIL_NOTICE"] = "From where this action stands on the key, the key works outs
 -- to the key, which may be WoW's Key Bindings, another addon's binding, or nothing.
 L["TYPE_GIVEBACK_DESC"] ="The key works as if Debind had nothing on it: whatever else is bound to it runs, and nothing if nothing is. No action under it on the same key runs either.|n|nPut conditions on it to give the key back in those cases only."
 L["TYPE_FLYOUT"] = "Flyout"
-L["TYPE_FOCUS"] = "Set Focus Target"
+-- **The client's own name for the act**, from the unit's right-click menu. Assigned here only.
+L["TYPE_FOCUS"] = SET_FOCUS
 -- **Numbers the two slots the client calls by one name.** `TRINKET0SLOT` and `TRINKET1SLOT` are
 -- both "Trinket" and the two finger slots are both "Finger"; the character sheet tells them apart
 -- by where they sit, and a list has nothing to tell them apart with.
@@ -1583,11 +1587,11 @@ L["TYPE_PETACTION"] = "Pet Command"
 -- **Unit frames only, on purpose.** Out of combat it also takes a nameplate or a unit in the world
 -- (`UnitWatch.lua`, the mouseover fallback), but saying so here is more than the reader needs
 -- (owner, 2026-10-10). The frame rule is the one that holds in combat, where it matters.
-L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as this custom target. A custom target holds a unit the way focus does: aim at it with |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a custom macro, or hand it to any action as its target.|n|nWorks over Player, Pet, Party/Raid, Boss and Arena unit frames."
+L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as this custom target. A custom target holds a unit the way focus does: aim at it with |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a Custom Macro, or hand it to any action as its target.|n|nWorks over Player, Pet, Party/Raid, Boss and Arena unit frames."
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
 L["TYPE_SETCUSTOM2"] = "Set Custom Target 2"
-L["TYPE_SETSWITCH_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nIt flips |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
+L["TYPE_SETSWITCH_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nThe key works |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
 L["TYPE_SETSWITCH_ANY"] = "a Switch"
 L["TYPE_SETSWITCH_OFF"] = "Turn Off %s"
 L["TYPE_SETSWITCH_ON"] = "Turn On %s"
@@ -1595,7 +1599,8 @@ L["TYPE_SETSWITCH_TOGGLE"] = "Toggle %s"
 L["TYPE_SETSWITCH"] = "Switch"
 L["TYPE_SPELL"] = "Spell"
 L["TYPE_TARGET"] = "Set Target"
-L["TYPE_TOGGLEMENU"] = "Open Unit Popup Menu"
+-- **The client's own name for the act**, from its Click Casting window. Assigned here only.
+L["TYPE_TOGGLEMENU"] = CLICK_BINDING_OPEN_MENU
 -- The second half of both descriptions below: with nothing to cast, the key is still spent.
 --
 -- **It asks what you have, not which specialization you are in.** A specialization that has the
@@ -1666,7 +1671,7 @@ L["POINTED_UNIT_CAST_FRAMES_DESC"] = "The unit of the unit frame under your curs
 -- what the game calls the thing in its settings, and a Debind key is the one place it cannot do it
 -- (`HELP_TARGETING_BODY`). A second name for one behaviour would leave the reader with two.
 L["POINTED_UNIT_CAST_MOUSEOVER"] = "Mouseover"
-L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "A unit frame, a nameplate, or the unit itself in the world. This covers the unit frames as well."
+L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "The unit under your cursor, whether in the world, on its nameplate, or on a unit frame."
 L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
 L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
 -- **Not "Pass Through"**: in the middle of a key's list it reads as a row that hands the press to
@@ -1675,7 +1680,7 @@ L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such sp
 L["TYPE_GIVEBACK"] = "Give Key Back"
 L["TYPE_WORLDMARKER"] = "World Marker"
 L["TYPE_ACTIONBUTTON"] = "Action Button"
-L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Unable to register some unit frames due to being in combat. They will be registered when combat is over."
+L["UNABLE_TO_REGISTER_UNIT_FRAME_IN_COMBAT"] = "Some unit frames could not be registered in combat, so Debind's keys do not work on them until combat ends."
 L["UNBIND"] = "Unbind key"
 --- Asked before a key comes off two or more actions that share one.
 ---
@@ -1694,7 +1699,10 @@ L["UNBIND_SCATTERS_CONFIRM"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r share a key here. T
 L["UNBIND_SCATTERS_CONFIRM_YES"] = "Unbind and separate"
 L["UNIT_CUSTOM1"] = "Custom Target 1"
 L["UNIT_CUSTOM2"] = "Custom Target 2"
-L["UNIT_DISABLE"] = "Disable"
+-- **"Off", as the condition menus call the value that constrains nothing** (`DISABLE`): the same
+-- job under two names reads as two different things. A key of its own so a translator can still
+-- pick a different word for each position.
+L["UNIT_DISABLE"] = "Off"
 L["UNIT_FOCUS"] = "Focus"
 L["UNIT_HEALER"] = "Healer"
 L["UNIT_HOVER_DESC"] = "The unit on the frame you are hovering over"
@@ -1709,9 +1717,14 @@ L["UNIT_NONE_DESC"] = "Turns the cursor into the targeting cursor even when you 
 L["UNIT_NONE"] = "Always Ask"
 L["UNIT_PET"] = "Pet"
 L["UNIT_PLAYER"] = "Player"
--- 하나보다 많으면 풀린다(SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY). 예전 문장은 "only one
--- that role must exist"라 문장이 깨져 있었고, 하나만 있어야 한다는 것도 안 읽혔다.
-L["UNIT_ROLE_DESC"] = "Tank, Healer, Main Tank and Main Assist only work while exactly one member of your party or raid holds that role."
+-- Read on whichever of the four role targets it hangs off, so "this role" names it and no label is
+-- typed in again. **It says what happens otherwise**: with nobody or more than one in the role the
+-- alias is cleared (`SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY` for the second), and a press aimed at it
+-- goes to a unit that does not exist, not to the current target (`RESOLVE_UNIT_SNIPPET`).
+--
+-- "role" for Main Tank and Main Assist too, though the client calls those "marked": the settings
+-- heading over all four is "Exclude Self from Role Targets", and one name is kept for them.
+L["UNIT_ROLE_DESC"] = "Used on the one member of your party or raid who holds this role. With none, or more than one, there is no such unit, and the press does nothing."
 L["UNIT_TANK"] = "Tank"
 L["UNIT_TARGET"] = "Target"
 -- **`nil` is one of the three and not a missing answer.** The game only asks this question of
@@ -1819,7 +1832,7 @@ L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your account bindings are already h
 L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r for every character and reloads your interface.|n|nThis character's settings are back as soon as the reload finishes. Your other characters keep theirs until you next log in on them - each one brings its own across on its own first login, whenever that is. Nothing else to do."
 L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
-L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and is setting keybinds alongside Debind, so the two are fighting over your keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
+L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and sets keybinds too, so it and Debind act on the same keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
 
 -- The sharing window. The tooltips are long because both choices it offers - what to send, and
 -- whether the keys ride along - leave for somewhere you cannot reach: a string handed to someone
@@ -1880,7 +1893,7 @@ L["IMPORT_PENDING"] = "%d Pending |4Action:Actions;..."
 -- from here (the same reason `APPROVE_ALL_IMPORT_DESC` has to say "wherever it went").
 --
 -- **It does not repeat the number**; the title is the button's own text and already carries it.
-L["IMPORT_PENDING_DESC"] = "These came in from a string and do nothing until you accept them - no key of yours behaves any differently while they wait. The count is everything still waiting anywhere in your bindings, including specializations you are not in."
+L["IMPORT_PENDING_DESC"] = "These came in from a snapshot and do nothing until you accept them - no key of yours behaves any differently while they wait. The count is everything still waiting anywhere in your bindings, including specializations you are not in."
 -- **Both mouse buttons, so neither is named.** Saying "left-click" would make the right one look
 -- like something else; saying both would spend a line on a distinction that does not exist here.
 L["IMPORT_PENDING_INSTRUCTION"] = "Click for what can be done to all of it."
@@ -1941,7 +1954,7 @@ L["APPROVE_ALL_OCCUPIED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r |4is about to take t
 -- what came in can be the reader's own backup (`Create` makes a payload out of this profile), and
 -- then both sides are theirs and the label says otherwise. That is the same fault `Theirs` was
 -- turned down for on the other button.
-L["APPROVE_ALL_KEEP_EXISTING"] = "Keep Existing"
+L["APPROVE_ALL_KEEP_EXISTING"] = "Keep existing"
 -- What the label cannot say: **the incoming ones still arrive.** This answer is about the key, not
 -- about whether to take them - the reader already pressed accept - so what steps aside is the key
 -- and they land unbound. That is the state everything used to arrive in before an arrival kept the
@@ -1954,7 +1967,7 @@ L["APPROVE_ALL_KEEP_EXISTING_DESC"] = "Only on the keys you are already using. W
 -- actions only lose the key, so a word that says "destroyed" would have to be walked back by its own
 -- tooltip. It also puts both labels on one axis: each of the three names what ends up on the key,
 -- and the reader reads the set instead of each label.
-L["APPROVE_ALL_TAKE_INCOMING"] = "Take Incoming"
+L["APPROVE_ALL_TAKE_INCOMING"] = "Take incoming"
 -- The other answer, and the design note always had the two side by side. **The same set as
 -- [Accept all], opposite verb** - two items standing together must not quietly mean different
 -- amounts.
@@ -1986,7 +1999,7 @@ L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, whereve
 -- **The second half is the row's warning, and it is needed more here than there.** A selection can
 -- hold part of a key group, so the rows left behind are ones the reader chose not to pick rather
 -- than ones they never saw - and a key coming apart shows nothing at all until both halves fire.
-L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nRows sharing a key with something you did not pick are left on it. Both keys still work; they just stop working as one."
+L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nAnything you did not pick stays on the key it is on, even where it shares that key with something you picked. Both keys still work; they just stop working as one."
 L["BULK_BLOCKED_ALL_IMPORTED"] = "None of what you picked has been accepted yet. That has to come first."
 L["BULK_BLOCKED_SOME_IMPORTED"] = "Some of what you picked has not been accepted yet. Take those rows out of the selection."
 -- A single row's [Move to] and [Copy to] on something not accepted yet. `BULK_BLOCKED_ALL_IMPORTED`
@@ -2021,15 +2034,15 @@ L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%s|r that came in a
 ---
 --- "Duplicate" and not "identical": the client uses neither on a button, and between the two only
 --- one says the second copy is redundant rather than merely alike.
-L["REMOVE_DUPLICATES"] = "Remove Duplicate Actions"
+L["REMOVE_DUPLICATES"] = "Remove duplicate actions"
 --- Three things the label has no room for, and each of them changes what the reader expects.
 ---
 --- **Which two count as the same one**: everything about the action including the key, so two on
 --- different keys are two bindings and stay.
 --- **How far it looks**: inside one layer only. The same action on the general layer and on a
 --- specialization layer is the stack this addon is for, not a mistake.
---- **What it keeps**: the one that fires first, so nothing about what a key does moves.
-L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - same key and all - sitting in the same layer, and removes the extra copies. The one that fires first stays. The same action on two different layers is left alone: that is how a specialization overrides the general list."
+--- **What it keeps**: the one that runs first, so nothing about what a key does moves.
+L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - same key and all - sitting in the same layer, and removes the extra copies. The one that runs first stays. The same action on two different layers is left alone: that is how a specialization overrides the general list."
 --- Pressed on a profile with nothing to find. **A line rather than a box** - there is nothing to
 --- confirm and nothing to look at, and a dialog saying "no" is a dialog to dismiss.
 -- **말줄임표는 창이 뜬다는 뜻이 아니라 더 물어본다는 뜻이다.** 이 줄은 무엇으로 바꿀지를
@@ -2049,7 +2062,7 @@ L["REPLACE_ACTION"] = "Replace..."
 --
 -- **Written as a rule rather than as "if anything does not fit".** A tooltip is read once, so a
 -- clause that is false for half the readers who open it is a clause that misleads half of them.
-L["REPLACE_ACTION_DESC"] = "You pick something else for this action to do. The key, the conditions, the Importance and the place in the run order stay.|n|nAnything set on it that the new one cannot use is removed, and you see what goes before anything changes."
+L["REPLACE_ACTION_DESC"] = "You pick something else for this action to do. The key, the conditions, the Importance and its place in the key's order stay.|n|nAnything set on it that the new one cannot use is removed, and you see what goes before anything changes."
 --- 무엇을 고른 **뒤에** 서는 확인 창이라, 머리줄이 바꿀 것의 이름을 댈 수 있다. 고르기 전에는
 --- 못 하던 것이고, 이 창이 언제나 설 수 있는 이유이기도 하다.
 L["REPLACE_CONFIRM_ONE"] = "Replace this action with |cnHIGHLIGHT_FONT_COLOR:%s|r?"
@@ -2068,7 +2081,7 @@ L["REMOVE_DUPLICATES_NONE"] = "No duplicate actions to remove."
 ---
 --- **And it says nothing is lost**, which is what makes one press over rows the reader has not
 --- looked at offerable at all: every one of these has a twin staying behind.
-L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r that |4is a duplicate:are duplicates;?|n|nEach one is an exact copy of another in the same layer, and the copy that fires first is staying. Nothing your keys do will change."
+L["REMOVE_DUPLICATES_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r that |4is a duplicate:are duplicates;?|n|nEach one is an exact copy of another in the same layer, and the copy that runs first is staying. Nothing your keys do will change."
 -- **The filter dropdown, one tick per value.** Two axes, and each is written out value by value
 -- rather than as one switch that hides a side, so that every tick means the same thing: show this
 -- too. A switch called "off-spec" would mean the opposite of its neighbours - ticking it would add
@@ -2113,33 +2126,29 @@ L["SORT"] = "Sort"
 L["SORT_BY_KEY"] = "Key & Order"
 -- Empty right-hand list because a filter took everything out. **Different from the search one**:
 -- that reader knows what they typed, and this one has to open the dropdown to see which value is
--- switched off.
-L["NO_ACTIONS_MATCH_FILTERS"] = "Nothing in this tab matches the filters. The dropdown above the left column has what is switched off."
--- Empty left-hand column for the same reason. Different from the one above: that list is one tab,
--- this one is the whole keyboard.
-L["OVERVIEW_EMPTY_FILTERED"] = "Nothing matches the filters. The dropdown above this column has what is switched off."
+-- unticked. **"Unticked", not "switched off"**: a Switch is a thing of its own in this window.
+L["NO_ACTIONS_MATCH_FILTERS"] = "Nothing in this layer matches the filters. The dropdown above the left column shows which ones are unticked."
+-- Empty left-hand column for the same reason. Different from the one above: that list is one
+-- layer, this one is the whole keyboard.
+L["OVERVIEW_EMPTY_FILTERED"] = "Nothing matches the filters. The dropdown above this column shows which ones are unticked."
 -- Everything picked turned out to have nowhere to go - the same two causes as
 -- `IMPORT_COMMITTED_SKIPPED`, with nothing left over to report a count against.
 L["IMPORT_NOTHING_PLACED"] = "Nothing came in - none of what you picked has anywhere to go here."
--- **Said out loud because the screen barely moves.** What just arrived is bound to nothing, so a
--- press that did a lot looks like a press that did nothing.
---
--- **It used to end "look for the glowing icons", and nothing glows.** The badge is a colour on the
--- name and a dot on the icon, and even when that was closer to true it was the wrong thing to send
--- somebody hunting for - the actions are scattered by name and by key, which is why the strip
--- exists. So the line points at where the strip stands rather than describing any art.
---
--- It says the position, not the words on the controls: renaming either of them must not turn this
--- sentence into a pointer at something that is not there.
--- The other way in. **Both halves are said** because a string can hold either kind: what the sender
--- had on a key is on that key now, and what they had not bound yet cannot be, so it lands the same
--- way everything else does.
+-- The line after [Add and Accept]. **Both halves are said** because a snapshot can hold either
+-- kind: what the sender had on a key is on that key now, and what they had not bound yet cannot be,
+-- so it lands the same way everything else does.
 L["IMPORT_COMMITTED_KEYED"] = "Brought in %s on the |4key it:keys they; came with. Anything that arrived without one is unbound until you give it a key."
-L["IMPORT_COMMITTED"] = "Brought in %s. |4It is:They are; pending until you accept |4it:them; - a row for doing that is now at the top of the window."
+-- The line after [Add as Pending]. **Said out loud because the screen barely moves.** What just
+-- arrived does nothing yet, so a press that did a lot looks like a press that did nothing.
+--
+-- **It does not say where to accept them** (2026-10-11, owner). The press is on the Storage tab and
+-- the pending button is on Overview, so "at the top of the window" pointed at something the reader
+-- was not looking at; and accepting is offered in more places than one (`STORAGE_ADD_QUARANTINED_DESC`).
+L["IMPORT_COMMITTED"] = "Brought in %s. |4It is:They are; pending until you accept |4it:them;."
 -- **Three things reach this and none is left out by the dialog**, so it names all three: another
 -- class's layers, which adding does not take (`reshaping-stored-layers.md` 6-2), a specialization
 -- this character's class does not have, and a layer a newer Debind invented.
-L["IMPORT_COMMITTED_SKIPPED"] = "%s of them |4was:were; left out - another class's, a specialization this character does not have, or a layer this version does not know."
+L["IMPORT_COMMITTED_SKIPPED"] = "%s of them |4was:were; left out - another class's, a specialization this character does not have, or a layer this version does not have."
 -- Switches never come in with the actions, so a name the reader has no Switch for lands as actions
 -- that do nothing. The names, because that is what the reader goes and makes or brings in; a count
 -- would send them looking. %1$s is the names joined with commas, %2$s the tab that brings them in
@@ -2156,15 +2165,16 @@ L["STORAGE_DELETE_ACTION"] = "Delete this action"
 L["STORAGE_DELETE_SELECTED"] = "Delete %d selected"
 -- Which is why two or more ask. One does not: a menu is already enough hands not to reach by
 -- accident, and the second look is for the count rather than for the act.
-L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take |cnHIGHLIGHT_FONT_COLOR:%s|r out of this? They do not come back - you would have to make it again."
+--
+-- **Not "make it again"**: a pasted snapshot is somebody else's and cannot be made again here.
+L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take |cnHIGHLIGHT_FONT_COLOR:%s|r out of this snapshot? This cannot be undone."
 -- The door that makes a row out of what this character has right now, beside the one that makes a
 -- row out of a code somebody sent.
 --
--- **The thing has a name now, and the name is the code's** (2026-08-23, 소유자). 12절 spent a while
--- looking for a word for what sits in this list and settled on not naming it, on the grounds that
--- the client's own names are each already something else and the free ones are free because nobody
--- uses them. That is overturned: the reader is told the word rather than kept away from it, and the
--- tooltip below is where they are told (`0-DECISION-LOG.md`).
+-- **The thing is named, and the reader is told the word rather than kept away from it** (2026-08-23,
+-- 소유자, `0-DECISION-LOG.md`); the tooltip below is where they are told. **On screen the word is
+-- "snapshot"** (2026-10-11, owner), while the code keeps `payload`. The verb that takes one into the
+-- bindings stays "Add": "Restore" or "Load" would read as putting the bindings back the way they were.
 --
 -- **`Save` was here for one commit and did not hold.** It reads as the button that keeps a settings
 -- screen, which is a thing this window has none of.
@@ -2172,7 +2182,7 @@ L["STORAGE_DELETE_SELECTED_CONFIRM"] = "Take |cnHIGHLIGHT_FONT_COLOR:%s|r out of
 -- **No object and no range on it.** What this takes is everything the character has, including the
 -- specializations they are not playing, so any range it named would be too narrow - and what it
 -- makes is the row that appears right above it.
-L["STORAGE_CREATE"] = "New Payload"
+L["STORAGE_CREATE"] = "New Snapshot"
 -- What the word means, on the button that makes one. **A tooltip is read by someone who stopped to
 -- ask**, so it has the room to teach a word the list itself only uses.
 --
@@ -2183,7 +2193,9 @@ L["STORAGE_CREATE"] = "New Payload"
 --
 -- It says the two directions rather than the contents: a payload is worth having because it goes
 -- somewhere, and both places it goes are one press away on this screen.
-L["STORAGE_CREATE_TOOLTIP"] = "A payload is a saved set of actions, kept outside your bindings. Add one to your bindings later, or send it to somebody as a share code."
+--
+-- **"Copy of actions", not "set"**: a set in this window is the actions sharing one key.
+L["STORAGE_CREATE_TOOLTIP"] = "A snapshot is a saved copy of actions, kept outside your bindings. Add one to your bindings later, or send it to somebody as a share code."
 -- The press, in the line the client keeps for what a click does. It opens the menu below.
 L["STORAGE_CREATE_INSTRUCTION"] = "Click to choose where it comes from."
 -- The sources behind the [+] (`importing-clique-profiles.md` §1).
@@ -2198,7 +2210,7 @@ L["STORAGE_CREATE_FROM_CLIQUE"] = "From Clique..."
 -- Why that item is grey. It reads Clique's own saved variables, which exist only while it is loaded.
 L["STORAGE_CREATE_FROM_CLIQUE_UNAVAILABLE"] = "Clique is not loaded."
 -- What a row nobody named is called, drawn and never stored as a name.
-L["STORAGE_ENTRY_UNNAMED"] = "Unnamed Profile"
+L["STORAGE_ENTRY_UNNAMED"] = "Unnamed Snapshot"
 -- A profile's tooltip. Both lines stand whatever the profile holds: the characters that use it, and
 -- how many actions it becomes -- Clique's two starting bindings are not counted, since nothing of
 -- ours stands in for them. **A profile nobody uses gets a line of its own** rather than a word
@@ -2208,7 +2220,7 @@ L["STORAGE_CLIQUE_PROFILE_NO_USERS"] = "No character uses it."
 -- **Both texts end on moving**, because pending actions cannot be moved or copied: the way to split
 -- them up comes after accepting.
 L["STORAGE_ADD_TEXT"] = "These actions go into the same layers they came from. Once accepted, they can be moved to other layers."
-L["STORAGE_ADD_CLIQUE_TEXT"] = "This payload was made from a Clique profile, so all of its actions go into one layer. Once accepted, they can be moved to other layers."
+L["STORAGE_ADD_CLIQUE_TEXT"] = "This snapshot was made from a Clique profile, so all of its actions go into one layer. Once accepted, they can be moved to other layers."
 -- The layers are named with the window's own layer labels, so they have no keys here.
 L["STORAGE_ADD_LAYER"] = "Which layer should these actions go into?"
 -- Over the dropdown of the payload's characters of this class. One of them goes into this
@@ -2231,26 +2243,11 @@ L["STORAGE_ADD_SPECS_LAYERS_DESC"] = "An action with more than one specializatio
 -- the answer decides what the numbers turn into.
 L["STORAGE_ADD_SPECS_CONVERT"] = "Keep as %s specializations"
 L["STORAGE_ADD_SPECS_DROP"] = "Remove"
--- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
--- into text to hand to somebody.
---
--- **"String" is our word, not the client's, and this key is the first to stop using it.**
--- Measured 2026-08-17: every place the game shows one of these to a player it calls it a **code**
--- - `LOADOUT_ERROR_BAD_STRING` reads "Invalid loadout code",
--- `COOLDOWN_VIEWER_SETTINGS_ERROR_ENTER_IMPORT_STRING_AND_NAME` reads "a valid import code",
--- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to
--- its own key names, which is the same line this file is supposed to draw. koKR says 코드
--- throughout.
---
--- **The paste dialog followed on 2026-09-24**, when it began taking Clique's codes too: its title,
--- its placeholder and the `IMPORT_FAILED_*` lines it shows. **The rest are not renamed, and that is
--- still a finding rather than a decision.** ruRU carries none of them, so the cost when it is done
--- is enUS and koKR only.
 -- **"With Their Keys" came off** (2026-08-23, 소유자). It named the whole of what the answer decided
 -- while an arrival was parked on a number of ours; since the badge became the only thing holding
 -- one back, an arrival carries the sender's key from the moment it lands and accepting is what lets
 -- that key fire. The clause said what `Accept` already says.
-L["STORAGE_ADD_ACCEPTED"] = "Add and Accept"
+L["STORAGE_ADD_ACCEPTED"] = "Add and accept"
 -- **The second sentence is the same one the other door to that prompt uses**
 -- (`APPROVE_ALL_IMPORT_DESC`). One question asked from two places is announced the same way, or the
 -- reader meets a prompt one of them never mentioned.
@@ -2274,13 +2271,25 @@ L["STORAGE_ADD_QUARANTINED_DESC"] = "They go into your bindings doing nothing, a
 -- way (`ApproveArrivedActions` is the only writer, and nothing puts the badge back).
 --
 -- `Pending` is what the overview's button and filter already call this state (`IMPORT_PENDING`).
-L["STORAGE_ADD_QUARANTINED"] = "Add as Pending"
-L["STORAGE_COPY"] = "Create Share Code"
+L["STORAGE_ADD_QUARANTINED"] = "Add as pending"
+-- `HOUSING_BLUEPRINT_COLLECTION_COPY`, on the button doing exactly this job: a saved thing turned
+-- into text to hand to somebody.
+--
+-- **"Share code", never "string".** Measured 2026-08-17: every place the game shows one of these to
+-- a player it calls it a **code** - `LOADOUT_ERROR_BAD_STRING` reads "Invalid loadout code",
+-- `COOLDOWN_VIEWER_SETTINGS_ERROR_ENTER_IMPORT_STRING_AND_NAME` reads "a valid import code",
+-- `HOUSING_BLUEPRINT_IMPORT_SHARECODE_LABEL` reads "Enter Import Code:" - and keeps "string" to its
+-- own key names, which is the same line this file draws. koKR says 코드 throughout.
+--
+-- **The word splits in two** (2026-10-11, owner): the text handed over is a share code, and where
+-- arrived actions came from is the snapshot in Storage. An arrival can come from a snapshot made on
+-- this account or from Clique, which no share code was ever part of.
+L["STORAGE_COPY"] = "Create share code"
 -- Why that button is grey on a row made from Clique. What it holds is a conversion nobody has
 -- looked at yet, so it goes into somebody's bindings before it goes to anybody else (owner,
 -- 2026-10-03). %s is `STORAGE_ADD`, the button the sentence points at. **Names Clique** because
 -- Clique is the one addon a payload's `fromAddon` can name (`KNOWN_ADDONS` in `Export.lua`).
-L["STORAGE_COPY_FOREIGN"] = "A payload made from Clique cannot be shared. Use %s, then make a new payload from your bindings and share that one."
+L["STORAGE_COPY_FOREIGN"] = "A snapshot made from Clique cannot be shared. Use %s, then make a new snapshot from your bindings and share that one."
 -- **The destination, because `Add` on its own points at the list.** This said the client's `ADD`,
 -- and in the client that word sits on buttons that put a row in a list: add a friend, add to the
 -- ignore list. Two buttons under the list on the left already do that here, so a reader looking at
@@ -2305,7 +2314,7 @@ L["STORAGE_COPY_FOREIGN"] = "A payload made from Clique cannot be shared. Use %s
 -- **The press asks rather than acts** (2026-08-23, 소유자): the dialog it opens is where the two
 -- ways the actions can land are picked, and it takes this as its title. **No ellipsis**, which
 -- reads as a menu behind the button (소유자, 2026-09-24).
-L["STORAGE_ADD"] = "Add to My Bindings"
+L["STORAGE_ADD"] = "Add to my bindings"
 -- **The date has to say which date it is.** The row shows it bare, where it is one of two lines
 -- and the reader is scanning rather than reading; the tooltip is where somebody stops to ask, and
 -- an unlabelled number there answers "made", "pasted" and "today" equally well.
@@ -2317,7 +2326,7 @@ L["STORAGE_ENTRY_RECEIVED"] = "Received %s"
 -- Where the row came from, the tooltip's first line under the title. **Not which character made
 -- it**: what is in it says that already (owner, 2026-09-28).
 L["STORAGE_ENTRY_SOURCE_MADE"] = "Made on this account"
-L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a string"
+L["STORAGE_ENTRY_SOURCE_PASTED"] = "Pasted from a share code"
 L["STORAGE_ENTRY_SOURCE_CLIQUE"] = "Imported from Clique"
 -- Whose layers are in it. %s is a list of class names, or of character names.
 L["STORAGE_ENTRY_CLASSES"] = "Classes: %s"
@@ -2333,7 +2342,7 @@ L["COUNT_ACTIONS"] = "%d |4action:actions;"
 L["COUNT_SWITCHES"] = "%d |4Switch:Switches;"
 -- The row menu's one item, and the title of the dialog it opens. The name box above reuses
 -- `IMPORT_PASTE_NAME`: it is the same field the paste dialog fills.
-L["STORAGE_ENTRY_EDIT"] = "Edit Name and Description"
+L["STORAGE_ENTRY_EDIT"] = "Edit name and description"
 L["STORAGE_ENTRY_EDIT_DESCRIPTION"] = "Description (optional)"
 -- The tab. **A place, not the thing kept in it** - the client has no empty word for one of these
 -- (Blueprint, Layout and Loadout are each already something else) and naming a place needs none.
@@ -2357,21 +2366,21 @@ L["STORAGE_PREVIEW_UNKNOWN_CLASS"] = "Unknown class"
 -- The preview's [View] menu, beside `SORT_BY_KEY` ("Key & Order"), which is the other item and is
 -- Overview's word for the same grouping.
 L["STORAGE_VIEW_LAYER"] = "Layer"
-L["STORAGE_EXPAND_ALL"] = "Expand All"
-L["STORAGE_COLLAPSE_ALL"] = "Collapse All"
+L["STORAGE_EXPAND_ALL"] = "Expand all"
+L["STORAGE_COLLAPSE_ALL"] = "Collapse all"
 -- The right column's resting state: nothing picked. **It said "pick something"** because the thing
 -- in the list had no name to call it by, which is what a screen that will not name its object is
 -- reduced to. It has one now (`STORAGE_CREATE`), so the sentence says which thing to pick.
-L["STORAGE_NOTHING_PICKED"] = "Pick a payload on the left to see what is in it."
+L["STORAGE_NOTHING_PICKED"] = "Pick a snapshot on the left to see what is in it."
 -- The right column's two tabs (`importing-switches-apart-from-actions.md` 2-7). Switches never come
 -- in with the actions, so bringing them in is a tab of its own rather than a step of the add.
 L["STORAGE_TAB_ACTIONS"] = "Actions"
 L["STORAGE_TAB_SWITCHES"] = "Switches"
 -- The Switches tab's one verb, worded beside the other tab's (`STORAGE_ADD`) because it is the same
 -- move for the other half of a payload.
-L["STORAGE_IMPORT_SWITCHES"] = "Add to My Switches"
+L["STORAGE_IMPORT_SWITCHES"] = "Add to my Switches"
 L["STORAGE_SWITCHES_IMPORTED"] = "Brought in %s."
-L["STORAGE_SWITCHES_EMPTY"] = "Nothing in this payload uses a Switch."
+L["STORAGE_SWITCHES_EMPTY"] = "Nothing in this snapshot uses a Switch."
 -- The dark tab's reason. Another addon's settings are converted into actions alone.
 L["STORAGE_SWITCHES_FOREIGN"] = "Settings from another addon carry no Switches."
 -- After a row's layer name when the payload's setting there is the reader's already. The row
@@ -2384,18 +2393,19 @@ L["STORAGE_SWITCH_NEW"] = "You have no Switch by this name. It is made with the 
 L["STORAGE_SWITCH_SAME_DESC"] = "The same as your setting on this layer."
 L["STORAGE_SWITCH_OVERWRITE"] = "Ticked, this replaces your setting on this layer."
 L["STORAGE_SWITCH_FILL"] = "You have no setting on this layer, so your actions here follow the layer below. Ticked, they follow this one instead."
-L["STORAGE_SWITCH_INCOMING"] = "In this payload"
+L["STORAGE_SWITCH_INCOMING"] = "In this snapshot"
 L["STORAGE_SWITCH_MINE"] = "Yours"
-L["STORAGE_MENU_DESC"] = "Where payloads are kept: ones you save from this character, ones you paste in, and ones made from your Clique profiles.|n|nAdding one puts its actions in as pending, so none of your keys change until you accept them."
+L["STORAGE_MENU_DESC"] = "Where snapshots are kept: ones you make from this character or this account, ones you paste in, and ones made from your Clique profiles.|n|nWhen you add one, you choose whether its actions start working straight away or wait as pending until you accept them."
 
--- The drawer. **It is a place things pile up in, not a wizard**, so the empty state says what fills
--- it rather than what to do next - there is no next step until something is in there.
+-- Storage's list of snapshots, empty. **It is a place things pile up in, not a wizard**, so the
+-- empty state says what fills it rather than what to do next - there is no next step until
+-- something is in there.
 --
 -- **No instruction.** The way in is the [+] in the tab's corner, and a sentence pointing at it would
 -- have to spell out a picture. What is left is the half a visible button cannot say: that anything
 -- landing here stays. It names both ways a row lands, making and pasting, because the [+] offers
 -- both.
-L["IMPORT_DRAWER_EMPTY"] = "Nothing here yet.|n|nWhatever you make or paste in stays here until you delete it, so you can come back and add it later."
+L["IMPORT_DRAWER_EMPTY"] = "Snapshots you make or paste in are kept here until you delete them, so you can come back and add one later."
 -- **Says "share code" because the menu item opening it does** (`STORAGE_CREATE_FROM_CODE`), and it
 -- names no addon since it takes Clique's as well as ours. The placeholder is where that is said.
 L["IMPORT_PASTE_TITLE"] = "Paste a share code"
@@ -2462,7 +2472,8 @@ L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind S
 -- **Both numbers, because one on its own reads as the total.** "Select all (8)" says there are
 -- eight here, which is the opposite of what it meant on an entry of 24 with 8 picked.
 L["EXPORT_SELECTED_COUNT"] = "%1$d of %2$d selected"
-L["EXPORT_EMPTY"] = "There is nothing here to export yet."
+-- A snapshot never gains actions after it is made, so this says what is so rather than "yet".
+L["EXPORT_EMPTY"] = "This snapshot has no actions."
 L["EXPORT_LAYER_HEADER"] = "%1$s (%2$d/%3$d)"
-L["EXPORT_FAILED_LIBS_MISSING"] = "The libraries that build the string are missing, which means the install did not finish. Downloading Debind again brings them back."
-L["EXPORT_COPY_TITLE"] = "Copy this string (Ctrl-C)"
+L["EXPORT_FAILED_LIBS_MISSING"] = "The libraries that build the share code are missing, which means the install did not finish. Downloading Debind again brings them back."
+L["EXPORT_COPY_TITLE"] = "Copy this share code (Ctrl-C)"

@@ -122,7 +122,7 @@ Put an action in the layer that covers the most characters, and use a narrower l
 
 A mount every character uses sits in *Account* / *General*. Travel form sits in the druid layer, and a character who rides something else keeps that in its own.
 
-Picking an entry in *Add an Action* puts the new action in the layer you have open, and right-clicking the entry instead offers *Add to...*, which lists every layer. *Move to...* in an action's right-click menu moves one you already have.
+Picking an entry in *Add an action* puts the new action in the layer you have open, and right-clicking the entry instead offers *Add to...*, which lists every layer. *Move to...* in an action's right-click menu moves one you already have.
 
 You do not have to bind everything at once.
 

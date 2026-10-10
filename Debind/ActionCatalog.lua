@@ -1021,8 +1021,9 @@ local function BuildMacros(entries)
 	-- 캐릭터 매크로는 개수와 상관없이 **계정 구간 다음 인덱스부터** 시작한다.
 	seen = {};
 	local accountSlots = DebindPrivate.GetMacroSlotLimits();
+	local characterGroup = format(LLL["SPELL_PICKER_GROUP_CHARACTER_MACROS"], UnitName("player"));
 	for index = accountSlots + 1, accountSlots + (numCharacter or 0) do
-		Add(index, LLL["SPELL_PICKER_GROUP_CHARACTER_MACROS"]);
+		Add(index, characterGroup);
 	end
 end
 

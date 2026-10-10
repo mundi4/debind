@@ -43,7 +43,7 @@ A Switch is a value of your own, either on or off. Put it on an action as a cond
 
 A Switch is read as a condition in two places: *Switches* in an action's right-click menu, where you pick on or off, and a Custom Macro, where you write **[$fishing]** for on and **[no$fishing]** for off.
 
-To change one with a key, add a *Switch* action to that key from the *Special* tab of *Add an Action*, then pick in its menu which Switch it changes and whether the press turns that Switch on, turns it off, or flips it. A key does this in combat as well. The button on the Switch's own row, labelled *Turn On* or *Turn Off* by what a click will do, flips it, but not in combat.
+To change one with a key, add a *Switch* action to that key from the *Special* tab of *Add an action*, then pick in its menu which Switch it changes and whether the press turns that Switch on, turns it off, or flips it. A key does this in combat as well. The button on the Switch's own row, labelled *Turn on* or *Turn off* by what a click will do, flips it, but not in combat.
 
 *Starts as* on the *Switches* tab sets the value a Switch has after you log in and after you change specialization: *On*, *Off*, or *As you left it*. *Set it for* above it picks what that answer covers: the whole account, one class, one specialization or one character. The narrowest one that fits the character you are on is the one being read, and that one is blue in the list. Set it for one character and only that character starts with the Switch off, while the same action on the same key is untouched everywhere else.
 

@@ -26,7 +26,7 @@ L["HELP_CHANGELOG_TITLE"] = "What's New in 4.2"
 L["HELP_CHANGELOG_BODY"] = [==[
 # A key where no action runs goes back to WoW again
 
-When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Press Does Nothing|r. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
+When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Press does nothing|r. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 
@@ -38,7 +38,7 @@ An action on a mouse button other than a plain left or right click now runs when
 
 # New actions: Give Key Back and WoW Binding
 
-|cnBLUE_FONT_COLOR:Give Key Back|r, in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, gives the key back when it runs. |cnBLUE_FONT_COLOR:WoW Binding|r, in the |cnBLUE_FONT_COLOR:Commands|r tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a |cnBLUE_FONT_COLOR:Nothing|r action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+|cnBLUE_FONT_COLOR:Give Key Back|r, in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r, gives the key back when it runs. |cnBLUE_FONT_COLOR:WoW Binding|r, in the |cnBLUE_FONT_COLOR:Commands|r tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a |cnBLUE_FONT_COLOR:Nothing|r action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
 
 # What's New in 4.1
 
@@ -130,7 +130,7 @@ Write these names in lower case and inside the brackets that open a part of a li
 
 L["HELP_CUSTOM_TARGET_TITLE"] = "What is a Custom Target?"
 L["HELP_CUSTOM_TARGET_BODY"] = [==[
-Two extra targets you keep the way you keep your focus. Put |cnBLUE_FONT_COLOR:Set Custom Target 1|r or |cnBLUE_FONT_COLOR:Set Custom Target 2|r on a key, from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
+Two extra targets you keep the way you keep your focus. Put |cnBLUE_FONT_COLOR:Set Custom Target 1|r or |cnBLUE_FONT_COLOR:Set Custom Target 2|r on a key, from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
 
 Then use one like any other unit: pick |cnBLUE_FONT_COLOR:Custom Target 1|r or |cnBLUE_FONT_COLOR:Custom Target 2|r in an action's |cnBLUE_FONT_COLOR:Target|r menu, ask about it under |cnBLUE_FONT_COLOR:Units|r, or write |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a |cnBLUE_FONT_COLOR:Custom Macro|r, as in |cnGREEN_FONT_COLOR:|Hdebind:help:custom-macro|h[Writing a Custom Macro]|h|r.
 
@@ -167,14 +167,14 @@ L["HELP_KEYS_GIVEN_BACK_TITLE"] = "When is a key given back?"
 L["HELP_KEYS_GIVEN_BACK_BODY"] = [==[
 A key given back works as if Debind had nothing on it: whatever else is bound to it runs, from WoW's own keybindings or another addon, and nothing if nothing is.
 
-1. |cnHIGHLIGHT_FONT_COLOR:At a press where none of its actions runs.|r No action's conditions are met, or none is set to run on that kind of press. |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings sets this, and starts on |cnBLUE_FONT_COLOR:Key Is Given Back|r; set it to |cnBLUE_FONT_COLOR:Press Does Nothing|r and those presses do nothing instead.
+1. |cnHIGHLIGHT_FONT_COLOR:At a press where none of its actions runs.|r No action's conditions are met, or none is set to run on that kind of press. |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings sets this, and starts on |cnBLUE_FONT_COLOR:Key is given back|r; set it to |cnBLUE_FONT_COLOR:Press does nothing|r and those presses do nothing instead.
 2. |cnHIGHLIGHT_FONT_COLOR:When an action set to give the key back runs.|r |cnBLUE_FONT_COLOR:Give Key Back|r stands on the key like any other action and runs when its conditions are met and nothing above it ran. No action under it is tried.
 3. |cnHIGHLIGHT_FONT_COLOR:When nothing on the key is in play.|r Each action is either turned off or in a specialization tab you are not in. This happens whatever |cnBLUE_FONT_COLOR:When no action runs|r is set to, and the key's header is grey in the |cnBLUE_FONT_COLOR:Overview|r tab.
 4. |cnHIGHLIGHT_FONT_COLOR:During a pet battle, on a replaced action bar, or in the House Editor.|r A replaced action bar is the one you get when a vehicle, a possession or a quest replaces your whole action bar; forms, stealth and skyriding do not count. Under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings, |cnBLUE_FONT_COLOR:Action Button keys|r sets the first two: a pet battle to begin with, and a replaced action bar once you pick |cnBLUE_FONT_COLOR:Replaced Action Bar|r or |cnBLUE_FONT_COLOR:Replaced Action Bar and Pet Battles|r. |cnBLUE_FONT_COLOR:House Editor keys|r sets the third, and is ticked to begin with.
 
 |cnHIGHLIGHT_FONT_COLOR:If you keep moving after releasing a key, or the ping wheel stays open.|r Some WoW keybindings do one thing when the key is pressed and another when it is released. If a key given back is still held when Debind takes it again, the release never reaches that keybinding. That is what keeps you moving or leaves the ping wheel open. For keys bound to these, it is safer not to let them be given back.
 
-If one key should do nothing when none of its actions runs, while your other keys are given back, add a |cnBLUE_FONT_COLOR:Nothing|r action to that key, with no conditions, and set its |cnBLUE_FONT_COLOR:Importance|r to |cnBLUE_FONT_COLOR:Very Low|r. You find it in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r. Check that it is the last action under the key in the |cnBLUE_FONT_COLOR:Overview|r tab, so it runs only when none of the others does.
+If one key should do nothing when none of its actions runs, while your other keys are given back, add a |cnBLUE_FONT_COLOR:Nothing|r action to that key, with no conditions, and set its |cnBLUE_FONT_COLOR:Importance|r to |cnBLUE_FONT_COLOR:Very Low|r. You find it in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r. Check that it is the last action under the key in the |cnBLUE_FONT_COLOR:Overview|r tab, so it runs only when none of the others does.
 
 A click on a unit frame where no action runs goes to the frame.
 ]==]
@@ -188,7 +188,7 @@ The |cnBLUE_FONT_COLOR:Overview|r tab lists actions grouped by key, and under on
 1. |cnHIGHLIGHT_FONT_COLOR:Importance, which overrides the other three: change it last.|r A higher |cnBLUE_FONT_COLOR:Importance|r stands above the rest. Reach for it only where conditions and layers (below) cannot give the order you want: it is set on the action, and an Account action is the same action on every character, so the |cnBLUE_FONT_COLOR:Importance|r you give it here applies on characters you are not playing and cannot see.
 2. |cnHIGHLIGHT_FONT_COLOR:Whether it has conditions.|r An action with conditions stands above one without. One with no conditions runs on every press it takes part in, so nothing under it is reached on those presses.
 3. |cnHIGHLIGHT_FONT_COLOR:The layer it is in.|r The narrower layer stands higher: this character in this specialization, then this character, then the class in this specialization, then the class, then Account. |cnBLUE_FONT_COLOR:Move to...|r moves an action to another layer.
-4. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run Sooner|r and |cnBLUE_FONT_COLOR:Run Later|r move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
+4. |cnHIGHLIGHT_FONT_COLOR:Where you put it in that layer.|r |cnBLUE_FONT_COLOR:Run sooner|r and |cnBLUE_FONT_COLOR:Run later|r move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
 
 So an Account action with conditions stands above a character's action without them on the same key, unless their |cnBLUE_FONT_COLOR:Importance|r differs. That is how an action for one situation on every character, such as one set to |cnBLUE_FONT_COLOR:While skyriding|r, stays in front of each character's everyday action on that key.
 
@@ -207,7 +207,7 @@ Put an action in the layer that covers the most characters, and use a narrower l
 
 A mount every character uses sits in |cnBLUE_FONT_COLOR:Account|r / |cnBLUE_FONT_COLOR:General|r. Travel form sits in the druid layer, and a character who rides something else keeps that in its own.
 
-Picking an entry in |cnBLUE_FONT_COLOR:Add an Action|r puts the new action in the layer you have open, and right-clicking the entry instead offers |cnBLUE_FONT_COLOR:Add to...|r, which lists every layer. |cnBLUE_FONT_COLOR:Move to...|r in an action's right-click menu moves one you already have.
+Picking an entry in |cnBLUE_FONT_COLOR:Add an action|r puts the new action in the layer you have open, and right-clicking the entry instead offers |cnBLUE_FONT_COLOR:Add to...|r, which lists every layer. |cnBLUE_FONT_COLOR:Move to...|r in an action's right-click menu moves one you already have.
 
 You do not have to bind everything at once.
 
@@ -236,7 +236,7 @@ A Switch is a value of your own, either on or off. Put it on an action as a cond
 
 A Switch is read as a condition in two places: |cnBLUE_FONT_COLOR:Switches|r in an action's right-click menu, where you pick on or off, and a Custom Macro, where you write |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r for on and |cnHIGHLIGHT_FONT_COLOR:[no$fishing]|r for off.
 
-To change one with a key, add a |cnBLUE_FONT_COLOR:Switch|r action to that key from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an Action|r, then pick in its menu which Switch it changes and whether the press turns that Switch on, turns it off, or flips it. A key does this in combat as well. The button on the Switch's own row, labelled |cnBLUE_FONT_COLOR:Turn On|r or |cnBLUE_FONT_COLOR:Turn Off|r by what a click will do, flips it, but not in combat.
+To change one with a key, add a |cnBLUE_FONT_COLOR:Switch|r action to that key from the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r, then pick in its menu which Switch it changes and whether the press turns that Switch on, turns it off, or flips it. A key does this in combat as well. The button on the Switch's own row, labelled |cnBLUE_FONT_COLOR:Turn on|r or |cnBLUE_FONT_COLOR:Turn off|r by what a click will do, flips it, but not in combat.
 
 |cnBLUE_FONT_COLOR:Starts as|r on the |cnBLUE_FONT_COLOR:Switches|r tab sets the value a Switch has after you log in and after you change specialization: |cnBLUE_FONT_COLOR:On|r, |cnBLUE_FONT_COLOR:Off|r, or |cnBLUE_FONT_COLOR:As you left it|r. |cnBLUE_FONT_COLOR:Set it for|r above it picks what that answer covers: the whole account, one class, one specialization or one character. The narrowest one that fits the character you are on is the one being read, and that one is blue in the list. Set it for one character and only that character starts with the Switch off, while the same action on the same key is untouched everywhere else.
 

@@ -33,7 +33,7 @@ The *Overview* tab lists actions grouped by key, and under one key they stand in
 1. **Importance, which overrides the other three: change it last.** A higher *Importance* stands above the rest. Reach for it only where conditions and layers (below) cannot give the order you want: it is set on the action, and an Account action is the same action on every character, so the *Importance* you give it here applies on characters you are not playing and cannot see.
 2. **Whether it has conditions.** An action with conditions stands above one without. One with no conditions runs on every press it takes part in, so nothing under it is reached on those presses.
 3. **The layer it is in.** The narrower layer stands higher: this character in this specialization, then this character, then the class in this specialization, then the class, then Account. *Move to...* moves an action to another layer.
-4. **Where you put it in that layer.** *Run Sooner* and *Run Later* move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
+4. **Where you put it in that layer.** *Run sooner* and *Run later* move the action one place. They are greyed out when one of the three above already settles the order, and the tooltip says which one.
 
 <!--
 **These two paragraphs are the one place conditions and layers meet, and the one a reader gets wrong.** They read "the narrower layer stands higher" and expect a character's action to beat any Account action. The first says why the step is there, with the case it exists for (`putting-conditions-back-in-the-order.md` §1).

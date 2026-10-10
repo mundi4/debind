@@ -46,7 +46,7 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 # A key where no action runs goes back to WoW again
 
-When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set *When no action runs* under *Keys Given Back* in Debind's settings to *Press Does Nothing*. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in [](keys-given-back.md).
+When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set *When no action runs* under *Keys Given Back* in Debind's settings to *Press does nothing*. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in [](keys-given-back.md).
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 
@@ -58,7 +58,7 @@ An action on a mouse button other than a plain left or right click now runs when
 
 # New actions: Give Key Back and WoW Binding
 
-*Give Key Back*, in the *Special* tab of *Add an Action*, gives the key back when it runs. *WoW Binding*, in the *Commands* tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a *Nothing* action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+*Give Key Back*, in the *Special* tab of *Add an action*, gives the key back when it runs. *WoW Binding*, in the *Commands* tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a *Nothing* action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
 
 # What's New in 4.1
 

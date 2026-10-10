@@ -131,7 +131,7 @@ When an action can't be reached at all, the overview marks it **Never runs**. So
 
 Each action can go to the unit you point at, on a unit frame or, if you'd rather, on a nameplate or out in the world too. Put conditions on that unit and one key can heal off raid frames, do something else on the boss frames, and go back to being a normal key everywhere else.
 
-![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which frame types count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
+![The Hovering Over Unit Frame submenu: hovered or not, which reactions, and which kinds of frame count.](https://raw.githubusercontent.com/mundi4/debind/main/docs/screenshots/click-casting.png)
 
 Debind works on unit frames whoever draws them. An addon that supports Clique registers with Debind the same way it registers with Clique; one that keeps its frames for its own hover casting is found anyway, and Debind works there without stopping anything that addon does. Clique itself can be installed and running at the same time, and both engines work on the frame — where you have bound the same key in both, Debind's is what fires. Debind can also stay off any of those frames, if you'd rather.
 

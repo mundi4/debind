@@ -66,7 +66,7 @@ onto the ones still standing.
 
 # What is a Custom Target?
 
-Two extra targets you keep the way you keep your focus. Put *Set Custom Target 1* or *Set Custom Target 2* on a key, from the *Special* tab of *Add an Action*, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
+Two extra targets you keep the way you keep your focus. Put *Set Custom Target 1* or *Set Custom Target 2* on a key, from the *Special* tab of *Add an action*, then press that key with your cursor over a unit frame. Press it with your cursor over nothing to clear it.
 
 Then use one like any other unit: pick *Custom Target 1* or *Custom Target 2* in an action's *Target* menu, ask about it under *Units*, or write **@custom1** or **@custom2** in a *Custom Macro*, as in [](custom-macro.md).
 
