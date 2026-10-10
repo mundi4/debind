@@ -54,8 +54,9 @@ Direct `DebindPrivate.UpdateBindings()` does not go through this. Only `QueueUpd
 `SecureStateDriverManager` (`Blizzard_FrameXML/SecureStateDriver.lua`) runs on an OnUpdate throttled
 to `STATE_DRIVER_UPDATE_THROTTLE`, default `0.2`, settable through its `updatetime` attribute.
 **The reader's period reaches it only from a rebuild that has a tail-key beat**
-(`StateDriverPeriod.lua`), and comes off again to what was there before. A 0 written stays for the
-rest of the session, and somebody else's period written over it is put back to 0. A stored
+(`StateDriverPeriod.lua`), and comes off again to 0.2 once no rebuild wants it, unless somebody wrote
+over a non-zero period of ours, which then stays. While a 0 of ours
+stands, somebody else's period written over it is put back to 0. A stored
 `stateDriverUpdateThrottle` from the build that had the old slider is read by nothing.
 
 Two things about it are worth knowing:
@@ -64,7 +65,8 @@ Two things about it are worth knowing:
   Debind registers there is the bar and pet battle events behind Keys Given Back
   (`CollectDriverEvents`), and those are what make the `state-giveback` attribute driver resolve
   promptly. **At 0 there are none**, Blizzard's included: the timer runs out on every frame, so an
-  event would buy nothing, and every one is taken off when 0 is written (`StateDriverPeriod.lua`).
+  event would buy nothing, and every one is taken off when 0 is written and put back when it comes
+  off (`StateDriverPeriod.lua`).
 * **The tail-key beat rides the poll itself.** It is a driver answering one constant on
   `BindingDriver` (`ApplyBindingPlan`), so a tail key's binding follows a state the manager is told
   nothing about at most one `updatetime` late.

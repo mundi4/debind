@@ -565,6 +565,13 @@ local function ApplyBindingPlan(plan)
         ]]);
     end
 
+    --- **The period before the events.** A 0 of ours coming off puts back every event it took off,
+    --- and the walk below reads the manager to tell ours from somebody else's: were the walk to run
+    --- first, it would find another addon's event missing, register it as ours, and later take it
+    --- from them.
+    --- `_driverEventsOurs` is left as it stands while a 0 is on; ours come back with the rest.
+    DebindPrivate.StateDriverPeriod.Apply(plan.updatetime);
+
     --- **Only an event this addon registered is unregistered.** The manager is Blizzard's and shared
     --- with every addon, and one of them may have asked for the same event for its own drivers. An
     --- event already registered when we came to want it is somebody else's, and stays theirs.
@@ -579,11 +586,6 @@ local function ApplyBindingPlan(plan)
             SecureStateDriverManager:UnregisterEvent(entry.name);
             _driverEventsOurs[entry.name] = nil;
         end
-    end
-    DebindPrivate.StateDriverPeriod.Apply(plan.updatetime);
-    -- `Apply` took every event off on 0, ours included.
-    if (plan.updatetime == 0) then
-        wipe(_driverEventsOurs);
     end
 
     -- The aliases this rebuild watches, resolved once so a press finds them standing.

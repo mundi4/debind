@@ -4349,7 +4349,7 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 	
 
 ### StateDriverPeriod.lua #1 SecureHandlerWrapScript
-if (name == "updatetime" and value and value ~= 0) then
+if (ZeroedByUs and name == "updatetime" and value and value ~= 0) then
     return false
 end
 

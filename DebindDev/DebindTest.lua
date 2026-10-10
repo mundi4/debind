@@ -7130,13 +7130,6 @@ function PeriodKit.Swap()
     return function(value) PeriodKit.chosen = value end
 end
 
-function PeriodKit.NotHeldAtZero()
-    if DebindPrivate.StateDriverPeriod.HeldAtZero() then
-        return false, "this session already holds the period at 0, and only a reload lets it go"
-    end
-    return true
-end
-
 --- The manager's ticks per frame over `n` frames, counted on `BeatWitness`. **From the first tick**,
 --- since a period just written waits for the timer the old one left (`SecureStateDriver.lua`).
 function PeriodKit.TicksPerFrame(n)
@@ -7153,11 +7146,9 @@ function PeriodKit.TicksPerFrame(n)
 end
 
 -- **Only the game has the manager.** Headless records what a rebuild writes to a shell
--- (`period_spec.lua`); whether Blizzard's attribute holds it, and what a write of nil leaves there,
--- is asked here. Each half that puts a period back sets the one it expects first.
-RegisterTest("Period: a chosen period is written and put back", {
-    description = "A non-zero period goes on with a beat and comes off to what was there, 0.2 where that was nil, and a period somebody wrote over ours stays",
-    applies = PeriodKit.NotHeldAtZero,
+-- (`period_spec.lua`); whether Blizzard's attribute holds it is asked here.
+RegisterTest("Period: a chosen period is written and taken off", {
+    description = "A non-zero period goes on with a beat and comes off to 0.2 whatever was there before, and a period somebody wrote over ours stays",
     run = function()
         local NAME = "Period written"
         local KEY = "CTRL-SHIFT-F11"
@@ -7186,6 +7177,7 @@ RegisterTest("Period: a chosen period is written and put back", {
             return manager:GetAttribute("updatetime")
         end
 
+        -- Ours comes off to 0.2 whatever was there before (owner, 2026-10-11).
         manager:SetAttribute("updatetime", 0.17)
         choose(0.1)
         ApplyBindings()
@@ -7194,18 +7186,8 @@ RegisterTest("Period: a chosen period is written and put back", {
         end
         choose(nil)
         ApplyBindings()
-        if Period() ~= 0.17 then
-            return Fail(NAME, format("what was there was 0.17, and %s was put back", tostring(Period())))
-        end
-
-        -- Blizzard's handler returns on a nil, so this leaves 0.17 running under an attribute of nil.
-        manager:SetAttribute("updatetime", nil)
-        choose(0.1)
-        ApplyBindings()
-        choose(nil)
-        ApplyBindings()
         if Period() ~= DEFAULT then
-            return Fail(NAME, format("over a nil, %s was put back", tostring(Period())))
+            return Fail(NAME, format("ours came off to %s", tostring(Period())))
         end
 
         choose(0.1)
@@ -7216,7 +7198,7 @@ RegisterTest("Period: a chosen period is written and put back", {
         if Period() ~= 0.15 then
             return Fail(NAME, format("a period written over ours became %s", tostring(Period())))
         end
-        return Pass(NAME, "written, put back, and left alone where somebody else wrote")
+        return Pass(NAME, "written, taken off to 0.2, and left alone where somebody else wrote")
     end,
 })
 
@@ -7225,47 +7207,37 @@ RegisterTest("Period: a chosen period is written and put back", {
 -- on 0, a foreign period is undone before it costs a frame and cannot land again, and **the wrap
 -- gate** -- a driver another addon registers from its own code still resolves under the wrap.
 -- `CallRestrictedClosure` refuses insecure callers, and if this goes red every addon's driver
--- registration in a session holding 0 is broken, so the wrap does not ship.
+-- registration in a session holding 0 is broken, so the wrap does not ship. Then **0 comes off**
+-- the way a rebuild takes it off, after the wrap and the events registered under it: the period
+-- goes back to 0.2, Blizzard's events and the ones addons asked for come back, the gate holds again
+-- after those registrations, and a foreign period goes through the wrap now that the 0 is not ours.
 --
--- **It ends the session, a failure included**, because a 0 written holds until a reload. A
--- failure that stayed would leave the cases after it on a held manager, and after a failed gate
--- on one where no driver registers -- ours among them -- so they would go red over this one. The
--- message crosses in `Scratch()` and is reported on the other side.
---
--- **`applies` lets the other side through.** The runner asks it again after the reload, and a
--- session holding 0 by then (a tester whose own period is 0) would skip the case and lose the
--- report.
-RegisterTest("Period: 0 holds against a foreign period", {
-    description = "0 with a beat makes the manager tick every frame with no event on it, and one registered later comes off; a foreign 0.2 goes back to 0 at once and again after the wrap; a driver registered from addon code under the wrap still resolves",
+-- **A failure ends the session.** A wrap that cannot be taken off and a manager that has stopped
+-- taking drivers outlive any rebuild, and the cases after would go red over this one. The message
+-- crosses in `Scratch()` and is reported on the other side.
+RegisterTest("Period: 0 comes and goes, and holds against a foreign period", {
+    description = "0 with a beat makes the manager tick every frame with no event on it, and one registered later comes off; a foreign 0.2 goes back to 0 at once and again after the wrap; a driver registered from addon code under the wrap resolves; 0 comes off to 0.2 with every event back, the gate holds again and a foreign period goes through",
     crossesReload = true,
-    applies = function()
-        if Scratch().periodZeroCrossing then
-            return true
-        end
-        return PeriodKit.NotHeldAtZero()
-    end,
     run = function(phase)
         local NAME = "Period zero"
         local KEY = "CTRL-SHIFT-F11"
         local FRAMES = 20
+        local DEFAULT = Constants.STATE_DRIVER_UPDATETIME_DEFAULT
         local manager = SecureStateDriverManager
         local scratch = Scratch()
-        if phase then
+        if phase == "failed" then
             local failure = scratch.periodZeroFailure
-            local aspects = scratch.periodZeroAspects
-            scratch.periodZeroCrossing, scratch.periodZeroFailure, scratch.periodZeroAspects = nil, nil, nil
-            if phase == "failed" then
-                return Fail(NAME, failure)
-            end
-            return Pass(NAME, "the session that held 0 is gone; forbidden aspects " .. tostring(aspects))
+            scratch.periodZeroFailure = nil
+            return Fail(NAME, failure)
         end
         if InCombatLockdown() then
             return Fail(NAME, "rebuilds are deferred in combat")
         end
 
-        -- **Which call, if any, puts a forbidden aspect on the manager**, asked at the three points
-        -- where one of ours could: once our events came off, once the wrap went on, and once our hook
-        -- took off an event registered after it. Every report carries the answers. The value can
+        -- **Which call, if any, puts a forbidden aspect on the manager**, asked at the four points
+        -- where one of ours could: once our events came off, once the wrap went on, once our hook
+        -- took off an event registered after it, and once 0 came off and put the events back. Every
+        -- report carries the answers. The value can
         -- be secret, so it is turned into text inside the pcall.
         local aspects = {}
         local function NoteAspects(where)
@@ -7283,15 +7255,27 @@ RegisterTest("Period: 0 holds against a foreign period", {
         local choose = PeriodKit.Swap()
         InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
         InsertAction({ type = Constants.GIVEBACK, key = KEY })
+        -- The events this case puts on the manager come back when 0 comes off, and are this case's
+        -- to take away again.
+        local TEST_EVENTS = { "PLAYER_STARTED_MOVING", "UNIT_HEALTH", "PLAYER_STOPPED_MOVING", "UNIT_POWER_UPDATE" }
+        AddTeardown(function()
+            for _, event in ipairs(TEST_EVENTS) do
+                manager:UnregisterEvent(event)
+            end
+        end)
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                manager:SetAttribute("updatetime", DEFAULT)
+            end
+        end)
         BeatWitness()
         choose(0)
-        scratch.periodZeroCrossing = true
         ApplyBindings()
         if manager:GetAttribute("updatetime") ~= 0 then
             return Abort(format("0 with a beat left %s", tostring(manager:GetAttribute("updatetime"))))
         end
-        if not DebindPrivate.StateDriverPeriod.HeldAtZero() then
-            return Abort("0 was written and is not held")
+        if not DebindPrivate.StateDriverPeriod.ZeroedByUs() then
+            return Abort("0 was written and is not counted as ours")
         end
         NoteAspects("events off")
 
@@ -7315,7 +7299,7 @@ RegisterTest("Period: 0 holds against a foreign period", {
         if manager:IsEventRegistered("UNIT_HEALTH") then
             return Abort("a unit event registered at 0 stayed on the manager")
         end
-        for _, method in ipairs({ "RegisterEvent", "RegisterUnitEvent", "RegisterAllEvents" }) do
+        for _, method in ipairs({ "RegisterEvent", "RegisterUnitEvent", "UnregisterEvent", "UnregisterAllEvents" }) do
             local secure, taintedBy = issecurevariable(manager, method)
             if not secure then
                 return Abort(format("the manager's %s is tainted by %s", method, tostring(taintedBy)))
@@ -7334,16 +7318,23 @@ RegisterTest("Period: 0 holds against a foreign period", {
         -- and `SecureHandlerWrapScript` refuses a frame with any (`SecureHandlers.lua`); whether
         -- what TakeEventsOff called puts one on the manager is this line's to answer. pcall'd so a
         -- refusal raised out of the hook crosses the reload like any failure.
+        --
+        -- **A wrap from earlier in the session is already on** and does not come off, so a second
+        -- run asks only that it is still the one standing.
+        local wasWrapped = DebindPrivate.StateDriverPeriod.Wrapped()
         local unwrapped = manager:GetScript("OnAttributeChanged")
         local wrote, wrapErr = pcall(manager.SetAttribute, manager, "updatetime", 0.2)
         if not wrote then
             return Abort("the first foreign 0.2 raised: " .. tostring(wrapErr))
         end
-        if manager:GetAttribute("updatetime") ~= 0 then
+        if manager:GetAttribute("updatetime") ~= 0 and not wasWrapped then
             return Abort(format("a foreign 0.2 was left at %s", tostring(manager:GetAttribute("updatetime"))))
         end
-        if manager:GetScript("OnAttributeChanged") == unwrapped then
+        if not wasWrapped and manager:GetScript("OnAttributeChanged") == unwrapped then
             return Abort("a foreign 0.2 put no wrap on the manager")
+        end
+        if not DebindPrivate.StateDriverPeriod.Wrapped() then
+            return Abort("a foreign 0.2 left the wrap off")
         end
         NoteAspects("wrapped")
         -- The wrap keeps the handler from running, not the attribute from being stored, so only the
@@ -7377,26 +7368,77 @@ RegisterTest("Period: 0 holds against a foreign period", {
             return Abort("a unit event registered after the wrap stayed on the manager")
         end
 
-        local gate = CreateFrame("Frame")
-        AddTeardown(function()
-            if not InCombatLockdown() then
-                UnregisterAttributeDriver(gate)
-            end
-        end)
         -- Whether an error in the wrapped handler comes out of `SetAttribute` is not known here, so
         -- one that does is caught and crosses like any other failure; one that does not is seen by
         -- the attribute check.
-        local ok, err = pcall(RegisterAttributeDriver, gate, "state-gate", "x")
-        if not ok then
-            return Abort("registering a driver from addon code under the wrap raised: " .. tostring(err))
+        local function Gate(when)
+            local gate = CreateFrame("Frame")
+            AddTeardown(function()
+                if not InCombatLockdown() then
+                    UnregisterAttributeDriver(gate)
+                end
+            end)
+            local ok, err = pcall(RegisterAttributeDriver, gate, "state-gate", "x")
+            if not ok then
+                return format("registering a driver from addon code %s raised: %s", when, tostring(err))
+            end
+            if gate:GetAttribute("state-gate") ~= "x" then
+                return format("a driver registered from addon code %s resolved to %s", when,
+                    tostring(gate:GetAttribute("state-gate")))
+            end
         end
-        if gate:GetAttribute("state-gate") ~= "x" then
-            return Abort(format("a driver registered from addon code under the wrap resolved to %s",
-                tostring(gate:GetAttribute("state-gate"))))
+        local closed = Gate("under the wrap")
+        if closed then
+            return Abort(closed)
         end
 
-        scratch.periodZeroAspects = table.concat(aspects, ", ")
-        return RequestReload("after")
+        -- **0 comes off** the way a rebuild takes it off: the beat is still there and the period
+        -- chosen is the default. The events go back on through insecure calls on the wrapped
+        -- manager, which is the other order an aspect could arrive in.
+        choose(nil)
+        local restored, restoreErr = pcall(DebindPrivate.UpdateBindings)
+        if not restored then
+            return Abort("taking 0 off raised: " .. tostring(restoreErr))
+        end
+        NoteAspects("restored")
+        if DebindPrivate.StateDriverPeriod.ZeroedByUs() then
+            return Abort("0 still counts as ours after it came off")
+        end
+        if manager:GetAttribute("updatetime") ~= DEFAULT then
+            return Abort(format("0 came off to %s", tostring(manager:GetAttribute("updatetime"))))
+        end
+        for _, event in ipairs(DebindPrivate.StateDriverPeriod.BLIZZARD_EVENTS) do
+            if not manager:IsEventRegistered(event) then
+                return Abort(format("Blizzard's %s did not come back", event))
+            end
+        end
+        for _, event in ipairs(TEST_EVENTS) do
+            if not manager:IsEventRegistered(event) then
+                return Abort(format("%s, registered while 0 stood, did not come back", event))
+            end
+        end
+        -- **The period running, not the attribute.** The foreign 0.2 the wrap stopped left the
+        -- attribute reading 0.2 already, so only the ticks say whether the 0.2 put back landed.
+        rate = PeriodKit.TicksPerFrame(FRAMES)
+        if rate >= 0.5 then
+            return Abort(format("after 0 came off the manager still ticked %.2f times a frame", rate))
+        end
+        closed = Gate("after 0 came off")
+        if closed then
+            return Abort(closed)
+        end
+
+        -- The wrap stays, and with the 0 no longer ours it lets a foreign period through.
+        wrote, wrapErr = pcall(manager.SetAttribute, manager, "updatetime", 0.15)
+        if not wrote then
+            return Abort("a foreign 0.15 after 0 came off raised: " .. tostring(wrapErr))
+        end
+        rate = PeriodKit.TicksPerFrame(FRAMES)
+        if rate >= 0.5 then
+            return Abort(format("a foreign 0.15 after 0 came off still ticked %.2f times a frame", rate))
+        end
+
+        return Pass(NAME, "forbidden aspects " .. table.concat(aspects, ", "))
     end,
 })
 

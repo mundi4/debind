@@ -278,12 +278,6 @@ function frameMethods:UnregisterEvent(event)
     record("UnregisterEvent", label(self), event);
 end
 
---- A marker rather than every event the client has: nothing in the addon calls it, and a spec asks
---- only whether it stayed.
-function frameMethods:RegisterAllEvents()
-    self.__events.__all = true;
-end
-
 function frameMethods:UnregisterAllEvents()
     for k in pairs(self.__events) do self.__events[k] = nil; end
 end

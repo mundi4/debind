@@ -421,9 +421,16 @@ local function Build()
     local period = AddRow("DebindSettingsSliderRowTemplate");
     Label(period, L["STATE_DRIVER_UPDATE_THROTTLE"]);
     period.Slider:SetWidth(250);
-    period.Tooltip:SetTooltipFunc(TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
-        L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n|cnRED_FONT_COLOR:"
-        .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r"));
+    local periodTooltip = TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
+        format(L["STATE_DRIVER_UPDATE_THROTTLE_DESC"], L["TYPE_COMMAND"]));
+    period.Tooltip:SetTooltipFunc(periodTooltip);
+    -- The slider sits over the row's tooltip area and takes the mouse, so it carries the tooltip
+    -- itself, the way the client's own slider row does (`SettingsSliderControlMixin:OnLoad`).
+    local inner = period.Slider.Slider;
+    Mixin(inner, DefaultTooltipMixin);
+    inner:InitDefaultTooltipScriptHandlers();
+    inner:SetCustomTooltipAnchoring(inner, "ANCHOR_RIGHT", 20, 0);
+    inner:SetTooltipFunc(periodTooltip);
     local formatters = {
         [MinimalSliderWithSteppersMixin.Label.Right] = CreateMinimalSliderFormatter(
             MinimalSliderWithSteppersMixin.Label.Right, function(value)
@@ -438,12 +445,11 @@ local function Build()
         end
         Options().stateDriverPeriod = stored;
         DebindPrivate.QueueUpdateBindings();
-        UpdateReloadButton();
     end
     -- **Only where the mouse lets go.** A drag down to 0.05 passes 0 on the way, and so can a press
-    -- on the track before the drag that follows it; a rebuild run on either would write 0, which
-    -- holds for the session and asks the reader for a reload over a value they never chose. The
-    -- steppers and `Init` are not a press and commit as they move.
+    -- on the track before the drag that follows it; a rebuild run on either would write 0, taking
+    -- every event off the manager and putting them back a moment later, for a value the reader
+    -- never chose. The steppers and `Init` are not a press and commit as they move.
     local pressed = false;
     period.Slider.Slider:HookScript("OnMouseDown", function()
         pressed = true;

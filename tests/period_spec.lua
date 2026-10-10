@@ -1,10 +1,9 @@
 -- **What a rebuild does to the state driver manager's period**, applied rather than planned
 -- (`zeroing-the-beat-period-where-it-is-needed.md` §4). `plan_spec.lua` asks which period a plan
 -- wants; this file runs the rebuilds, because what is asked here is what one leaves for the next:
--- a period written and put back, and a 0 held for the rest of the session.
+-- a period written and taken off, and a 0 of ours with the events it takes off and puts back.
 --
--- **A 0 written stays for the whole spec**, as it does for a session, so the cases that write one
--- come after the ones that must not see it, and each says so.
+-- **Every case leaves the manager off 0**, so the next starts from a period nothing of ours holds.
 --
 -- What is **not** here: the manager running on the period, and the wrap's body in the restricted
 -- environment. No manager runs here, and a write to the shell raises no handler; the hook is called
@@ -33,6 +32,7 @@ return function(DebindPrivate)
     end
 
     local GUID = "Player-1-PERIOD";
+    local DEFAULT = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
     local manager = _G.SecureStateDriverManager;
     local Period = DebindPrivate.StateDriverPeriod;
 
@@ -45,10 +45,18 @@ return function(DebindPrivate)
         return t;
     end
 
-    --- A tail key whose beat measures combat.
+    --- A tail key whose beat measures combat, which the manager announces itself.
     local function Beating()
         return {
             spell({ key = "F1", conditions = { combat = true } }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+        };
+    end
+
+    --- A tail key whose beat measures the mount, for which we register an event of our own.
+    local function Mounted()
+        return {
+            spell({ key = "F1", conditions = { mounted = true } }),
             spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
         };
     end
@@ -73,8 +81,7 @@ return function(DebindPrivate)
         check(DebindPrivate.UpdateBindings() == true, "the rebuild declined");
     end
 
-    --- The period the manager's handler would be running on: the last value written that it did not
-    --- ignore. Read off the recording, since `GetAttribute` answers a value the wrap kept out too.
+    --- Every `updatetime` written on the manager since `mark`, in order.
     local function UpdatetimeWrites(mark)
         local list = {};
         for _, e in ipairs(frames.since(mark)) do
@@ -96,136 +103,180 @@ return function(DebindPrivate)
         return n;
     end
 
+    --- Where in the recording since `mark` the first entry `match` accepts sits, nil for none.
+    local function IndexOf(mark, match)
+        for i, e in ipairs(frames.since(mark)) do
+            if (match(e)) then
+                return i;
+            end
+        end
+    end
+
+    --- The manager's `updatetime` as it stands.
+    local function Current()
+        return manager:GetAttribute("updatetime");
+    end
+
     ---------------------------------------------------------------------------
-    -- A period other than 0. None of these may write a 0.
+    -- A period other than 0
     ---------------------------------------------------------------------------
 
-    -- **What was there goes back**, and a nil that was there goes back as 0.2: the manager takes no
-    -- nil, so writing one would leave our period in force.
-    test("a period is written with a beat and put back without one", function()
+    -- **Ours comes off to 0.2**, whatever was there before it went on (owner, 2026-10-11): nobody
+    -- was found writing the attribute, so what was there is 0.2 in practice.
+    test("a period is written with a beat and taken off to 0.2 without one", function()
         local mark = frames.mark();
         Rebuild(Beating(), 0.1);
-        check(manager:GetAttribute("updatetime") == 0.1,
-            "with a beat: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0.1, "with a beat: " .. tostring(Current()));
         Rebuild(Beating(), 0.15);
-        check(manager:GetAttribute("updatetime") == 0.15,
-            "moved to 0.15: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0.15, "moved to 0.15: " .. tostring(Current()));
         Rebuild(Still(), 0.15);
-        check(manager:GetAttribute("updatetime") == Constants.STATE_DRIVER_UPDATETIME_DEFAULT,
-            "the beat gone: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == DEFAULT, "the beat gone: " .. tostring(Current()));
 
         manager.__attributes.updatetime = 0.12;
         Rebuild(Beating(), 0.1);
         Rebuild(Beating(), nil);
-        check(manager:GetAttribute("updatetime") == 0.12,
-            "back to the default: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == DEFAULT, "back to the default: " .. tostring(Current()));
         local writes = UpdatetimeWrites(mark);
         check(#writes == 5, "writes: " .. table.concat(writes, ", "));
-        check(not Period.HeldAtZero(), "a non-zero period held zero");
     end);
 
-    -- **A period somebody wrote over ours is theirs.** Nothing listens for it: putting ours back is
-    -- skipped, and a new period of ours puts theirs back when it comes off.
+    -- **A period somebody wrote over ours is theirs.** Nothing listens for it: taking ours off is
+    -- skipped, and a new period of ours goes over it.
     test("a period written over ours is left in place", function()
         Rebuild(Beating(), 0.1);
         manager:SetAttribute("updatetime", 0.05);
         Rebuild(Still(), 0.1);
-        check(manager:GetAttribute("updatetime") == 0.05,
-            "theirs was replaced by " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0.05, "theirs was replaced by " .. tostring(Current()));
 
-        -- Another value of theirs than the 0.05 above, which is what ours went on over this time.
         Rebuild(Beating(), 0.1);
         manager:SetAttribute("updatetime", 0.07);
         Rebuild(Beating(), 0.15);
-        check(manager:GetAttribute("updatetime") == 0.15,
-            "a new period was not written: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0.15, "a new period was not written: " .. tostring(Current()));
         Rebuild(Still(), 0.15);
-        check(manager:GetAttribute("updatetime") == 0.07,
-            "theirs did not come back: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == DEFAULT, "ours came off to " .. tostring(Current()));
     end);
 
-    -- **0 is written only where the beat runs**, so a reader who chose 0 with no tail key has used
-    -- nothing, and is not asked to reload for moving off it.
-    test("0 with no beat writes nothing and asks for no reload", function()
+    -- **0 is written only where the beat runs.**
+    test("0 with no beat writes nothing", function()
         local mark = frames.mark();
         Rebuild(Still(), 0);
         check(#UpdatetimeWrites(mark) == 0, "0 was written with no beat");
-        check(not Period.HeldAtZero(), "0 is held with no beat");
-        DebindPrivate.Options.stateDriverPeriod = 0.1;
-        check(not DebindPrivate.IsReloadRequired(), "a reload is asked for moving off a 0 never written");
-        DebindPrivate.Options.stateDriverPeriod = 0.15;
-        check(not DebindPrivate.IsReloadRequired(), "a reload is asked for 0.1 to 0.15");
+        check(not Period.ZeroedByUs(), "0 counts as ours with no beat");
     end);
 
     ---------------------------------------------------------------------------
-    -- 0, held. Everything from here on runs with 0 written.
+    -- A 0 of ours, and what comes off with it
     ---------------------------------------------------------------------------
 
-    -- **Once written, 0 stays for the session** (owner, 2026-10-11): nothing puts the manager back
-    -- from it, so a reader moving off it is told to reload, and moving back to it needs none.
-    test("0 is held for the session once written", function()
-        -- What 0 takes off (§5-2): an event of ours, from a column on 0.1, and one of somebody else's.
-        Rebuild({
-            spell({ key = "F1", conditions = { mounted = true } }),
-            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
-        }, 0.1);
-        manager:RegisterEvent("UNIT_PET");
+    -- **0 takes every event off the manager and puts them back when it comes off** (§5-2, owner
+    -- 2026-10-11): Blizzard's twelve as Blizzard registered them, and what addons asked for since
+    -- load -- ours, one from before 0 with its unit, one that landed while 0 stood -- as they asked.
+    -- One registered and taken off again while 0 stood stays off.
+    --
+    -- **Our own taking-off does not count as anybody's unregistering**, or the restore would find
+    -- the record of what to put back empty.
+    test("0 comes off with the beat and puts back what it took", function()
+        Rebuild(Mounted(), 0.1);
+        manager:RegisterEvent("PLAYER_STARTED_MOVING");
+        manager:RegisterUnitEvent("UNIT_AURA", "player");
+        check(manager:IsEventRegistered("PLAYER_STARTED_MOVING"), "an event registered before 0 was taken off");
         check(manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"),
             "on 0.1 the mounted column registered nothing -- bad premise");
 
-        -- The same column on 0, so the plan's own walk would keep the event if nothing took it off.
         local mark = frames.mark();
-        Rebuild({
-            spell({ key = "F1", conditions = { mounted = true } }),
-            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
-        }, 0);
-        check(manager:GetAttribute("updatetime") == 0, "0 was not written");
-        check(not manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"), "ours is still registered at 0");
-        check(not manager:IsEventRegistered("UNIT_PET"), "theirs is still registered at 0");
-        check(not DebindPrivate.IsReloadRequired(), "0.2 to 0 asked for a reload");
+        Rebuild(Mounted(), 0);
+        check(Current() == 0, "0 was not written");
+        check(Period.ZeroedByUs(), "0 of ours is not counted as ours");
+        check(IndexOf(mark, function(e) return e.kind == "Execute" and e.body == "ZeroedByUs = true"; end),
+            "the restricted side was not told 0 is ours");
+        for _, event in ipairs({ "PLAYER_MOUNT_DISPLAY_CHANGED", "PLAYER_STARTED_MOVING", "UNIT_AURA" }) do
+            check(not manager:IsEventRegistered(event), event .. " is still registered at 0");
+        end
 
-        Rebuild(Still(), 0);
-        check(manager:GetAttribute("updatetime") == 0,
-            "the beat gone, the period is " .. tostring(manager:GetAttribute("updatetime")));
-        Rebuild(Beating(), 0.1);
-        check(manager:GetAttribute("updatetime") == 0,
-            "0.1 chosen, the period is " .. tostring(manager:GetAttribute("updatetime")));
-        local writes = UpdatetimeWrites(mark);
-        check(#writes == 1, "writes: " .. table.concat(writes, ", "));
-
-        check(DebindPrivate.IsReloadRequired(), "moving off a 0 written asked for no reload");
-        DebindPrivate.Options.stateDriverPeriod = 0;
-        check(not DebindPrivate.IsReloadRequired(), "moving back to 0 still asks for a reload");
-    end);
-
-    -- **An event registered on the manager after 0 is taken off as it lands**, whoever registers it
-    -- and through either method (§5-2). A rebuild on 0 registers none of its own.
-    test("an event registered under a held 0 is taken off at once", function()
-        check(Period.HeldAtZero(), "0 is not held -- bad premise");
-        manager:RegisterEvent("PLAYER_STARTED_MOVING");
-        check(not manager:IsEventRegistered("PLAYER_STARTED_MOVING"), "RegisterEvent stayed");
+        manager:RegisterEvent("PLAYER_STOPPED_MOVING");
+        check(not manager:IsEventRegistered("PLAYER_STOPPED_MOVING"), "an event registered at 0 stayed");
         manager:RegisterUnitEvent("UNIT_HEALTH", "player");
-        check(not manager:IsEventRegistered("UNIT_HEALTH"), "RegisterUnitEvent stayed");
-        manager:RegisterAllEvents();
-        check(not manager:IsEventRegistered("__all"), "RegisterAllEvents stayed");
+        check(not manager:IsEventRegistered("UNIT_HEALTH"), "a unit event registered at 0 stayed");
+        manager:UnregisterEvent("UNIT_HEALTH");
 
-        local mark = frames.mark();
-        Rebuild({
-            spell({ key = "F1", conditions = { mounted = true } }),
-            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
-        }, 0);
+        mark = frames.mark();
+        Rebuild(Mounted(), 0);
         for _, e in ipairs(frames.since(mark)) do
             check(not ((e.kind == "RegisterEvent" or e.kind == "RegisterUnitEvent")
                     and e.target == "SecureStateDriverManager"),
                 "a rebuild on 0 registered " .. tostring(e.name));
         end
+
+        mark = frames.mark();
+        Rebuild(Mounted(), nil);
+        check(not Period.ZeroedByUs(), "0 still counts as ours");
+        check(Current() == DEFAULT, "0 came off to " .. tostring(Current()));
+        local cleared = IndexOf(mark, function(e) return e.kind == "Execute" and e.body == "ZeroedByUs = false"; end);
+        local restored = IndexOf(mark, function(e)
+            return e.kind == "SetAttribute" and e.target == "SecureStateDriverManager" and e.name == "updatetime";
+        end);
+        check(cleared and restored and cleared < restored,
+            "the restricted flag did not come off before the period: " .. tostring(cleared) .. " / " .. tostring(restored));
+        for _, event in ipairs(Period.BLIZZARD_EVENTS) do
+            check(manager:IsEventRegistered(event), "Blizzard's " .. event .. " was not put back");
+        end
+        for _, event in ipairs({ "PLAYER_MOUNT_DISPLAY_CHANGED", "PLAYER_STARTED_MOVING", "PLAYER_STOPPED_MOVING" }) do
+            check(manager:IsEventRegistered(event), event .. " was not put back");
+        end
+        check(manager.__events.UNIT_AURA == "player",
+            "UNIT_AURA came back as " .. tostring(manager.__events.UNIT_AURA));
+        check(not manager:IsEventRegistered("UNIT_HEALTH"), "an event taken off at 0 by its owner came back");
+
+        -- Ours is still known to be ours once it is back.
+        Rebuild(Still(), nil);
+        check(not manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"),
+            "our event outlived the column that wanted it");
+        check(manager:IsEventRegistered("PLAYER_STARTED_MOVING"), "somebody else's event went with ours");
     end);
 
-    -- **Somebody else's non-zero period is taken back to 0 and kept out with a wrap**, at once out
-    -- of a lockdown. In one, only a snippet holding the manager can write it, and our writes wait for
-    -- the fight to end.
-    test("a foreign period under a held 0 goes back to 0, after the fight if one is on", function()
-        check(Period.HeldAtZero(), "0 is not held -- bad premise");
+    -- **An event of ours stays ours across a 0.** The rebuild that leaves 0 for a profile that no
+    -- longer reads the mount has to take the mount's event off again once it is back, which it can
+    -- only do while it still knows the event was ours.
+    test("an event of ours no longer wanted when 0 comes off stays off", function()
+        Rebuild(Mounted(), 0.1);
+        Rebuild(Mounted(), 0);
+        Rebuild(Still(), nil);
+        check(not Period.ZeroedByUs(), "0 still counts as ours");
+        check(not manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"),
+            "the mount's event came back with nothing reading it");
+    end);
+
+    -- **Somebody else's event stays theirs across a 0**, where a column of ours wants the same one.
+    -- It was registered when we came to want it, so it is not ours to take off when the column goes.
+    test("an event another addon registered first stays theirs across a 0", function()
+        Rebuild(Still(), nil);
+        manager:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED");
+        Rebuild(Mounted(), 0.1);
+        Rebuild(Mounted(), 0);
+        Rebuild(Mounted(), nil);
+        check(manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"), "theirs did not come back -- bad premise");
+        Rebuild(Still(), nil);
+        check(manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"),
+            "theirs was taken off with the column that also wanted it");
+        manager:UnregisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED");
+    end);
+
+    -- **Off 0 to a period the reader chose**, that period goes on and comes off as any other.
+    test("0 coming off for a non-zero period writes that period", function()
+        Rebuild(Beating(), 0);
+        Rebuild(Beating(), 0.1);
+        check(not Period.ZeroedByUs(), "0 still counts as ours");
+        check(Current() == 0.1, "off 0 to 0.1 left " .. tostring(Current()));
+        check(manager:IsEventRegistered("UNIT_PET"), "Blizzard's events were not put back");
+        Rebuild(Still(), 0.1);
+        check(Current() == DEFAULT, "0.1 came off to " .. tostring(Current()));
+    end);
+
+    -- **Somebody else's non-zero period is taken back to 0 and kept out with a wrap** while a 0 of
+    -- ours stands, at once out of a lockdown. In one, only a snippet holding the manager can write
+    -- it, and our writes wait for the fight to end. Once our 0 is off, theirs stays.
+    test("a foreign period under a 0 of ours goes back to 0, after the fight if one is on", function()
+        Rebuild(Beating(), 0);
         local hook = manager:GetScript("OnAttributeChanged");
         check(hook, "nothing is hooked on the manager");
 
@@ -234,6 +285,7 @@ return function(DebindPrivate)
             DebindPrivate.ShowMigrationDialogIfPending or function() end;
         check(frames.fireEvent("PLAYER_LOGIN") > 0, "nothing is listening for PLAYER_LOGIN");
         frames.drainTimers();
+        check(Period.ZeroedByUs(), "the login took our 0 off -- bad premise");
 
         shim.world.inCombat = true;
         local mark = frames.mark();
@@ -245,21 +297,25 @@ return function(DebindPrivate)
             "written in the fight: " .. table.concat(inFight, ", ") .. ", wraps " .. wrapsInFight);
 
         frames.fireEvent("PLAYER_REGEN_ENABLED");
-        check(manager:GetAttribute("updatetime") == 0,
-            "after the fight: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0, "after the fight: " .. tostring(Current()));
         check(Wraps(mark) == 1, "wrapped " .. Wraps(mark) .. " times after the fight");
 
         mark = frames.mark();
         manager.__attributes.updatetime = 0.1;
         hook(manager, "updatetime", 0.1);
-        check(manager:GetAttribute("updatetime") == 0,
-            "out of a fight: " .. tostring(manager:GetAttribute("updatetime")));
+        check(Current() == 0, "out of a fight: " .. tostring(Current()));
         check(Wraps(mark) == 0, "wrapped a second time");
 
         mark = frames.mark();
         hook(manager, "updatetime", 0);
         hook(manager, "setstate", "state-x a");
         check(#UpdatetimeWrites(mark) == 0, "a write of 0 or of another attribute was answered");
+
+        Rebuild(Still(), 0);
+        mark = frames.mark();
+        manager.__attributes.updatetime = 0.1;
+        hook(manager, "updatetime", 0.1);
+        check(#UpdatetimeWrites(mark) == 0, "a foreign period was answered with our 0 off");
     end);
 
     return T;
