@@ -1672,8 +1672,11 @@ L["POINTED_UNIT_CAST_FRAMES_DESC"] = "The unit of the unit frame under your curs
 -- (`HELP_TARGETING_BODY`). A second name for one behaviour would leave the reader with two.
 L["POINTED_UNIT_CAST_MOUSEOVER"] = "Mouseover"
 L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] = "The unit under your cursor, whether in the world, on its nameplate, or on a unit frame."
-L["LINE_TOOLTIP_SPEC_SPELL"] = "Casts on this character"
-L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "Nothing. This specialization has no such spell"
+-- The label over the spells a Dispel, Raid Buff or Resurrect can cast on this character. **A noun
+-- phrase, like the other labels**: listed under "Casts", several spells read as all of them going
+-- out, where a press casts one.
+L["LINE_TOOLTIP_SPEC_SPELL"] = "Spells for this character"
+L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "None. This specialization has no such spell"
 -- **Not "Pass Through"**: in the middle of a key's list it reads as a row that hands the press to
 -- the next action, which is `CASTING_SKIP` and the opposite of this (owner, 2026-10-06). The same act
 -- is already `GIVE_BACK_KEYS`.

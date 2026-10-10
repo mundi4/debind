@@ -78,7 +78,7 @@ local function SpellOfEntry(entry)
     return entry.known or entry.cast;
 end
 
---- The spell the row and the tooltip name, out of several entries: **the first one known at this
+--- The spell the row names, out of several entries: **the first one known at this
 --- moment, or the last one where none is** (2026-09-29, owner). The last is the one the character
 --- learns first, and the first known is the one a press casts.
 ---
@@ -101,10 +101,35 @@ local function ShownSpell(entries)
     return SpellOfEntry(entries[count]);
 end
 
+--- Every spell a type can cast here, for the tooltip to name: each entry's, in the order they are
+--- tried, or a resurrection's three. **Nothing is chosen** (2026-10-11, owner): which one a press
+--- casts is decided at the press, by what is known and by the press itself, so the tooltip lists
+--- them all and only the row is drawn with one (`SpellForType`).
+---
+--- **Ids, not names, and two ids can be one spell's**: the warlock's two entries both name Singe
+--- Magic, so a caller that shows names drops the repeat.
+local REZ_FIELDS = { "single", "mass", "battle" };
+function SpecSpells.SpellsForType(type)
+    local spells = {};
+    if (type == Constants.RESURRECT) then
+        local rez = SpecSpells.ResurrectSpells(_rezSpells);
+        for _, field in ipairs(REZ_FIELDS) do
+            spells[#spells + 1] = rez[field];
+        end
+        return spells;
+    end
+    local kind = SpecSpells.KIND_BY_TYPE[type];
+    local entries = kind and SpecSpells.Resolve()[kind];
+    for _, entry in ipairs(entries or NONE) do
+        spells[#spells + 1] = SpellOfEntry(entry);
+    end
+    return spells;
+end
+
 --- The spell a type resolves to right now, or nil where this specialization has none. **The
 --- second value is the entry list** (see the header): `FillBinding` and `GetBindingsForAction` build
 --- the bindings from it, and `Profile.lua`'s row asks every entry before saying the spell is not
---- there. Everything that names or draws the action reads the first.
+--- there. The row's name and icon read the first; the tooltip lists them all (`SpellsForType`).
 ---
 --- A resurrection answers with the spell the row is drawn with (§6-5 of the design): the single
 --- one, or the battle or the mass one where there is none. Which one a press casts is the

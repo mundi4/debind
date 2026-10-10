@@ -9,6 +9,9 @@ local L = addon.L;
 -- tick. The client has no plural of `CLASS` to borrow.
 L["CONDITION_SPEC"] = "Classes"
 L["CONDITION_SPECS"] = "Classes"
+-- The same row's tooltip, and the line saying a class has no such spell, for the same reason.
+L["CONDITION_SPEC_DESC"] = "Pick the classes this runs in. Every class is listed because an action in the %s layer runs on characters of any class."
+L["LINE_TOOLTIP_SPEC_SPELL_NONE"] = "None. This class has no such spell"
 
 -- **Named after what they remove** (2026-09-27, owner): a reader with several healers thinks of a
 -- curse-and-disease key and a magic-and-poison key, the same on every character

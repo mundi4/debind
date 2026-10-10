@@ -2,9 +2,9 @@
 -- Run in the camelot world, whose character is a druid: `dispel2` is Abolish Poison then Cure
 -- Poison there, the one type on this client with two entries a spec can stand up.
 --
--- What is measured is what the key does and what the row says, one entry per binding: each binding
--- asks about the spell it casts, the upper one is tried first, and the row names the spell a press
--- would cast.
+-- What is measured is what the key does, what the row says and what the tooltip lists, one entry per
+-- binding: each binding asks about the spell it casts, the upper one is tried first, the row names
+-- the spell a press would cast, and the tooltip names both.
 
 return function(DebindPrivate, _, ctx)
     local Constants = DebindPrivate.Constants;
@@ -160,6 +160,28 @@ return function(DebindPrivate, _, ctx)
             interp:resetState();
         end
         shim.world.specIndex = nil;
+    end);
+
+    -- **The tooltip names every spell the action can cast** (2026-10-11, owner), whichever is known:
+    -- the row draws one, and a tooltip naming only that one read as the key never casting the other.
+    test("the tooltip names both dispels, known or not", function()
+        druidWorld();
+        local a = action({ type = Constants.DISPEL2, key = "F3" });
+        local ok, err = pcall(function()
+            for _, known in ipairs({ false, true }) do
+                shim.world.knownSpells[ABOLISH] = known or nil;
+                local tooltip = shim.newTooltip();
+                DebindPrivate.AddActionToTooltip(tooltip, a, { suppressInactive = true });
+                local text = tooltip:text():gsub("\n", " | ");
+                check(text:find("Abolish Poison", 1, true) and text:find("Cure Poison", 1, true),
+                    "upper known " .. tostring(known) .. ": " .. text);
+            end
+        end);
+        shim.world.knownSpells[ABOLISH] = nil;
+        shim.world.specIndex = nil;
+        if (not ok) then
+            error(err, 0);
+        end
     end);
 
     -- **The row names the first spell known, and the last where none is** (2026-09-29, owner): the
