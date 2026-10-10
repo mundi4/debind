@@ -327,15 +327,17 @@ return function(DebindPrivate, _, harness)
         check(dispel.skipWhenUnusable == true, "the dispel was not set");
         check(spell.skipWhenUnusable == nil, "the spell was set");
 
+        -- The battle switch, which both clients offer (the mass one is camelot's to lack).
         root = Build({ spell, rez });
-        local mass = FindChoice(root, LLL["REZ_NO_TARGET_MASS"]);
-        check(mass, "no resurrection switch over a spell and a resurrection");
-        mass.setSelected(mass.data);
-        check(rez.noTargetMassRez == false, "the resurrection was not turned off: "
-            .. tostring(rez.noTargetMassRez));
-        check(spell.noTargetMassRez == nil, "the spell was written to");
-        mass.setSelected(mass.data);
-        check(rez.noTargetMassRez == nil, "it did not turn back on: " .. tostring(rez.noTargetMassRez));
+        local battle = FindChoice(root, LLL["REZ_BATTLE_OUT_OF_COMBAT"]);
+        check(battle, "no resurrection switch over a spell and a resurrection");
+        battle.setSelected(battle.data);
+        check(rez.battleRezOutOfCombat == true, "the resurrection was not turned on: "
+            .. tostring(rez.battleRezOutOfCombat));
+        check(spell.battleRezOutOfCombat == nil, "the spell was written to");
+        battle.setSelected(battle.data);
+        check(rez.battleRezOutOfCombat == nil, "it did not turn back off: "
+            .. tostring(rez.battleRezOutOfCombat));
     end);
 
     test("the order rows stand only where the menu opened over the order list", function()
@@ -540,16 +542,46 @@ return function(DebindPrivate, _, harness)
         check(replace ~= nil and replace.enabled ~= false, "no Replace on the menu");
     end);
 
+    -- **The mass switch is offered only where some class has a mass resurrection** (2026-10-11,
+    -- owner), read off the loaded spell data, so the data is swapped for both answers.
+    test("a resurrection switch stands only where the data has its spell", function()
+        local rez = { type = Constants.RESURRECT, key = "F" };
+        ResetProfile({ rez });
+        local data = DebindPrivate.SpecSpellData;
+        local ok, err = pcall(function()
+            DebindPrivate.SpecSpellData = { [1] = { rezSingle = 1, rezBattle = 2 } };
+            check(FindChoice(Build({ rez }), LLL["REZ_NO_TARGET_MASS"]) == nil,
+                "the mass switch stood with no mass resurrection anywhere");
+            check(FindChoice(Build({ rez }), LLL["REZ_BATTLE_OUT_OF_COMBAT"]) ~= nil,
+                "the battle switch went with it");
+
+            DebindPrivate.SpecSpellData = { [1] = { rezSingle = 1 }, [2] = { rezMass = 3 } };
+            check(FindChoice(Build({ rez }), LLL["REZ_BATTLE_OUT_OF_COMBAT"]) == nil,
+                "the battle switch stood with no battle resurrection anywhere");
+            -- The switch that is on by default: off stores false, on again clears it.
+            local mass = FindChoice(Build({ rez }), LLL["REZ_NO_TARGET_MASS"]);
+            check(mass ~= nil, "no mass switch though one specialization has a mass resurrection");
+            mass.setSelected(mass.data);
+            check(rez.noTargetMassRez == false, "it was not turned off: " .. tostring(rez.noTargetMassRez));
+            mass.setSelected(mass.data);
+            check(rez.noTargetMassRez == nil, "it did not turn back on: " .. tostring(rez.noTargetMassRez));
+        end);
+        DebindPrivate.SpecSpellData = data;
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     -- **What a row writes goes through the one entry point** (`ActionsChanged`,
     -- `sanitizing-actions-with-one-function.md` §2-2), which sanitizes the actions it is handed.
     test("an action a row writes is sanitized", function()
         local rez = harness.HandMade({ type = Constants.RESURRECT, key = "F", junk = 1 });
         ResetProfile({ rez });
         rez.junk = 1;
-        local mass = FindChoice(Build({ rez }), LLL["REZ_NO_TARGET_MASS"]);
-        check(mass, "no resurrection switch");
-        mass.setSelected(mass.data);
-        check(rez.noTargetMassRez == false, "the row did not write");
+        local battle = FindChoice(Build({ rez }), LLL["REZ_BATTLE_OUT_OF_COMBAT"]);
+        check(battle, "no resurrection switch");
+        battle.setSelected(battle.data);
+        check(rez.battleRezOutOfCombat == true, "the row did not write");
         check(rez.junk == nil, "a field nothing saves survived the write");
     end);
 

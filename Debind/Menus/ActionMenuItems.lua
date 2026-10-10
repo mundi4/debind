@@ -420,27 +420,46 @@ local function CreateResurrectMenu(parentDescription, ctx)
     if (not AnyAction(ctx, IsResurrect)) then
         return;
     end
+    -- **Each switch stands on every character, whatever that one can cast** (2026-09-23, owner): an
+    -- action on the account layer is set from whichever character is logged in, and on a class a
+    -- switch does nothing for, it does nothing. **But not on a client where no specialization has
+    -- the spell at all** (2026-10-11, owner): camelot has no mass resurrection, and a switch that
+    -- does nothing on every character is one the reader can only misread.
+    local switches = {};
+    for _, switch in ipairs({
+        { label = "REZ_NO_TARGET_MASS", key = "noTargetMassRez", default = true, spell = "rezMass" },
+        { label = "REZ_BATTLE_OUT_OF_COMBAT", key = "battleRezOutOfCombat", default = false, spell = "rezBattle" },
+    }) do
+        if (DebindPrivate.SpecSpells.AnyHas(switch.spell)) then
+            switches[#switches + 1] = switch;
+        end
+    end
+    if (#switches == 0) then
+        return;
+    end
+
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "RESURRECT_OPTIONS",
         isActive = function()
             return AnyAction(ctx, function(action)
-                return IsResurrect(action) and (action.noTargetMassRez ~= nil
-                    or action.battleRezOutOfCombat ~= nil);
+                if (not IsResurrect(action)) then
+                    return false;
+                end
+                for _, switch in ipairs(switches) do
+                    if (action[switch.key] ~= nil) then
+                        return true;
+                    end
+                end
+                return false;
             end);
         end,
     }, ctx);
 
-    local function Switch(text, key, default, instruction)
-        SetInstructionTooltip(CreateCheckbox(description, ctx, text, ResurrectSwitchOn,
-            ToggleResurrectSwitch, { ctx = ctx, key = key, default = default }), instruction);
+    for _, switch in ipairs(switches) do
+        SetInstructionTooltip(CreateCheckbox(description, ctx, LLL[switch.label], ResurrectSwitchOn,
+            ToggleResurrectSwitch, { ctx = ctx, key = switch.key, default = switch.default }),
+            LLL[switch.label .. "_DESC"]);
     end
-
-    -- **On every character, whatever it can cast** (2026-09-23, owner). An action on the account
-    -- layer is set from whichever character is logged in. On a class a switch does nothing for, it
-    -- does nothing.
-    Switch(LLL["REZ_NO_TARGET_MASS"], "noTargetMassRez", true, LLL["REZ_NO_TARGET_MASS_DESC"]);
-    Switch(LLL["REZ_BATTLE_OUT_OF_COMBAT"], "battleRezOutOfCombat", false,
-        LLL["REZ_BATTLE_OUT_OF_COMBAT_DESC"]);
 end
 
 --- The four presses an action can stand on, and where it goes on each

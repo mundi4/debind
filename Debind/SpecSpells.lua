@@ -72,6 +72,17 @@ end
 local _resolved = {};
 local _rezSpells = {};
 
+--- Read off the data rather than off the client, so a client that gains such a spell offers its
+--- switch again with no second list to keep.
+function SpecSpells.AnyHas(field)
+    for _, entry in pairs(DebindPrivate.SpecSpellData or NONE) do
+        if (entry[field] ~= nil) then
+            return true;
+        end
+    end
+    return false;
+end
+
 --- The spell an entry is about: what its `known` asks, which is what the row is drawn with. The
 --- warlock's is the book's id and not Command Demon, which it is cast under.
 local function SpellOfEntry(entry)
