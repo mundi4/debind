@@ -2079,7 +2079,7 @@ RegisterTest("Assign a key: a badged row is offered one too", {
         -- giving an arrival a key accepts it, and the item says so before it is pressed
         -- (`ACTION_SET_KEY_ACCEPT`). Looking for the plain words here would pass on a row that had
         -- lost its badge somewhere earlier in the run.
-        local wanted = LLL["ACTION_SET_KEY_ACCEPT"]
+        local wanted = format(LLL["ACTION_SET_KEY_ACCEPT"], LLL["ACTION_SET_KEY"], LLL["APPROVE_IMPORT"])
         local item
         menu:EnumerateElementDescriptions(function(_, description)
             if MenuUtil.GetElementText(description) == wanted then

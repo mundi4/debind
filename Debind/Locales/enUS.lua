@@ -79,8 +79,10 @@ L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
 -- **The held keys are named because they are what the reader may still expect to work** (2026-10-04,
 -- owner): they send an action that runs to another unit, and with no press of its own left there is
 -- nothing to send. **It names the way out that is not changing a value back**, since the reader may
--- have meant to stop this action. The last sentence is what tells turning off from deleting.
-L["BINDING_ERROR_NOTHING_RUNS"] = "This action runs neither on a plain press nor while you point at a unit, so it never runs, not even with the Self Cast Key or the Focus Cast Key held. Turn it off if you don't want to use it. A turned-off action keeps everything you set on it and hands its key back to the game."
+-- have meant to stop this action. What turning off keeps is not said: the checkbox already promises
+-- the way back (2026-10-11, owner, as on `ACTION_DISABLED`). The two keys are the client's labels
+-- (`ISSUE_FIXED_NAMES`).
+L["BINDING_ERROR_NOTHING_RUNS"] = "This action runs neither on a plain press nor while you point at a unit, so it never runs, not even with the %1$s or the %2$s held. Turn it off if you don't want to use it."
 -- The reader cannot fix the spell's name, so the sentence says what to do instead: pick another
 -- row, or drop the condition. Neither half of the reason (macro conditionals, commas) is
 -- something the window has ever spoken about.
@@ -332,7 +334,8 @@ L["CONDITION_SPEC"] = "Classes/Specializations"
 -- The tooltip lists several at once, where the menu row names the one thing it opens. The client
 -- heads its own list the same way (`CLUB_FINDER_SPECIALIZATIONS`).
 L["CONDITION_SPECS"] = "Specializations"
-L["CONDITION_SPEC_DESC"] = "Pick the specializations this fires in. Every class is listed because an action in the Account tab runs on characters of another one."
+-- `%s` is the account layer's label (`SHARED_BINDINGS`), passed by the `CONDITION_SPEC` node.
+L["CONDITION_SPEC_DESC"] = "Pick the specializations this runs in. Every class is listed because an action in the %s layer runs on characters of another one."
 L["CONDITION_STEALTH_NO"] = "While not stealthed"
 L["CONDITION_STEALTH_YES"] = "While stealthed"
 L["CONDITION_STEALTH"] = "Stealth"
@@ -504,16 +507,17 @@ L["ACTION_SET_KEY"] = "Assign a key"
 -- The same item on a row that arrived and has not been accepted. **Giving one a key accepts it**
 -- (`DebindFrameMixin:SetActionKey`), which the reader had no way of knowing before pressing.
 --
--- **The three words stay, and a clause goes after them** (2026-08-23, 소유자). They are the act's
--- name at every scope it is offered at, so replacing them here would make this look like a
--- different operation; what is added is the half that is true only on this row.
+-- **Both halves are the neighbouring items' own labels, passed in** (`%1$s` is `ACTION_SET_KEY` on a
+-- row and `KEY_HEADER_SET_KEY` on a heading, `%2$s` is `APPROVE_IMPORT`). They are the act's name
+-- at every scope it is offered at (2026-08-23, owner), so this must not read as a different
+-- operation, and a rename of either item follows here.
 --
--- **`&`, and it is doing a different job from the client's** (2026-08-23, 소유자). The client keeps
+-- **`&`, and it is doing a different job from the client's** (2026-08-23, owner). The client keeps
 -- the ampersand for pairs of nouns ("Dungeons & Raids") and spells the word out on a button that
 -- does two things ("Save and Exit"). In a menu the two halves have to be told apart at a glance
 -- from the item above, which is the first half on its own - the ampersand is the mark that reads as
 -- a join before the words are read at all.
-L["ACTION_SET_KEY_ACCEPT"] = "Assign a key & Accept"
+L["ACTION_SET_KEY_ACCEPT"] = "%1$s & %2$s"
 --- **The one thing this has to say is what happens to the rest.** A key's actions are told apart by
 --- conditions, on purpose - so a row walking off to its own key produces no issue and nothing on
 --- screen that looks wrong. The reader finds out later, when two keys each do half of
@@ -1114,7 +1118,9 @@ L["SPELL_PICKER_REMOVE_USER_SPELL"] = "Remove from this list"
 -- side by side and only the other one has the tabs, so "current" would send the reader looking for
 -- which window it means.
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Left-click to add it to |cnHIGHLIGHT_FONT_COLOR:%s|r."
-L["SPELL_PICKER_MENU_DESC"] ="Browse what you already have -- spells, macros, mounts, toys, and the game's own binding commands. The window stays open, and each click adds to whichever tab you have open."
+-- The [+] button's tooltip. `%s` is the picker's own tab label (`SPELL_PICKER_TAB_COMMAND`), so
+-- the list names what the window names.
+L["SPELL_PICKER_MENU_DESC"] = "Browse what you already have: spells, macros, items, mounts, toys and %s. The window stays open, and each click adds to whichever layer you have open."
 L["SPELL_PICKER_NEW_MACROTEXT"] = "New Custom Macro"
 L["SPELL_PICKER_NO_MATCH"] = "Nothing matches your search."
 L["SPELL_PICKER_ONLY_FAVORITES"] = "Favorites only"
@@ -1399,25 +1405,27 @@ L["SWITCHES_HELP_DETAIL"] = "What the Switch picked on the left is set to: how i
 L["TAB_LAYERS_TOGETHER"] = "Keys from every layer that covers this character work together."
 L["TAB_DESC_SHARED"] = "Every character on the account."
 L["TAB_DESC_CHARACTER"] = "This character only."
--- The instruction line on the `Target` row (`MenuKit`'s `<label>_DESC` rule).
+-- The instruction line on the `Target` row, put together by `CreateTargetUnitMenuItem`.
 --
 -- **The second sentence is the surprising half.** A picked target is taken out of every
 -- redirection, the two keys included: a key still held from the key pressed just before reads as
--- held, and would send the action somewhere the reader never chose (2026-09-15, owner). The client's
--- own names are used so they can be matched against the game's settings panel, where they sit
--- together; Hover Cast is this addon's own and sits in its settings.
+-- held, and would send the action somewhere the reader never chose (2026-09-15, owner).
 --
--- **`Disable` is named because it is the way back**, it is the row directly above in this same
--- menu, and its own label carries no hint that it is the one that hands the decision to the game.
-L["TARGET_UNIT_DESC"] ="The action is used on that unit without targeting it, even over a unit frame.|n|nWhile a target is picked here, nothing moves it: not the Self Cast Key or the Focus Cast Key, not Hover Cast, not Mouseover Cast or Auto Self Cast. Disable hands the decision back to the game."
--- Carried by every entry in the `Target` menu except `Disable`, appended to whatever that entry
+-- **Every name is passed in, as the screen labels it.** The two keys and Mouseover Cast are the
+-- client's own labels; Hover Cast and Auto Self Cast are the rows of the same action's Cast Options,
+-- so the sentence can be matched against them (2026-10-11, owner).
+--
+-- **`UNIT_DISABLE` is named because it is the way back**, and its own label does not say that
+-- picking it lets the others apply again.
+L["TARGET_UNIT_DESC"] ="The action is used on the unit picked here without targeting it, even over a unit frame.|n|nWhile a target is picked here, nothing moves it: not the %1$s or the %2$s, not %3$s, not %4$s or %5$s. With %6$s picked, they all apply again."
+-- Carried by every entry in the `Target` menu except `UNIT_DISABLE`, appended to whatever that entry
 -- says for itself (`ActionMenuItems.lua`). The parent row says it too (`TARGET_UNIT_DESC`); this
 -- one exists because a reader can land on a single entry without passing the parent.
 --
--- **Every redirection is named**, the client's with the client's own labels so the sentence can be
--- matched against the game's settings panel. Auto Self Cast is named although no key is held for it:
--- it fires with no key at all, so leaving it out would read as "that one still applies".
-L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here: neither the Self Cast Key nor the Focus Cast Key moves it, and Hover Cast, Mouseover Cast and Auto Self Cast are left out. Disable hands the decision back to the game."
+-- **Every redirection is named**, with the same six names `TARGET_UNIT_DESC` takes, in the same
+-- order. Auto Self Cast is named although no key is held for it: it fires with no key at all, so
+-- leaving it out would read as "that one still applies".
+L["TARGET_UNIT_FIXED"] = "While this is picked, the action goes here: neither the %1$s nor the %2$s moves it, and %3$s, %4$s and %5$s are left out. With %6$s picked, they all apply again."
 L["TARGET_UNIT"] = "Target"
 -- The group an issue about the presses an action answers points at, the row that opens the menu
 -- holding them, and the settings section holding the account-wide values those rows fall back on.
@@ -1430,14 +1438,15 @@ L["CASTING_DESC"] = "Which presses this action stands on, and where it goes on e
 -- is the question the reader opened the row with (`which-action-a-key-runs.md` §6).
 --
 -- **The two keys are named by the client's own labels** (`AUTO_SELF_CAST_KEY_TEXT`,
--- `FOCUS_CAST_KEY_TEXT`, the dropdowns in its settings), so the sentences here name the key the
--- same way the row above them does.
-L["CASTING_SELF_CAST_KEY_DESC"] = "What this action does while the Self Cast Key is held."
-L["CASTING_FOCUS_CAST_KEY_DESC"] = "What this action does while the Focus Cast Key is held."
+-- `FOCUS_CAST_KEY_TEXT`, the dropdowns in its settings), passed in as `%s` by `CreateCastingMenu`,
+-- so the sentences here name the key the same way the row above them does. The same holds for the
+-- two `_USUAL_DESC` lines below and for the settings tab's `SELF_CAST_KEY_DESC` group.
+L["CASTING_SELF_CAST_KEY_DESC"] = "What this action does while the %s is held."
+L["CASTING_FOCUS_CAST_KEY_DESC"] = "What this action does while the %s is held."
 L["CASTING_SELF_CAST"] = "Cast on yourself"
-L["CASTING_SELF_CAST_DESC"] = "Holding the Self Cast Key sends this action to you."
+L["CASTING_SELF_CAST_DESC"] = "Holding the %s sends this action to you."
 L["CASTING_FOCUS_CAST"] = "Cast on your focus"
-L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to your focus."
+L["CASTING_FOCUS_CAST_DESC"] = "Holding the %s sends this action to your focus."
 -- Follows the Self Cast Key, Focus Cast Key and Hover Cast rows' own sentence on the same line
 -- (`CreateCastingMenu`). **Said always, not only on a Set Custom Target**, for the reason
 -- `CAST_KEY_TARGET_PICKED` gives. The type is named because it is the case the reader cannot work
@@ -1456,8 +1465,8 @@ L["CAST_KEY_UNIT_UNUSED"] = "Some actions do not use the unit they are sent to, 
 -- so two values on that row looked like the same thing. Pinned to the noun it can only be read as the
 -- unit. On the Hover Cast row it is the default now (2026-10-04, owner).
 L["CASTING_AS_USUAL"] = "Cast on the usual target"
-L["CASTING_SELF_USUAL_DESC"] = "Holding the Self Cast Key does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
-L["CASTING_FOCUS_USUAL_DESC"] = "Holding the Focus Cast Key does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
+L["CASTING_SELF_USUAL_DESC"] = "Holding the %s does not send this action to you. It goes where it would with no key held, and keeps its place among the actions on the key."
+L["CASTING_FOCUS_USUAL_DESC"] = "Holding the %s does not send this action to your focus. It goes where it would with no key held, and keeps its place among the actions on the key."
 L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to it. It goes where it would with nothing pointed at, and keeps its place among the actions on the key."
 -- **One label on all three rows, because it is one outcome** (2026-10-04, owner): the action sits
 -- that press out and the next action on the key takes it.
@@ -1526,10 +1535,10 @@ L["CAST_KEY_TARGET_PICKED"] = "If this action has a target of its own, it goes t
 -- one thing (`implementing-focus-and-self-cast.md` §3-6).
 L["RESOLVED_TARGET"] = "Resolved Unit"
 -- **Formatted, not written out.** The second and third are the client's labels
--- (`AUTO_SELF_CAST_KEY_TEXT`, `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings) and
--- the rest this addon's own (`TARGET_UNIT`, `CASTING_AS_USUAL`, `POINTED_UNIT_CAST`,
--- `CASTING_POINTED_CAST`), so a rename on either side carries into the sentence
--- (`ActionMenuNodes.lua`).
+-- (`AUTO_SELF_CAST_KEY_TEXT`, `FOCUS_CAST_KEY_TEXT`, the two modifier dropdowns in its settings),
+-- the seventh is the Auto Self Cast row of Cast Options (`CastAutomaticLabel`), and the rest this
+-- addon's own (`TARGET_UNIT`, `CASTING_AS_USUAL`, `POINTED_UNIT_CAST`, `CASTING_POINTED_CAST`), so a
+-- rename on either side carries into the sentence (`ActionMenuNodes.lua`).
 --
 -- **The pointed unit is reached by one Hover Cast value only** (2026-10-04, owner), so that value is
 -- named rather than Hover Cast being "on": it has no off any more.
@@ -1548,7 +1557,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 --
 -- **Auto Self Cast is named** because it is what a reader expects to rescue a friendly spell on the
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
-L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means Auto Self Cast does not get a turn."
+L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means %7$s does not get a turn."
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. No action under it on the same key runs, and neither does anything else bound to the key.|n|nPut conditions on it to stop the actions under it in those cases only."
 -- **Named for where the command is picked from**, WoW's Key Bindings list (owner, 2026-10-06).
@@ -1646,13 +1655,13 @@ L["TYPE_RAIDBUFF_DESC"] = "Casts your class's raid-wide buff, such as Power Word
 -- The two boxes are labelled with the client's own `AUTO_SELF_CAST_KEY_TEXT` and
 -- `FOCUS_CAST_KEY_TEXT`. **Unticked says where the action goes, not that the game takes over**: the
 -- game's own handling stays off for a Debind key either way (`Debind.lua`).
-L["SELF_CAST_KEY_DESC"] = "Holding the Self Cast Key sends an action with no target of its own to you. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
-L["FOCUS_CAST_KEY_DESC"] = "Holding the Focus Cast Key sends an action with no target of its own to your focus. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
+L["SELF_CAST_KEY_DESC"] = "Holding the %s sends an action with no target of its own to you. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
+L["FOCUS_CAST_KEY_DESC"] = "Holding the %s sends an action with no target of its own to your focus. An action with a target picked keeps going there.|n|nUnticked, Debind ignores that key, and the action goes where it would with no key held."
 -- Under the two above, with the key the game has now (`SettingsTab.lua`). **None gets no sentence of
 -- its own** (2026-09-14, owner): the value and the line under it already say where to set one.
 -- "Current" in the client's own `CURRENT_PET` shape.
-L["CURRENT_SELF_CAST_KEY"] = "Current Self Cast Key: %s"
-L["CURRENT_FOCUS_CAST_KEY"] = "Current Focus Cast Key: %s"
+L["CURRENT_SELF_CAST_KEY"] = "Current %1$s: %2$s"
+L["CURRENT_FOCUS_CAST_KEY"] = "Current %1$s: %2$s"
 L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"] = "You can change it in the game's Options, under Combat."
 L["POINTED_UNIT_CAST"] = "Hover Cast"
 -- **What this row sets, and nothing else.** The feature itself is a page now
@@ -1980,7 +1989,10 @@ L["APPROVE_ALL_TAKE_INCOMING"] = "Take incoming"
 -- doing anything yet. The button would contradict the badge. ("Reject" not naming the removal is
 -- the smaller cost, and the prompt below spends one clause on it.)
 L["REJECT_ALL_IMPORT"] = "Reject all"
-L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The string it came from stays in the Import tab, so you can bring it in again."
+-- **The second sentence is what makes rejecting pressable**: it is the reversible half. It cannot
+-- promise the snapshot is still there, since the reader may have deleted it from Storage, so it
+-- says only that rejecting leaves Storage alone (2026-10-11, owner). `%s` is `STORAGE_TITLE`.
+L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The %s tab is left as it is: if the snapshots are still there, you can add them again."
 -- **Why [Move to] and [Copy to] are dead on the multi-selection menu.** Neither names the act, since
 -- one string stands on both - and a sentence naming it would have to be two, saying the same thing
 -- about the same rows.
@@ -2019,15 +2031,20 @@ L["MENU_MIXED_COUNT"] = "(%d)"
 -- The single one, from a row's right-click menu.
 L["REJECT_IMPORT"] = "Reject"
 -- **The second sentence is the whole reason this has a tooltip**, and it is the one [Reject all]
--- ends on: what makes the item pressable is that the arrival is still in the drawer. Only the first
--- half had to be rewritten, because this one is aimed at a single row.
+-- ends on, for the same reason. Only the first half differs, because this one is aimed at a single
+-- row.
 --
 -- Its opposite number is `ORDER_ACCEPT_DESC`, which the menu borrows from the row's accept button.
 -- There was nothing to borrow for this half - no row carries a reject button.
-L["REJECT_IMPORT_DESC"] = "Removes this one. The string it came from stays in the Import tab, so you can bring it in again."
+L["REJECT_IMPORT_DESC"] = "Removes this one. The %s tab is left as it is: if the snapshot is still there, you can add it again."
 -- **The second sentence is what makes this pressable.** Without it this reads as the destructive
--- half of the pair, when it is in fact the reversible one - accepting is what cannot be undone.
-L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%s|r that came in and |4has:have; not been accepted?|n|n|4It is:They are; removed, but the string |4it:they; came from stays in the Import tab, so you can bring it in again."
+-- half of the pair, when it is usually the reversible one - accepting is what cannot be undone.
+-- **Still a confirmation** (2026-10-11, owner): if the snapshot is gone the reject is final, and at
+-- the press the reader cannot tell.
+--
+-- `|4` follows the count of actions, so the snapshot is "what they came from" rather than a count
+-- of its own. `%2$s` is `STORAGE_TITLE`.
+L["REJECT_IMPORT_CONFIRM"] = "Reject |cnHIGHLIGHT_FONT_COLOR:%1$s|r that came in and |4has:have; not been accepted?|n|n|4It is:They are; removed. The %2$s tab is left as it is: if what |4it:they; came from is still there, you can add |4it:them; again."
 --- The one-shot in the options menu. **A sweep of what the reader already has**, not of what is
 --- arriving - two payloads made by the same person share their account layer, and bringing both in
 --- leaves that layer holding the same action twice.

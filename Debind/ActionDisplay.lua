@@ -314,8 +314,9 @@ local SORTED_UNIT_LIST     = {
 --- action -- the macro it names, the switch it names -- is handed over at the call site instead,
 --- because two rows raising one code print two different names.
 local ISSUE_FIXED_NAMES = {
-	[Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY] = "CONDITION_UNIT_DOES_NOT_EXIST",
-	[Constants.BINDING_ISSUE_INVALID_ACTION] = "REPLACE_ACTION",
+	[Constants.BINDING_ISSUE_CONDITION_NEVER_ON_KEY] = { LLL["CONDITION_UNIT_DOES_NOT_EXIST"] },
+	[Constants.BINDING_ISSUE_INVALID_ACTION] = { LLL["REPLACE_ACTION"] },
+	[Constants.BINDING_ISSUE_NOTHING_RUNS] = { AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT },
 };
 
 --- The sentence an issue code prints. **One place, because several surfaces print it**
@@ -326,12 +327,12 @@ function DebindPrivate.IssueSentence(code, name)
 	-- and asking for one that is not there has to miss rather than answer with the locale table's
 	-- stand-in for a missing key.
 	local text = rawget(LLL, code) or LLL["BINDING_ERROR_" .. code];
-	if (name == nil) then
-		local fixed = ISSUE_FIXED_NAMES[code];
-		name = fixed and LLL[fixed];
-	end
 	if (name ~= nil) then
-		text = format(text, name);
+		return format(text, name);
+	end
+	local fixed = ISSUE_FIXED_NAMES[code];
+	if (fixed) then
+		return format(text, unpack(fixed));
 	end
 	return text;
 end

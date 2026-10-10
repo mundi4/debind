@@ -188,10 +188,12 @@ end
 --- (`Settings.CreateModifiedClickOptions`). Setting Self Cast to None or Auto writes `"NONE"` here.
 local MODIFIED_CLICK_NAMES = { ALT = ALT_KEY, CTRL = CTRL_KEY, SHIFT = SHIFT_KEY };
 
-local function CastKeyTooltip(desc, current, command)
+--- `label` is the client's name for the key, the checkbox's own, which every sentence here names it by.
+local function CastKeyTooltip(label, desc, current, command)
     return function()
         local name = MODIFIED_CLICK_NAMES[GetModifiedClick(command)] or NONE_KEY;
-        return desc .. "|n|n" .. format(L[current], HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(name))
+        return format(L[desc], label) .. "|n|n"
+            .. format(L[current], label, HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(name))
             .. "|n" .. L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"];
     end
 end
@@ -199,7 +201,7 @@ end
 local function Build()
     Header(L["CASTING"]);
     Checkbox(AUTO_SELF_CAST_KEY_TEXT,
-        CastKeyTooltip(L["SELF_CAST_KEY_DESC"], "CURRENT_SELF_CAST_KEY", "SELFCAST"),
+        CastKeyTooltip(AUTO_SELF_CAST_KEY_TEXT, "SELF_CAST_KEY_DESC", "CURRENT_SELF_CAST_KEY", "SELFCAST"),
         DebindPrivate.SelfCastEnabled,
         function(value)
             if (value) then
@@ -210,7 +212,7 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     Checkbox(FOCUS_CAST_KEY_TEXT,
-        CastKeyTooltip(L["FOCUS_CAST_KEY_DESC"], "CURRENT_FOCUS_CAST_KEY", "FOCUSCAST"),
+        CastKeyTooltip(FOCUS_CAST_KEY_TEXT, "FOCUS_CAST_KEY_DESC", "CURRENT_FOCUS_CAST_KEY", "FOCUSCAST"),
         DebindPrivate.FocusCastEnabled,
         function(value)
             if (value) then

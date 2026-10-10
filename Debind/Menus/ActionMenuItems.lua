@@ -279,10 +279,13 @@ end
 --- nothing else.
 local function CreateAssignKeyMenuItem(parentDescription, ctx)
     local arrived = #ctx.actions == 1 and ctx.actions[1].arrivalID ~= nil;
-    local description = parentDescription:CreateButton(
-        LLL[arrived and "ACTION_SET_KEY_ACCEPT" or "ACTION_SET_KEY"], function()
-            DebindUI.BeginKeyCapture(ctx.actions);
-        end);
+    local label = LLL["ACTION_SET_KEY"];
+    if (arrived) then
+        label = format(LLL["ACTION_SET_KEY_ACCEPT"], label, LLL["APPROVE_IMPORT"]);
+    end
+    local description = parentDescription:CreateButton(label, function()
+        DebindUI.BeginKeyCapture(ctx.actions);
+    end);
     local descKey = "BULK_SET_KEY_DESC";
     if (#ctx.actions == 1) then
         descKey = arrived and "ACTION_SET_KEY_ACCEPT_DESC" or "ACTION_SET_KEY_DESC";
@@ -308,6 +311,13 @@ local function IsAimingOnlyType(action)
         or action.type == Constants.TOGGLEMENU;
 end
 
+--- The redirections a picked target is taken out of, and the value that puts them back, by the
+--- names they carry on screen (`TARGET_UNIT_DESC`, `TARGET_UNIT_FIXED`).
+local function FormatTargetUnitSentence(key)
+    return format(LLL[key], AUTO_SELF_CAST_KEY_TEXT, FOCUS_CAST_KEY_TEXT, LLL["POINTED_UNIT_CAST"],
+        ENABLE_MOUSEOVER_CAST, DebindPrivate.CastAutomaticLabel("autoSelfCast"), LLL["UNIT_DISABLE"]);
+end
+
 local function CreateTargetUnitMenuItem(parentDescription, ctx)
     -- **The same test `GetBindingInfoForAction` keeps a unit on.** Apart, a target picked here is
     -- quietly wiped there, which has happened. A pet command is the case the type alone cannot
@@ -321,6 +331,7 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "TARGET_UNIT",
         key = "unit",
+        instruction = FormatTargetUnitSentence("TARGET_UNIT_DESC"),
         blocked = function()
             return SomeCannotReason(acceptance);
         end,
@@ -335,6 +346,7 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
         CreateRadio(description, ctx,LLL["UNIT_DISABLE"], actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = nil });
     end
 
+    local fixed = FormatTargetUnitSentence("TARGET_UNIT_FIXED");
     for _, unit in ipairs(SORTED_UNIT_LIST) do
         local unitInfo = DebindUI.UNIT_INFO[unit];
         local offered = AllActions(ctx, function(action)
@@ -346,7 +358,6 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
             -- one of these from the action's own tooltip without ever hovering the parent, and the
             -- fact only bites once something is picked. It rides the entry's own sentence rather
             -- than standing up a second instruction line, which is what costs a tooltip its shape.
-            local fixed = LLL["TARGET_UNIT_FIXED"];
             SetInstructionTooltip(unitDescription,
                 unitInfo.tooltipTitle and (unitInfo.tooltipTitle .. "|n|n" .. fixed) or fixed);
         end
@@ -491,7 +502,7 @@ local function CreateCastingMenu(parentDescription, ctx)
         -- (`which-action-a-key-runs.md` §6). What is stored here is kept and waits.
         local rowDescription = ActionMenus:BuildNode(description, {
             label = row.label,
-            instruction = withUnitUnusedNote(row.instruction),
+            instruction = withUnitUnusedNote(format(row.instruction, row.label)),
             blocked = function()
                 if (not row.enabled()) then
                     return LLL["CAST_KEY_OFF_ACCOUNT_WIDE"];
@@ -523,9 +534,11 @@ local function CreateCastingMenu(parentDescription, ctx)
             -- down should not have to read the list again.
             SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
 
-            SetInstructionTooltip(Choice(LLL[row.cast], "cast"), withPickedNote(LLL[row.cast .. "_DESC"]));
+            SetInstructionTooltip(Choice(LLL[row.cast], "cast"),
+                withPickedNote(format(LLL[row.cast .. "_DESC"], row.label)));
 
-            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"), withPickedNote(LLL[row.usual]));
+            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
+                withPickedNote(format(LLL[row.usual], row.label)));
         end
     end
 
@@ -823,9 +836,9 @@ end
 --- something in the selection carries a badge, and it takes a list either way.
 ---
 --- **It is not the delete item wearing a different word.** That one asks about an action of the
---- reader's own and is final; this asks about something that arrived, and the string it arrived
---- in is still in the drawer - which is what its prompt says, and what makes it the reversible
---- half of this pair. Accepting is the half that cannot be undone.
+--- reader's own and is final; this asks about something that arrived, and the snapshot it came
+--- from is left in Storage, unless the reader has deleted it there - which is what its prompt says,
+--- and what makes it the reversible half of this pair. Accepting is the half that cannot be undone.
 local function CreateRejectImportMenuItem(rootDescription, actions, counted)
     local badged = {};
     for _, action in ipairs(actions) do
@@ -849,7 +862,7 @@ local function CreateRejectImportMenuItem(rootDescription, actions, counted)
     -- There was no string to borrow here: the left column's row carries no reject button, so this
     -- half of the pair had never been explained anywhere a single action was the subject.
     if (#badged == 1) then
-        SetInstructionTooltip(description, LLL["REJECT_IMPORT_DESC"]);
+        SetInstructionTooltip(description, format(LLL["REJECT_IMPORT_DESC"], LLL["STORAGE_TITLE"]));
     end
 end
 

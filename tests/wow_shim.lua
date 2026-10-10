@@ -1251,6 +1251,8 @@ function M.install()
     _G.FOCUS_CAST_KEY_TEXT = "Focus Cast Key";
     _G.AUTO_SELF_CAST_TEXT = "Auto Self Cast";
     _G.AUTO_DISMOUNT_FLYING_TEXT = "Auto Dismount in Flight";
+    -- The Target row's sentence names the client's own mouseover setting (`TARGET_UNIT_DESC`).
+    _G.ENABLE_MOUSEOVER_CAST = "Mouseover Cast";
     _G.ALL_SPECS = "All Specializations";
     _G.UNCHECK_ALL = "Uncheck All";
     --- The talent condition's pvp branch is named by the client, the way its class, specialization

@@ -1365,7 +1365,6 @@
 										적혀 있으면 같은 것인지 알 수가 없다.
 									-->
 									<KeyValue key="TooltipTitle" value="SPELL_PICKER_TITLE" type="string"/>
-									<KeyValue key="TooltipText" value="SPELL_PICKER_MENU_DESC" type="string"/>
 								</KeyValues>
 							</Button>
 

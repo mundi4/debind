@@ -690,10 +690,13 @@ do
 	--- Rejecting what came in, one or all of it.
 	---
 	--- **A separate popup from the delete above, because the sentence is what makes it pressable.**
-	--- Deleting your own action is final; this is not, and saying so is the whole difference: the
-	--- string these came from is still in the drawer, so the way back is to bring it in again. The
-	--- reader cannot know that from the button, and without it this reads as the destructive half
-	--- of the pair when it is in fact the reversible one - accepting is what cannot be undone.
+	--- Deleting your own action is final; this usually is not, and saying so is the difference: the
+	--- snapshot these came from is left in Storage, so the way back is to add it again. The reader
+	--- cannot know that from the button, and without it this reads as the destructive half of the
+	--- pair - accepting is what cannot be undone.
+	---
+	--- **Still a confirmation, and not a plain press** (2026-10-11, owner): the reader may have
+	--- deleted that snapshot, and then this is final too, which nothing at the press shows.
 	---
 	--- Counts rather than names, for the reason the bulk popup above counts.
 	function ShowRejectImportConfirmationPopup(actions)
@@ -702,6 +705,7 @@ do
 		_deletePopupData = {
 			text = LLL["REJECT_IMPORT_CONFIRM"],
 			text_arg1 = CountText("actions", #actions),
+			text_arg2 = LLL["STORAGE_TITLE"],
 			callback = function()
 				DeleteActions(actions);
 				-- **The narrowing is not touched.** [Pending] is a tick in the filter dropdown now,
@@ -2273,6 +2277,9 @@ function DebindFrameMixin:InitializeButtons()
 	self.OverviewPanel.PortraitRow.AddPortrait:SetScript("OnClick", function()
 		DebindSpellPickerFrame:Toggle();
 	end)
+	-- Written here rather than as a key in the XML, because it names the picker's tab by its label.
+	self.OverviewPanel.PortraitRow.AddPortrait.TooltipText =
+		format(LLL["SPELL_PICKER_MENU_DESC"], LLL["SPELL_PICKER_TAB_COMMAND"]);
 
 	-- **The same entry point as the options menu's item.** It is enabled only when the sweep has
 	-- something (`UpdateButtons`), so the "nothing to remove" line that function prints is not

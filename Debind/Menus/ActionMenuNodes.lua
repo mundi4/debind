@@ -188,7 +188,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     if (unit == "@") then
         instruction = format(LLL["RESOLVED_TARGET_DESC"], LLL["TARGET_UNIT"], AUTO_SELF_CAST_KEY_TEXT,
             FOCUS_CAST_KEY_TEXT, LLL["CASTING_AS_USUAL"], LLL["POINTED_UNIT_CAST"],
-            LLL["CASTING_POINTED_CAST"]);
+            LLL["CASTING_POINTED_CAST"], DebindPrivate.CastAutomaticLabel("autoSelfCast"));
     end
 
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
@@ -508,6 +508,7 @@ end
 ActionMenus:Define("SPEC", {
     label = "CONDITION_SPEC",
     key = "specs",
+    instruction = format(LLL["CONDITION_SPEC_DESC"], LLL["SHARED_BINDINGS"]),
     build = function(kit)
         kit:Disable("CONDITION_SPEC", "specs");
 

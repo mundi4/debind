@@ -288,8 +288,11 @@ function DebindUI.SetupKeyGroupDropdownMenu(dropdown, rootDescription, key, acti
         -- and this walk reaches every layer of the character rather than what the column happens
         -- to be drawing.
         local function CreateAssignKeyItem()
-            local description = rootDescription:CreateButton(
-                LLL[arrivalID and "ACTION_SET_KEY_ACCEPT" or "KEY_HEADER_SET_KEY"],
+            local label = LLL["KEY_HEADER_SET_KEY"];
+            if (arrivalID) then
+                label = format(LLL["ACTION_SET_KEY_ACCEPT"], label, LLL["APPROVE_IMPORT"]);
+            end
+            local description = rootDescription:CreateButton(label,
                 function()
                     DebindUI.BeginKeyCapture(DebindPrivate.CollectKeyGroupActions(key, arrivalID));
                 end);
@@ -378,7 +381,7 @@ function DebindUI.SetupPendingImportsDropdownMenu(dropdown, rootDescription)
     description = rootDescription:CreateButton(LLL["REJECT_ALL_IMPORT"], function()
         DebindFrame:RejectAllImported();
     end);
-    SetInstructionTooltip(description, LLL["REJECT_ALL_IMPORT_DESC"]);
+    SetInstructionTooltip(description, format(LLL["REJECT_ALL_IMPORT_DESC"], LLL["STORAGE_TITLE"]));
 end
 
 --- The spell picker's two right-click menus are this list and nothing else, so it is written once.
