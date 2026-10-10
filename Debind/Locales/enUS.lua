@@ -858,9 +858,12 @@ L["MOVE_TO"] = "Move to..."
 -- Tooltip on the greyed-out row for the layer the action is already in. One action and several get
 -- the same sentence, so it names no subject.
 L["MOVE_TO_CURRENT_LAYER_BLOCKED"] = "Already on this layer."
-L["NO_ACTIONS_IN_THIS_LAYER"] = "There are no actions in this layer. You can add a new action by dragging a spell, a macro, an item, or a mount here."
--- 검색 결과가 없을 때. 위와 갈라 쓴다 - 저쪽은 "끌어다 놓으세요"라고 시키는데, 검색에 안
--- 맞아서 빈 것뿐이면 할 일이 그게 아니다.
+-- Says what fills the list, the [+] in the portrait row first since it is the main way in. **The
+-- button is pointed at by its icon**: it carries no label, and its name only shows as a tooltip
+-- title, so the texture is the one thing on screen the reader can match.
+L["NO_ACTIONS_IN_THIS_LAYER"] = "Click |TInterface\\PaperDollInfoFrame\\Character-Plus:0|t above to add an action, or drag a spell, a macro, an item or a mount here."
+-- Kept apart from the line above, which tells the reader how to add an action: a list that is
+-- empty only because the search matched nothing needs a different next step.
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NO_SPECIALIZATION"] = "None chosen"

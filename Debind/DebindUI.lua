@@ -2080,8 +2080,8 @@ end
 --- 같은 문장으로 말하면 후자가 고장으로 읽힌다.
 function DebindFrameMixin:UpdateEmptyText()
 	if (self.LayerPanel.dataProvider:GetSize() == 0) then
-		-- **While something is filtering it says a different thing.** The usual line is "there are
-		-- no actions here, drag one in"; if the list is empty only because something was filtered
+		-- **While something is filtering it says a different thing.** The usual line says how to
+		-- add an action; if the list is empty only because something was filtered
 		-- out, that line is a lie and it hands out the wrong next step on top of being one.
 		--
 		-- 필터가 검색보다 앞선다. 둘 다 걸려 있으면 원인이 둘인데, 필터 쪽은 **꺼진 값이 무엇인지

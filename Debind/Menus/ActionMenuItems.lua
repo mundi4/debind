@@ -329,8 +329,8 @@ local function CreateTargetUnitMenuItem(parentDescription, ctx)
         return description;
     end
 
-    -- A target or focus action has to aim at something, so [None] is only offered where no selected
-    -- action is one of those.
+    -- A target or focus action has to aim at something, so `UNIT_DISABLE` is only offered where no
+    -- selected action is one of those.
     if (not AnyAction(ctx, IsAimingOnlyType)) then
         CreateRadio(description, ctx,LLL["UNIT_DISABLE"], actionValueEquals, setActionValue, { ctx = ctx, key = "unit", value = nil });
     end
