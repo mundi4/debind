@@ -1184,12 +1184,22 @@ L["SWITCH_MESSAGES_DESC"] = "Prints a line when a Switch changes. Only Switches 
 -- headings they will find there.
 L["SETTINGS_TIP"] = "Cast Options, Unit Frame Support and Keys Given Back are set here."
 -- The section on when a key Debind holds goes to whatever else is bound to it.
+--
+-- **"Give back" was kept against every rename tried** (2026-10-10, owner). Players never had this
+-- concept, but it belongs to the feature: any word for the event makes them picture Debind standing
+-- in the key's path. It has to fit a press where no action ran and a Give Key Back the user placed,
+-- and placed mid-list it must read as "nothing under it runs". Pass Through, Fall Through and Yield
+-- read as going on to the next action; Fallback fits only the first case; anything with "binding"
+-- meets the WoW Binding type and "normal" meets Normal Cast; Release is key-up; Bypass Debind puts
+-- the addon's name on every label and reads as a switch for the whole addon.
 L["GIVE_BACK_KEYS"] = "Keys Given Back"
 -- **The values say what the press comes to, not the names of the two actions that do the same for
 -- one key** (Give Key Back, Nothing). With those names the row read as a list of actions (owner,
 -- 2026-10-07). **A capital on every word**, as the client's own dropdown values have it.
 L["GIVE_BACK_NO_ACTION_RUNS"] = "When no action runs"
-L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key with Debind actions on it does at a press where none of them runs."
+-- **The unit frame sentence is the one case a reader cannot infer**: a click is a press too, yet a
+-- click on a frame where no action runs goes to the frame whatever this is set to.
+L["GIVE_BACK_NO_ACTION_RUNS_DESC"] = "What a key bound in Debind does on a press where none of its actions runs. A click on a unit frame where no action runs always goes to the frame."
 L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK"] = "Key Is Given Back"
 L["GIVE_BACK_NO_ACTION_RUNS_GIVE_BACK_DESC"] = "The key does what it would without Debind: what WoW's own key bindings or another addon have on it, or nothing if there is none."
 L["GIVE_BACK_NO_ACTION_RUNS_NOTHING"] = "Press Does Nothing"
@@ -1425,7 +1435,11 @@ L["CASTING_FOCUS_CAST_DESC"] = "Holding the Focus Cast Key sends this action to 
 -- (`CreateCastingMenu`). **Said always, not only on a Set Custom Target**, for the reason
 -- `CAST_KEY_TARGET_PICKED` gives. The type is named because it is the case the reader cannot work
 -- out: a macro or a mount is plainly not aimed. The type name is passed in.
-L["CAST_KEY_UNIT_UNUSED"] = "Some actions do not use the unit they are sent to, such as %s, which always sets the unit you point at."
+--
+-- **"Under your cursor", not "point at"** (2026-10-10). On these rows "point at" is whatever the
+-- Hover Cast mode counts, and Set Custom Target ignores the mode: out of combat it also takes a
+-- nameplate or a unit in the world, in combat only a handed-over unit frame.
+L["CAST_KEY_UNIT_UNUSED"] = "Some actions do not use the unit they are sent to, such as %s, which takes its unit from under your cursor."
 -- **One label for the middle value of all three rows**, because it is one answer: the action takes
 -- its turn on that press and the press does not move it. The sentence under it is written per row,
 -- since what is being turned down differs.
@@ -1562,6 +1576,9 @@ L["TYPE_MACROTEXT_DESC"] = "Creates a macro that lives in this addon and leaves 
 L["TYPE_MACROTEXT"] = "Custom Macro"
 L["TYPE_MOUNT"] = "Mount"
 L["TYPE_PETACTION"] = "Pet Command"
+-- **Unit frames only, on purpose.** Out of combat it also takes a nameplate or a unit in the world
+-- (`UnitWatch.lua`, the mouseover fallback), but saying so here is more than the reader needs
+-- (owner, 2026-10-10). The frame rule is the one that holds in combat, where it matters.
 L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as this custom target. A custom target holds a unit the way focus does: aim at it with |cnHIGHLIGHT_FONT_COLOR:@custom1|r or |cnHIGHLIGHT_FONT_COLOR:@custom2|r in a custom macro, or hand it to any action as its target.|n|nWorks over Player, Pet, Party/Raid, Boss and Arena unit frames."
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
