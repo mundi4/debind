@@ -171,7 +171,7 @@ return function(DebindPrivate, _, ctx)
         check(Tier(record) == Constants.CASTMOD_SELF, "tier " .. tostring(Tier(record)));
     end);
 
-    test("N7 the game's own chord is left to the game by default", function()
+    test("N7 the game's own chord is left to the game", function()
         Bind({ action({ value = 774, key = "F1" }) }, nil,
             { { action = "TOGGLEWORLDMAP", keys = { "ALT-F1" } } });
         check(BoundTo("ALT-F1") == "TOGGLEWORLDMAP", "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
@@ -182,20 +182,13 @@ return function(DebindPrivate, _, ctx)
     -- on overrides of its own with nothing in the saved set behind them, and a press of that chord
     -- went to it before the chords were bound. Asked of the saved set alone, the chord read as free
     -- and was taken at priority.
-    test("N7a another addon's override on a chord is left to it by default", function()
+    test("N7a another addon's override on a chord is left to it", function()
         local other = frames.newFrame("Frame");
         _G.SetOverrideBindingClick(other, false, "ALT-F1", "OtherButton");
         Bind({ action({ value = 774, key = "F1" }) });
         local bound = BoundTo("ALT-F1");
         _G.ClearOverrideBindings(other);
         check(bound == "CLICK OtherButton:LeftButton", "ALT-F1 is bound to " .. bound);
-    end);
-
-    test("N8 the game's own chord is taken when the reader says so", function()
-        Bind({ action({ value = 774, key = "F1" }) }, { castKeyChordsOverGame = true },
-            { { action = "TOGGLEWORLDMAP", keys = { "ALT-F1" } } });
-        check(Ours("ALT-F1"), "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
-        check(Tier(Press("F1", "FOCUSCAST")) == Constants.CASTMOD_FOCUS, "not the focus twin");
     end);
 
     test("N9 a chord that is a key of its own runs that key", function()
@@ -285,13 +278,6 @@ return function(DebindPrivate, _, ctx)
         check(held == nil, "a held pointed press sent " .. tostring(Tier(held)));
     end);
 
-    test("N20 with the option off a chord with no twin is the game's", function()
-        Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) }, { castKeyChordsOverGame = true },
-            { { action = "TOGGLEWORLDMAP", keys = { "CTRL-F1" } } });
-        check(BoundTo("CTRL-F1") == "TOGGLEWORLDMAP", "CTRL-F1 is bound to " .. BoundTo("CTRL-F1"));
-        check(Press("F1", "SELFCAST") == nil, "the press reached us");
-    end);
-
     test("N21 with no self twin both cast keys held fall to the focus twin", function()
         Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) });
         check(Ours("ALT-F1"), "ALT-F1 is bound to " .. BoundTo("ALT-F1"));
@@ -301,18 +287,6 @@ return function(DebindPrivate, _, ctx)
         local record, _, unit = Press("F1", "SELFCAST", "FOCUSCAST");
         check(Tier(record) == Constants.CASTMOD_FOCUS and unit == "focus",
             "tier " .. tostring(Tier(record)) .. " at " .. tostring(unit));
-    end);
-
-    -- Either way the option is set: with it off, nothing but the rule keeps the both-held chord
-    -- from being taken for focus over the game's self chord under it.
-    test("N21a with no self twin both cast keys held go to the game's self chord", function()
-        for _, options in ipairs({ {}, { castKeyChordsOverGame = true } }) do
-            Bind({ action({ value = 774, key = "F1", casting = SKIP_SELF }) }, options,
-                { { action = "TOGGLEWORLDMAP", keys = { "CTRL-F1" } } });
-            local label = options.castKeyChordsOverGame and "option off: " or "option on: ";
-            check(not Ours("ALT-CTRL-F1"), label .. "ALT-CTRL-F1 is bound to " .. BoundTo("ALT-CTRL-F1"));
-            check(Press("F1", "SELFCAST", "FOCUSCAST") == nil, label .. "the press reached us");
-        end
     end);
 
     test("N22 both cast keys on ALT give ALT to focus where no action uses self", function()

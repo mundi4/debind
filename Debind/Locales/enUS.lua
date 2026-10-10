@@ -1645,11 +1645,6 @@ L["FOCUS_CAST_KEY_DESC"] = "Holding the Focus Cast Key sends an action with no t
 L["CURRENT_SELF_CAST_KEY"] = "Current Self Cast Key: %s"
 L["CURRENT_FOCUS_CAST_KEY"] = "Current Focus Cast Key: %s"
 L["CAST_KEY_CHANGE_IN_GAME_OPTIONS"] = "You can change it in the game's Options, under Combat."
--- `handing-the-rest-of-a-key-to-the-game.md` 2-4. The two `%s` are the client's own names for the
--- two boxes above (`AUTO_SELF_CAST_KEY_TEXT`, `FOCUS_CAST_KEY_TEXT`). **Ctrl-1 is named** because the
--- game's defaults hold Ctrl-1 to Ctrl-= (owner): that is the case a reader turns this off for.
-L["CAST_KEY_CHORDS_KEEP_GAME"] = "Keep WoW's bindings on cast key combinations"
-L["CAST_KEY_CHORDS_KEEP_GAME_DESC"] = "Where WoW's own key bindings already have a key held with the %1$s or the %2$s, such as Ctrl-1, that press keeps doing what WoW has on it.|n|nUnticked, the press runs the actions you set on the key here, cast on you or your focus."
 L["POINTED_UNIT_CAST"] = "Hover Cast"
 -- **What this row sets, and nothing else.** The feature itself is a page now
 -- (`docs/ingamehelp/enUS/hover-cast.md`), reached by the link under the row: the explanation is

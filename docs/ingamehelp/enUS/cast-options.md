@@ -78,8 +78,6 @@ The four rows below them, *Auto Self Cast*, *Auto Cancel Form*, *Auto Dismount* 
 **The key names go plain in the last two items** (review, 2026-09-22). They point at the game's own keys and settings, where blue would send the reader looking for a row of ours.
 
 **The conflict item names the symptom** (review, 2026-09-22): the player it is for is looking at one key that does not answer the cast key. A held press reaches Debind only because the client drops an unbound ALT-X onto X (`which-action-a-key-runs.md` §3), and Debind's own keys go out through `SetBindingClick` on that same combination, so ours take it the same way (measured 2026-09-22). `Keybindings` is the client's name for that screen (`SETTINGS_KEYBINDINGS_LABEL`). It stays on this page because the reader it is for opens this page from the row that is not answering.
-
-**The settings box *Keep WoW's bindings on cast key combinations* is not named** (2026-10-10, owner). The reader here is after one key, and the fix the item points at, the binding on that combination, is per key; the box changes every key at once, and its own tooltip says so beside the cast keys on the settings tab.
 -->
 
 Good to know:

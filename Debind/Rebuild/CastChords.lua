@@ -33,17 +33,17 @@ local function AddModifier(key, mod)
 end
 
 --- The bare key of ours a chord is bound to, false for somebody else's, nil for none. `ours` is the
---- set of bare keys bound this rebuild; `yield` says whether the game's side counts.
+--- set of bare keys bound this rebuild.
 ---
 --- **The game's side is the saved set and every override in force but ours.** A bar or
 --- click-casting addon routes its keys through overrides with nothing saved behind them, and a press
 --- of such a chord went to it before the chords were bound. This runs after the rebuild has taken
 --- our own overrides off (`ClearPreviousBindings`), so what is left there is someone else's.
-local function DirectLanding(chord, ours, yield)
+local function DirectLanding(chord, ours)
     if (ours[chord]) then
         return chord;
     end
-    if (yield and GetBindingAction(chord, true) ~= "") then
+    if (GetBindingAction(chord, true) ~= "") then
         return false;
     end
     return nil;
@@ -58,8 +58,8 @@ local _landingMods, _landingDropped = {}, {};
 --- §6-2). Dropping two is only ever asked of a chord we made from a key with both cast modifiers,
 --- and both single drops are asked first there, so the order past one drop is the order of the
 --- first.
-local function LandingOf(chord, ours, yield, depth)
-    local direct = DirectLanding(chord, ours, yield);
+local function LandingOf(chord, ours, depth)
+    local direct = DirectLanding(chord, ours);
     if (direct ~= nil) then
         return direct;
     end
@@ -78,13 +78,13 @@ local function LandingOf(chord, ours, yield, depth)
         end
     end
     for _, smaller in ipairs(dropped) do
-        local landing = DirectLanding(smaller, ours, yield);
+        local landing = DirectLanding(smaller, ours);
         if (landing ~= nil) then
             return landing;
         end
     end
     for _, smaller in ipairs(dropped) do
-        local landing = LandingOf(smaller, ours, yield, depth + 1);
+        local landing = LandingOf(smaller, ours, depth + 1);
         if (landing ~= nil) then
             return landing;
         end
@@ -106,12 +106,6 @@ function DebindPrivate.CastChordsYielded()
     return _chordsYielded;
 end
 
---- Does the game keep its own chords over our cast key ones? On unless the reader turned it off
---- (`handing-the-rest-of-a-key-to-the-game.md` 2-4).
-function DebindPrivate.ChordsYieldToGame()
-    return DebindPrivate.Options.castKeyChordsOverGame ~= true;
-end
-
 --- **The chords a bound key takes for its self and focus tiers**, as `chord -> tier`
 --- (`picking-the-cast-tier-like-an-action-button.md` §3).
 ---
@@ -130,7 +124,7 @@ end
 --- falls, and an override put on it moves where that one lands.
 local _castChords3, _castTiers3 = {}, {};
 
-local function CastChordsOf(key, ours, selfMod, focusMod, hasSelf, hasFocus, yield, out)
+local function CastChordsOf(key, ours, selfMod, focusMod, hasSelf, hasFocus, out)
     wipe(out);
     local SELF, FOCUS = Constants.CASTMOD_SELF, Constants.CASTMOD_FOCUS;
     local selfChord = selfMod and AddModifier(key, selfMod);
@@ -147,7 +141,7 @@ local function CastChordsOf(key, ours, selfMod, focusMod, hasSelf, hasFocus, yie
         if (chord) then
             _chordCandidates[chord] = true;
             if (tier) then
-                local landing = LandingOf(chord, ours, yield);
+                local landing = LandingOf(chord, ours);
                 if (landing == false) then
                     _chordsYielded = true;
                 elseif (landing == key) then
@@ -198,21 +192,27 @@ local function NoteBareKey(key, hasSelfTwin, hasFocusTwin)
     _hasFocusTwin[key] = hasFocusTwin;
 end
 
+--- **A chord goes on at priority false, so it lies under another addon's override at true.** A
+--- click-casting addon binds keys from the restricted side while the cursor is over a unit frame,
+--- which neither the hooks nor `DirectLanding` see. Priority decides between two owners on one key
+--- whatever order they were set in (`handing-the-rest-of-a-key-to-the-game.md` §6, measured), so
+--- one at true wins however often the loop puts the chord back.
+---
+--- **It is the same for every chord, and the chord's row still carries it.** The loop and a key
+--- coming back write the chord with what the row says, so the value is decided here and nowhere
+--- else (`picking-the-cast-tier-like-an-action-button.md` §3). Only a chord's row has a `base`
+--- either, but `base` says which key a chord goes over with; reading the priority off it would
+--- decide the value again, on the restricted side, from a field that means something else.
+local CHORD_PRIORITY = false;
+
 --- Binds the chords of every bare key `NoteBareKey` was told of. `chordEntries` is the key walk's
 --- per tier entries of each judged key, and a chord of one gets its tier's item in `judgmentItems`.
 local function EmitCastChords(selfMod, focusMod, judgmentItems, chordEntries)
     wipe(_chordCandidates);
     _chordsYielded = false;
     if (selfMod or focusMod) then
-        local yield = DebindPrivate.ChordsYieldToGame();
-        -- **One value for every write of a chord**: this, the loop and a key coming back all read
-        -- it off the chord's `BoundKeys` row. Yielding to the game, a chord gives way to another
-        -- addon's override too, since priority decides between two owners on one key whatever order
-        -- they were set in (§6, measured). Not yielding, it takes the key from one at false.
-        local priority = not yield;
         for _, key in ipairs(sortedKeys(_boundBare, _sortedA)) do
-            CastChordsOf(key, _boundBare, selfMod, focusMod, _hasSelfTwin[key], _hasFocusTwin[key], yield,
-                _castChords);
+            CastChordsOf(key, _boundBare, selfMod, focusMod, _hasSelfTwin[key], _hasFocusTwin[key], _castChords);
             local first = true;
             local selfNamed, focusNamed = false, false;
             -- Two chords can land on one tier, and its item is the same for both.
@@ -241,10 +241,10 @@ local function EmitCastChords(selfMod, focusMod, judgmentItems, chordEntries)
                         focusNamed = true;
                     end
                 end
-                appendLine("self:SetBindingClick(%s,%q,DefaultClickFrameName,%q)", tostring(priority), chord,
-                    button);
+                appendLine("self:SetBindingClick(%s,%q,DefaultClickFrameName,%q)", tostring(CHORD_PRIORITY),
+                    chord, button);
                 appendLine("c=newtable() c.clickButton=%q c.base=%q c.priority=%s BoundKeys[%q]=c",
-                    button, key, tostring(priority), chord);
+                    button, key, tostring(CHORD_PRIORITY), chord);
                 if (chordEntries[key]) then
                     -- `false` keeps a tier with no item for a second chord on it.
                     local item = _tierItems[tier];
