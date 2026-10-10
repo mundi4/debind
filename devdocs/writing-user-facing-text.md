@@ -28,6 +28,18 @@ beginner follow this" is not the test and was never the test. Neither is how oft
 in `reference/globalstrings/`: that count answers "is there already a word for this", and reading a
 zero as "they will not know it" throws away a word they knew and buys a limp phrase with it.
 
+**The floor is someone who plays WoW and installs addons** (owner, 2026-10-11). Nobody below it
+reads this text, so nothing is written for them: not a novice, not a child, not someone who has to
+be walked through how a computer works. Ordinary English is not jargon to that reader, and neither
+is any word an addon user meets every day.
+
+**So never reach past the right word for an everyday paraphrase of it.** "The game announces" for
+an event, "is picked up" for is detected, "goes the old way" for a binding that has not been updated
+yet: each trades the exact word for a vaguer, gentler phrase, the reader has to translate it back,
+and it reads as talking down to them. **It pisses the owner off, badly, every single time** ("존나
+빡친다", 2026-10-11). Asking "is this word too hard for them" is already the mistake. If the word is true
+of the thing, it is the word.
+
 **Say it in the game's words, not ours.** When the client already has a name for the thing, take
 that name — `Locales/koKR.lua`'s header carries the worked examples, and they are not cosmetic:
 
