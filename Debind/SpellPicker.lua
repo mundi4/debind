@@ -895,8 +895,13 @@ function DebindSpellPickerFrameMixin:UpdateEmptyText()
 		return;
 	end
 
-	self.ScrollBox.EmptyText:SetText(self.searchText and LLL["SPELL_PICKER_NO_MATCH"] or LLL["SPELL_PICKER_EMPTY"]);
-	self.ScrollBox.EmptyText:Show();
+	local text = LLL["SPELL_PICKER_NO_MATCH"];
+	if (not self.searchText) then
+		local category = ActionCatalog.GetCategories()[self.selectedTab];
+		text = category and category.EmptyText and category.EmptyText();
+	end
+	self.ScrollBox.EmptyText:SetText(text or "");
+	self.ScrollBox.EmptyText:SetShown(text ~= nil);
 end
 
 --- 바꾸기 모드로 세운다. 확인 창이 승낙을 받은 뒤에만 들어온다

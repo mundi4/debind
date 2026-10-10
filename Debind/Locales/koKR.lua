@@ -297,7 +297,6 @@ L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "이 ID의 주문이 없습니다."
 L["SPELL_PICKER_ADD_TO"] = "추가할 곳..."
 -- "왼쪽 클릭하면 / 오른쪽 클릭하면"은 LINE_TOOLTIP_INSTRUCTION_MESSAGE1/2의 말이다.
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "왼쪽 클릭하면 |cnHIGHLIGHT_FONT_COLOR:%s|r에 추가됩니다."
-L["SPELL_PICKER_EMPTY"] = "여기에는 아무것도 없습니다."
 L["SPELL_PICKER_GROUP_INVENTORY"] = "소지품"
 L["SPELL_PICKER_GROUP_EQUIPPED"] = "착용한 것 사용"
 L["SPELL_PICKER_GROUP_FAVORITE_MOUNTS"] = "즐겨찾는 탈것"

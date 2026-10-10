@@ -144,7 +144,6 @@ L["SPECIAL_UNIT_UNSET_MESSAGE_TOO_MANY"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDI
 L["SPECIAL_UNIT_UNSET_MESSAGE"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnDISABLED_FONT_COLOR:Очищено|r"
 L["SPELL_PICKER_ADD_TO"] = "Добавить в..."
 L["SPELL_PICKER_LEFT_CLICK_TO_ADD"] = "Левый клик, чтобы добавить в |cnHIGHLIGHT_FONT_COLOR:%s|r."
-L["SPELL_PICKER_EMPTY"] = "Здесь ничего нет."
 L["SPELL_PICKER_GROUP_OTHERS"] = "Остальные"
 L["SPELL_PICKER_NEW_MACROTEXT"] = "Новый пользовательский макрос"
 L["SPELL_PICKER_NO_MATCH"] = "Ничего не найдено."

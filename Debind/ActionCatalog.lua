@@ -99,15 +99,17 @@ local _sourceKeys = {};
 --- mounts.
 local _dirty      = true;
 
---- 소스 하나를 등록한다.
----
 --- source = {
 ---     key        = "spellbook",
 ---     categories = {
 ---         {
----             key = "spell", name = "주문",          -- 탭에 그대로 걸리는 글자. **복수**다
----             filters = { "offSpec" },              -- 없으면 필터 버튼이 숨는다
----             IsAvailable = function() ... end,     -- 없으면 언제나 있다. **싸야 한다**
+---             key = "spell", name = "Spells",       -- the tab's label as it stands, **plural**
+---             filters = { "offSpec" },              -- absent, the filter button hides
+---             IsAvailable = function() ... end,     -- absent, always there. **Must be cheap**
+---             EmptyText = function() ... end,       -- what fills the list, said when it is
+---                                                   -- empty with no search. **A category that
+---                                                   -- can come up empty must carry one**:
+---                                                   -- without it the empty list says nothing
 ---             Build = function(entries) ... end,
 ---         },
 ---     },
@@ -1240,18 +1242,24 @@ ActionCatalog.RegisterSource({
 			key = "collectible",
 			name = LLL["SPELL_PICKER_TAB_COLLECTIBLE"],
 			filters = { "favorites" },
-			-- **탭을 숨기지 않는다.** 장난감 쪽 개수 API가 전부 블리자드 장난감 상자
-			-- 필터를 탄 값이라(`GetNumLearnedDisplayedToys`는 그쪽 "수집/표시" 진행도
-			-- 카운터다) 사용자가 거기서 "미수집만" 같은 필터를 걸어두면 0이 나온다.
-			-- 그걸로 탭을 숨기면 자기 장난감에 닿을 길이 아예 없어진다 - 우리 창에는 남의
-			-- 필터를 푸는 수단이 없고, 있어도 블리자드 상태는 안 건드린다.
+			-- **The tab is never hidden.** Every toy count the client offers goes through the Toy
+			-- Box's own filter (`GetNumLearnedDisplayedToys` is that window's collected/shown
+			-- counter), so a reader who set it to show uncollected toys only gets 0. Hiding the tab
+			-- on that would leave no way to their toys from here: this window cannot clear another
+			-- window's filter, and would not touch Blizzard's state if it could.
 			--
-			-- 목록이 그 필터를 타는 것은 남는 비용이다(빈 목록이면 안내문이 뜬다).
-			-- 탭이 사라지는 것과 달리 되돌릴 길이 사용자에게 보인다.
+			-- The list goes through that filter too, which is a cost that stays; the tab at least
+			-- stays where the reader can find it.
 			--
-			-- **탈것 개수는 이제 안 묻는다.** 합치기 전에는 탈것이 없으면 탭을 숨겼는데,
-			-- 이제 그 판정이 참이어도 장난감이 남아 있을 수 있다.
+			-- **Mounts are not counted either.** Before the two were merged the tab hid with no
+			-- mounts, and that can be true while toys remain.
 			IsAvailable = function() return true; end,
+			-- The one tab that can be empty with no search: through the favorites filter, or the Toy
+			-- Box's own filter above.
+			EmptyText = function()
+				return format(LLL["SPELL_PICKER_EMPTY_COLLECTIBLE"],
+					LLL[ActionCatalog.Filters.favorites.label], TOY_BOX);
+			end,
 			Build = BuildCollectibles,
 		},
 	},

@@ -1072,7 +1072,11 @@ L["SPELL_PICKER_ADD_SPELL_NOT_FOUND"] = "No spell has this ID."
 -- says which question they answer. Shaped like the move and copy menus' "Move to... / Copy to..."
 -- on purpose: three menus showing the same list should not each name it differently.
 L["SPELL_PICKER_ADD_TO"] = "Add to..."
-L["SPELL_PICKER_EMPTY"] = "Nothing here."
+-- The Collections tab, empty with no search. **What fills it**, as an empty list should say, and
+-- both things that can narrow it, said in every state: `%1$s` is the filter's own label
+-- (`SPELL_PICKER_ONLY_FAVORITES`), `%2$s` the client's `TOY_BOX`, whose filters the toy list
+-- follows (`C_ToyBox.GetNumFilteredToys`). The Mount Journal's filters do not reach the mounts here.
+L["SPELL_PICKER_EMPTY_COLLECTIBLE"] = "Your mounts and toys are listed here. While |cnHIGHLIGHT_FONT_COLOR:%1$s|r is ticked, only the ones marked as favorites are. Filters set in the %2$s apply here too."
 -- **The client's own names for the macro window's two tabs**, so every language gets them for free.
 -- Assigned here only. The second carries a `%s` for the character's name, as the client's tab does.
 L["SPELL_PICKER_GROUP_ACCOUNT_MACROS"] = GENERAL_MACROS
