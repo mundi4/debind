@@ -33,6 +33,7 @@
     <Script file="ClickCastTable.lua"/>
     <Script file="Judgment.lua"/>
     <Script file="BeatSignal.lua"/>
+    <Script file="StateDriverPeriod.lua"/>
     <Script file="Rebuild/Rebuild.lua"/>
     <Script file="Rebuild/ButtonAttributes.lua"/>
     <Script file="Rebuild/ConditionText.lua"/>

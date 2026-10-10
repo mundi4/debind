@@ -425,6 +425,10 @@ local isolatedLayers
 --- (`HoldUnmatchedKeys`).
 local realGiveBackWhenNoActionRuns
 local holdUnmatchedKeys = false
+--- The same for the state driver period, which answers the default unless a case chose one
+--- (`PeriodKit.Swap`). **A table rather than locals**: this file's main chunk is a few locals short
+--- of Lua 5.1's 200, and four more stopped it compiling (2026-10-11).
+local PeriodKit = {}
 
 local function SetIsolated(isolated)
     if isolated then
@@ -447,6 +451,11 @@ local function SetIsolated(isolated)
             realGiveBackWhenNoActionRuns = DebindPrivate.GiveBackWhenNoActionRuns
             DebindPrivate.GiveBackWhenNoActionRuns = function()
                 return not holdUnmatchedKeys
+            end
+            -- A tester's own 0 would hold the session at 0 from the first case with a beat.
+            PeriodKit.real = DebindPrivate.StateDriverPeriod.Chosen
+            DebindPrivate.StateDriverPeriod.Chosen = function()
+                return PeriodKit.chosen or Constants.STATE_DRIVER_UPDATETIME_DEFAULT
             end
             isolatedLayers = { GetTestLayer() }
             local only = isolatedLayers
@@ -499,6 +508,9 @@ local function SetIsolated(isolated)
             DebindPrivate.GiveBackWhenNoActionRuns = realGiveBackWhenNoActionRuns
             realGiveBackWhenNoActionRuns = nil
             holdUnmatchedKeys = false
+            DebindPrivate.StateDriverPeriod.Chosen = PeriodKit.real
+            PeriodKit.real = nil
+            PeriodKit.chosen = nil
             realEnumerate = nil
             realEnumerateAll = nil
             realFindLayerID = nil
@@ -7109,6 +7121,204 @@ RegisterTest("Beat: the manager writes state-visibility on every tick", {
             return Fail(NAME, "the manager never wrote statehidden on the driver")
         end
         return Pass(NAME, "it comes, and the beat arrives through state-visibility")
+    end,
+})
+
+--- The period the isolated reader answers for one case (`SetIsolated`). Answers the setter.
+function PeriodKit.Swap()
+    AddTeardown(function() PeriodKit.chosen = nil end)
+    return function(value) PeriodKit.chosen = value end
+end
+
+function PeriodKit.NotHeldAtZero()
+    if DebindPrivate.StateDriverPeriod.HeldAtZero() then
+        return false, "this session already holds the period at 0, and only a reload lets it go"
+    end
+    return true
+end
+
+--- The manager's ticks per frame over `n` frames, counted on `BeatWitness`. **From the first tick**,
+--- since a period just written waits for the timer the old one left (`SecureStateDriver.lua`).
+function PeriodKit.TicksPerFrame(n)
+    local witness = BeatWitness()
+    local first = witness:GetAttribute("ticks") or 0
+    if not WaitUntil(function() return (witness:GetAttribute("ticks") or 0) > first end, 1) then
+        return 0
+    end
+    local from = witness:GetAttribute("ticks")
+    for _ = 1, n do
+        coroutine.yield(0)
+    end
+    return ((witness:GetAttribute("ticks") or 0) - from) / n
+end
+
+-- **Only the game has the manager.** Headless records what a rebuild writes to a shell
+-- (`period_spec.lua`); whether Blizzard's attribute holds it, and what a write of nil leaves there,
+-- is asked here. Each half that puts a period back sets the one it expects first.
+RegisterTest("Period: a chosen period is written and put back", {
+    description = "A non-zero period goes on with a beat and comes off to what was there, 0.2 where that was nil, and a period somebody wrote over ours stays",
+    applies = PeriodKit.NotHeldAtZero,
+    run = function()
+        local NAME = "Period written"
+        local KEY = "CTRL-SHIFT-F11"
+        local DEFAULT = Constants.STATE_DRIVER_UPDATETIME_DEFAULT
+        local manager = SecureStateDriverManager
+        if InCombatLockdown() then
+            return Fail(NAME, "rebuilds are deferred in combat")
+        end
+
+        local before = manager:GetAttribute("updatetime")
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                manager:SetAttribute("updatetime", before or DEFAULT)
+                if before == nil then
+                    manager:SetAttribute("updatetime", nil)
+                end
+            end
+        end)
+        CleanupActions()
+        AddTeardown(CleanupActions)
+        local choose = PeriodKit.Swap()
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
+
+        local function Period()
+            return manager:GetAttribute("updatetime")
+        end
+
+        manager:SetAttribute("updatetime", 0.17)
+        choose(0.1)
+        ApplyBindings()
+        if Period() ~= 0.1 then
+            return Fail(NAME, format("0.1 with a beat left %s", tostring(Period())))
+        end
+        choose(nil)
+        ApplyBindings()
+        if Period() ~= 0.17 then
+            return Fail(NAME, format("what was there was 0.17, and %s was put back", tostring(Period())))
+        end
+
+        -- Blizzard's handler returns on a nil, so this leaves 0.17 running under an attribute of nil.
+        manager:SetAttribute("updatetime", nil)
+        choose(0.1)
+        ApplyBindings()
+        choose(nil)
+        ApplyBindings()
+        if Period() ~= DEFAULT then
+            return Fail(NAME, format("over a nil, %s was put back", tostring(Period())))
+        end
+
+        choose(0.1)
+        ApplyBindings()
+        manager:SetAttribute("updatetime", 0.15)
+        choose(nil)
+        ApplyBindings()
+        if Period() ~= 0.15 then
+            return Fail(NAME, format("a period written over ours became %s", tostring(Period())))
+        end
+        return Pass(NAME, "written, put back, and left alone where somebody else wrote")
+    end,
+})
+
+-- **Only the game runs the manager and the wrap.** Headless calls the hook by hand and records the
+-- wrap without running it (`period_spec.lua`). What is asked here: the manager ticks every frame
+-- on 0, a foreign period is undone before it costs a frame and cannot land again, and **the wrap
+-- gate** -- a driver another addon registers from its own code still resolves under the wrap.
+-- `CallRestrictedClosure` refuses insecure callers, and if this goes red every addon's driver
+-- registration in a session holding 0 is broken, so the wrap does not ship.
+--
+-- **It ends the session, a failure included**, because a 0 written holds until a reload. A
+-- failure that stayed would leave the cases after it on a held manager, and after a failed gate
+-- on one where no driver registers -- ours among them -- so they would go red over this one. The
+-- message crosses in `Scratch()` and is reported on the other side.
+--
+-- **`applies` lets the other side through.** The runner asks it again after the reload, and a
+-- session holding 0 by then (a tester whose own period is 0) would skip the case and lose the
+-- report.
+RegisterTest("Period: 0 holds against a foreign period", {
+    description = "0 with a beat makes the manager tick every frame; a foreign 0.2 goes back to 0 at once and again after the wrap; a driver registered from addon code under the wrap still resolves",
+    crossesReload = true,
+    applies = function()
+        if Scratch().periodZeroCrossing then
+            return true
+        end
+        return PeriodKit.NotHeldAtZero()
+    end,
+    run = function(phase)
+        local NAME = "Period zero"
+        local KEY = "CTRL-SHIFT-F11"
+        local FRAMES = 20
+        local manager = SecureStateDriverManager
+        local scratch = Scratch()
+        if phase then
+            local failure = scratch.periodZeroFailure
+            scratch.periodZeroCrossing, scratch.periodZeroFailure = nil, nil
+            if phase == "failed" then
+                return Fail(NAME, failure)
+            end
+            return Pass(NAME, "the session that held 0 is gone")
+        end
+        if InCombatLockdown() then
+            return Fail(NAME, "rebuilds are deferred in combat")
+        end
+
+        local function Abort(message)
+            scratch.periodZeroFailure = message
+            return RequestReload("failed")
+        end
+
+        CleanupActions()
+        AddTeardown(CleanupActions)
+        local choose = PeriodKit.Swap()
+        InsertAction({ type = Constants.SPELL, value = 585, key = KEY, combat = true })
+        InsertAction({ type = Constants.GIVEBACK, key = KEY })
+        BeatWitness()
+        choose(0)
+        scratch.periodZeroCrossing = true
+        ApplyBindings()
+        if manager:GetAttribute("updatetime") ~= 0 then
+            return Abort(format("0 with a beat left %s", tostring(manager:GetAttribute("updatetime"))))
+        end
+        if not DebindPrivate.StateDriverPeriod.HeldAtZero() then
+            return Abort("0 was written and is not held")
+        end
+        -- One frame of slack for where the witness's tick falls against the count.
+        local rate = PeriodKit.TicksPerFrame(FRAMES)
+        if rate < (FRAMES - 1) / FRAMES then
+            return Abort(format("on 0 the manager ticked %.2f times a frame", rate))
+        end
+
+        manager:SetAttribute("updatetime", 0.2)
+        if manager:GetAttribute("updatetime") ~= 0 then
+            return Abort(format("a foreign 0.2 was left at %s", tostring(manager:GetAttribute("updatetime"))))
+        end
+        -- The wrap keeps the handler from running, not the attribute from being stored, so only the
+        -- ticks can say what period is running now.
+        manager:SetAttribute("updatetime", 0.2)
+        rate = PeriodKit.TicksPerFrame(FRAMES)
+        if rate < (FRAMES - 1) / FRAMES then
+            return Abort(format("after a second foreign 0.2 the manager ticked %.2f times a frame", rate))
+        end
+
+        local gate = CreateFrame("Frame")
+        AddTeardown(function()
+            if not InCombatLockdown() then
+                UnregisterAttributeDriver(gate)
+            end
+        end)
+        -- Whether an error in the wrapped handler comes out of `SetAttribute` is not known here, so
+        -- one that does is caught and crosses like any other failure; one that does not is seen by
+        -- the attribute check.
+        local ok, err = pcall(RegisterAttributeDriver, gate, "state-gate", "x")
+        if not ok then
+            return Abort("registering a driver from addon code under the wrap raised: " .. tostring(err))
+        end
+        if gate:GetAttribute("state-gate") ~= "x" then
+            return Abort(format("a driver registered from addon code under the wrap resolved to %s",
+                tostring(gate:GetAttribute("state-gate"))))
+        end
+
+        return RequestReload("after")
     end,
 })
 

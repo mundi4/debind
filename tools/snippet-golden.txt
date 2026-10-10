@@ -4348,6 +4348,12 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		return winner.clickbutton
 	
 
+### StateDriverPeriod.lua #1 SecureHandlerWrapScript
+if (name == "updatetime" and value and value ~= 0) then
+    return false
+end
+
+
 ### Switches.lua #1 SecureHandlerExecute
     debind_driver = self:GetFrameRef("debind_driver")
 

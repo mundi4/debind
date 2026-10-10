@@ -414,6 +414,9 @@ function M.install()
     --- `going-headless-outside-the-ui.md`), and the answers come out of `M.world` so a
     --- spec can put the client in a state rather than swapping the function out.
     _G.InCombatLockdown = function() return M.world.inCombat and true or false; end
+    --- Read only into a DEBUG line naming who wrote the manager's period, and the shell has no
+    --- stack to give.
+    _G.debugstack = function() return ""; end
     --- **Life and reaction are answered here and nowhere else.** The restricted environment gets
     --- the same four functions (`RestrictedEnvironment.lua`), so a unit that is dead to the poll
     --- cannot be alive to the press -- which is the one disagreement the two sides could have that

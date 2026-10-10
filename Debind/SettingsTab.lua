@@ -1,4 +1,5 @@
 local _, DebindPrivate = ...;
+local Constants = DebindPrivate.Constants;
 local L = DebindPrivate.L;
 
 local INDENT = 15;
@@ -415,13 +416,53 @@ local function Build()
             -- and nothing a rebuild builds depends on it.
         end);
 
-    -- **The state driver interval slider is not built** (2026-09-19, owner). It moved Blizzard's
-    -- own `updatetime`, and after the state loop went there was nothing of ours left waiting on it:
-    -- every moment a key is handed back arrives as an event, and an event zeroes the manager's
-    -- timer. A slider that cannot change what the reader sees is worse than no slider.
-    --
-    -- The three strings it used are still in the locales. What would bring the row back is
-    -- something of ours that has to be worked out with nobody pressing anything.
+    -- The option and nothing else: the rebuild is what writes the manager (`StateDriverPeriod.lua`).
+    local defaultPeriod = Constants.STATE_DRIVER_UPDATETIME_DEFAULT;
+    local period = AddRow("DebindSettingsSliderRowTemplate");
+    Label(period, L["STATE_DRIVER_UPDATE_THROTTLE"]);
+    period.Slider:SetWidth(250);
+    period.Tooltip:SetTooltipFunc(TooltipFunc(L["STATE_DRIVER_UPDATE_THROTTLE"],
+        L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] .. "|n|n|cnRED_FONT_COLOR:"
+        .. L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] .. "|r"));
+    local formatters = {
+        [MinimalSliderWithSteppersMixin.Label.Right] = CreateMinimalSliderFormatter(
+            MinimalSliderWithSteppersMixin.Label.Right, function(value)
+                return (format("%.2f", value):gsub("%.?0+$", ""));
+            end),
+    };
+    local function CommitPeriod(value)
+        value = floor(value * 100 + 0.5) / 100;
+        local stored = value ~= defaultPeriod and value or nil;
+        if (stored == Options().stateDriverPeriod) then
+            return;
+        end
+        Options().stateDriverPeriod = stored;
+        DebindPrivate.QueueUpdateBindings();
+        UpdateReloadButton();
+    end
+    -- **Only where the mouse lets go.** A drag down to 0.05 passes 0 on the way, and so can a press
+    -- on the track before the drag that follows it; a rebuild run on either would write 0, which
+    -- holds for the session and asks the reader for a reload over a value they never chose. The
+    -- steppers and `Init` are not a press and commit as they move.
+    local pressed = false;
+    period.Slider.Slider:HookScript("OnMouseDown", function()
+        pressed = true;
+    end);
+    period.Slider.Slider:HookScript("OnMouseUp", function(slider)
+        pressed = false;
+        CommitPeriod(slider:GetValue());
+    end);
+    period.Slider:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(_, value)
+        if (not pressed) then
+            CommitPeriod(value);
+        end
+    end, period);
+    refreshers[#refreshers + 1] = function()
+        -- A window closed under a held button sends no mouse up.
+        pressed = false;
+        period.Slider:Init(DebindPrivate.StateDriverPeriod.Chosen(), 0, defaultPeriod,
+            floor(defaultPeriod / 0.01 + 0.5), formatters);
+    end;
 
     content:SetHeight(y - SPACING + PAD_VERTICAL);
 end
@@ -460,6 +501,7 @@ local function ResetToDefaults()
     options.giveBackInPetBattle = nil;
     options.giveBackInBindingContext = nil;
     options.giveBackWhenNoActionRuns = nil;
+    options.stateDriverPeriod = nil;
     wipe(options.frameBlacklist.blizzard);
     wipe(options.frameBlacklist.addons);
     options.frameBlacklist.other = nil;

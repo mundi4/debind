@@ -53,9 +53,10 @@ Direct `DebindPrivate.UpdateBindings()` does not go through this. Only `QueueUpd
 **Blizzard's state driver poll — the only genuine clock in the system.**
 `SecureStateDriverManager` (`Blizzard_FrameXML/SecureStateDriver.lua`) runs on an OnUpdate throttled
 to `STATE_DRIVER_UPDATE_THROTTLE`, default `0.2`, settable through its `updatetime` attribute.
-**Debind does not write it** (2026-09-19): the attribute is shared with every other addon, and
-every moment of ours that the manager carries arrives as an event, which zeroes its timer anyway.
-A stored `stateDriverUpdateThrottle` from the build that had a slider for it is read by nothing.
+**The reader's period reaches it only from a rebuild that has a tail-key beat**
+(`StateDriverPeriod.lua`), and comes off again to what was there before. A 0 written stays for the
+rest of the session, and somebody else's period written over it is put back to 0. A stored
+`stateDriverUpdateThrottle` from the build that had the old slider is read by nothing.
 
 Two things about it are worth knowing:
 
@@ -63,10 +64,9 @@ Two things about it are worth knowing:
   Debind registers there is the bar and pet battle events behind Keys Given Back
   (`CollectDriverEvents`), and those are what make the `state-giveback` attribute driver resolve
   promptly.
-* **Nothing of Debind's rides the poll itself.** The driver was registered with
-  `RegisterUnitWatch(BindingDriver, true)` until the state pass went, which is what got
-  `state-unitexists` written on every tick; now every condition is measured at the press and the
-  frame is registered nowhere.
+* **The tail-key beat rides the poll itself.** It is a driver answering one constant on
+  `BindingDriver` (`ApplyBindingPlan`), so a tail key's binding follows a state the manager is told
+  nothing about at most one `updatetime` late.
 
 **The lockdown itself, after `PLAYER_REGEN_DISABLED`.** The event arrives first and **the lockdown
 has not begun when it does** — this is not the flag lagging behind the restriction, the two move
@@ -90,9 +90,9 @@ does nothing, so `pcall` around one answers "ok" either way. Writing a value and
 back is the only oracle.
 
 So: anything that is only noticed by that poll — a state the manager resolves with no event behind
-it — costs up to `updatetime` and nothing can shorten it. Nothing of Debind's is in that class any
-more: a condition is measured at the press, and the attribute driver behind Keys Given Back moves
-on events the manager is registered for.
+it — costs up to `updatetime`, and only a shorter `updatetime` shortens it. Of Debind's, the
+tail-key beat is in that class. A condition on a press is measured at the press, and the attribute
+driver behind Keys Given Back moves on events the manager is registered for.
 
 ---
 

@@ -1152,11 +1152,14 @@ L["SWITCH_CHANGED_MESSAGE_ON"] = "|cnGREEN_FONT_COLOR:ON|r"
 L["SWITCH_CHANGED_MESSAGE"] = "|cnLIGHTBLUE_FONT_COLOR:%1$s|r is now %2$s."
 -- **Blizzard's own name for the machinery, kept.** "Condition Update Interval" was tried and reads
 -- as the interval every condition the reader wrote is worked out on, which is not what this is
--- (2026-09-12, owner). It is even less that now: a condition is worked out at the press, and what
--- waits on this timer is the game noticing that something replaced the action bar. The tooltip
--- says so rather than leaving a reader to change it and see nothing.
+-- (2026-09-12, owner): an action's conditions are worked out at the press. What waits on this
+-- timer is a key given back when no action runs, which is bound to Debind or to the game ahead of
+-- the press, so between a change and the next update a press goes the old way.
+--
+-- **The reload sentence is said always**, though only a reader who has used 0 meets it: a line
+-- shown only in that state reaches nobody who read the tooltip first.
 L["STATE_DRIVER_UPDATE_THROTTLE"] = "State Driver Update Interval"
-L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "The time interval between Blizzard's state driver updates. Your keys work their conditions out the moment you press them, so this does not change how quickly one answers; what waits for it is the game noticing that a vehicle or a pet battle has taken your action bar. The lower the value, the more frequently the state driver updates (|cnHIGHLIGHT_FONT_COLOR:0|r means no interval at all).|n|nDon't worry. This value is not permanently saved and will reset to the default value if you disable the addon.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
+L["STATE_DRIVER_UPDATE_THROTTLE_DESC"] = "How often Blizzard's state driver updates, in seconds. A key that is given back when none of its actions runs is checked against its conditions on this interval, so the lower the value, the shorter the moment after a change in which a press still goes the old way (|cnHIGHLIGHT_FONT_COLOR:0|r means every frame). While no such key has a condition that waits on it, the value is not used.|n|nThe interval is shared by every addon that uses the state driver. Once |cnHIGHLIGHT_FONT_COLOR:0|r has been used, a different value takes effect after a reload.|n|nBlizzard's default value is |cnHIGHLIGHT_FONT_COLOR:0.2|r seconds."
 L["STATE_DRIVER_UPDATE_THROTTLE_WARNING"] = "Changing this value may cause performance issues."
 -- The Switches tab. Everything below is read on that tab and nowhere else.
 --

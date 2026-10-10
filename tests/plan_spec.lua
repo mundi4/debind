@@ -384,16 +384,40 @@ return function(DebindPrivate)
             "the override bar event was not asked for");
     end);
 
-    -- **`updatetime` belongs to Blizzard and a rebuild leaves it alone** (2026-09-19, owner). A
-    -- stored throttle from a build that had the slider is still in some profiles, so what this
-    -- asks is that reading one changes nothing: the value cannot reach the plan, and the manager's
-    -- attribute is nobody's here to write.
+    --- A tail key whose beat measures combat, and one with no beat at all.
+    local function BeatingTail()
+        return {
+            spell({ key = "F1", conditions = { combat = true } }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+        };
+    end
+
+    -- **The period is written only where the beat runs** (`zeroing-the-beat-period-where-it-is-
+    -- needed.md` §3): with no beat, nothing of ours waits on the manager, and the attribute is
+    -- every addon's. 0.2 is Blizzard's own and is not written either.
+    test("the period is asked for only where the beat runs", function()
+        for _, case in ipairs({
+            { what = "0 with a beat", actions = BeatingTail, period = 0, wants = 0 },
+            { what = "0.05 with a beat", actions = BeatingTail, period = 0.05, wants = 0.05 },
+            { what = "0 with no tail key", actions = function() return { spell({ key = "F1" }) }; end,
+                period = 0, wants = nil },
+            { what = "the default with a beat", actions = BeatingTail, period = nil, wants = nil },
+        }) do
+            local plan = PlanFor(case.actions(), nil, { stateDriverPeriod = case.period });
+            check(plan.updatetime == case.wants,
+                case.what .. ": the plan asks for " .. tostring(plan.updatetime));
+        end
+    end);
+
+    -- **A stored period under the old slider's name stays unread** (2026-09-19, owner). It is still
+    -- in some profiles, and the period it set was not the one the reader is shown now.
     test("a stored throttle reaches nothing", function()
-        Profile({ spell({ key = "F1" }) });
+        Profile(BeatingTail());
         DebindPrivate.Options.stateDriverUpdateThrottle = 0.05;
         local plan = DebindPrivate.BuildBindingPlan(DebindPrivate.CollectBindingContext());
         DebindPrivate.Options.stateDriverUpdateThrottle = nil;
 
+        check(plan.beats == true, "the tail key asked for no beat -- bad premise");
         check(plan.updatetime == nil, "the throttle is back in the plan: " .. tostring(plan.updatetime));
     end);
 

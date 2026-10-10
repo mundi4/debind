@@ -295,6 +295,7 @@ function Events.PLAYER_REGEN_ENABLED()
     DebindPrivate.FlushContextKeys();
 
     DebindPrivate.BeatSignal.OutOfCombat();
+    DebindPrivate.StateDriverPeriod.OutOfCombat();
 end
 
 function Events.UPDATE_BINDINGS()

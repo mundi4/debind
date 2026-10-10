@@ -117,6 +117,14 @@ function M.reset()
     for frame in pairs(attributeDrivers) do attributeDrivers[frame] = nil; end
     for key in pairs(overrides) do overrides[key] = nil; end
     for frame in pairs(wrappers) do wrappers[frame] = nil; end
+    --- **The manager outlives the specs**, being made once by `install`, so what one spec writes on
+    --- it -- a period, a hook, an event -- is cleared here or reaches the next.
+    local manager = _G.SecureStateDriverManager;
+    if (manager) then
+        for k in pairs(manager.__attributes) do manager.__attributes[k] = nil; end
+        for k in pairs(manager.__scripts) do manager.__scripts[k] = nil; end
+        for k in pairs(manager.__events) do manager.__events[k] = nil; end
+    end
     M.__clearTimers();
     M.__clearListeners();
     M.__resetAnon();

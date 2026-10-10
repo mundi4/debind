@@ -400,11 +400,13 @@ local function BuildBindingPlan(ctx)
         petBattle = DebindPrivate.GiveBackInPetBattle(),
     };
 
-    CollectDriverEvents(plan.events);
-
     --- Does any key have a judgment item, and so need the loop (`JudgeKeys`) and its beat?
     plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
     FillJudgePlan(plan);
+
+    plan.updatetime = DebindPrivate.StateDriverPeriod.Wanted(plan.beats);
+
+    CollectDriverEvents(plan.events);
 
     return plan;
 end
@@ -574,10 +576,7 @@ local function ApplyBindingPlan(plan)
             _driverEventsOurs[entry.name] = nil;
         end
     end
-    --- **`updatetime` is Blizzard's and nobody here writes it** (2026-09-19, owner). Every moment
-    --- a key is handed back arrives as an event, and an event on the manager's own list puts its
-    --- timer to zero, so the interval never stood between one of those and the attribute moving.
-    --- A shorter one bought nothing and the attribute is shared with every other addon.
+    DebindPrivate.StateDriverPeriod.Apply(plan.updatetime);
 
     -- The aliases this rebuild watches, resolved once so a press finds them standing.
     SecureHandlerExecute(driver, [[
@@ -614,12 +613,13 @@ local function ApplyBindingPlan(plan)
     ApplyGiveBack(driver, plan.giveBack);
 end
 
---- Every option whose answer reaches a secure frame is applied from here, and **nothing else
---- applies one**. The settings panel is open during a fight and every control in it is pressable
---- there, so a setter that wrote its own answer through would raise inside the panel's own click
---- handler. A setter writes the stored value and asks for a rebuild instead; `FinishBindingUpdate`
+--- Every option whose answer reaches a secure frame is applied from here or from the plan, and
+--- **no setter applies one**. The settings panel is open during a fight and every control in it is
+--- pressable there, so a setter that wrote its own answer through would raise inside the panel's own
+--- click handler. A setter writes the stored value and asks for a rebuild instead; `FinishBindingUpdate`
 --- calls this with no argument, and a rebuild that could not run during the fight is replayed at
---- `PLAYER_REGEN_ENABLED` (`Events.lua`).
+--- `PLAYER_REGEN_ENABLED` (`Events.lua`). The state driver period is the plan's
+--- (`plan.updatetime`), because which period is written depends on whether the rebuild has a beat.
 ---
 --- **The stored value is read here rather than carried in.** Two changes during one fight leave
 --- two queued rebuilds and one answer, and it has to be the second one.
@@ -684,9 +684,9 @@ end
 --- What is left once the bindings are up: drop what this rebuild made stale, put the reader's own
 --- options back, and say that it happened.
 ---
---- **All of them, not the throttle alone.** No option setter reaches a secure frame itself
---- (`ApplyOptions`), so this is the one hand that writes what a setter asked for -- and a rebuild
---- refused during a fight is replayed once it ends, which is what defers them.
+--- **All of them.** No option setter reaches a secure frame itself (`ApplyOptions`), so a rebuild is
+--- the one hand that writes what a setter asked for -- and a rebuild refused during a fight is
+--- replayed once it ends, which is what defers them.
 local function FinishBindingUpdate()
     DebindPrivate.ClearMacroTextCache(_macrotexts);
 

@@ -2053,6 +2053,11 @@ end
 --- Whether something read once at login has moved since. **Compared rather than flagged**, so
 --- setting a box back the way it was answers no, and so does a Defaults press on a profile that was
 --- already at the defaults.
+---
+--- **The state driver period is not on that list.** Compared with login it would ask for a reload
+--- on every move, while the rebuild writes a new period on the spot; only moving off a 0 already
+--- written needs one, since nothing in the session puts the manager back from 0
+--- (`StateDriverPeriod.lua`).
 function DebindPrivate.IsReloadRequired()
     local options = DebindPrivate.Options;
     for _, name in ipairs(RELOAD_REQUIRED_OPTIONS) do
@@ -2060,7 +2065,8 @@ function DebindPrivate.IsReloadRequired()
             return true;
         end
     end
-    return false;
+    local period = DebindPrivate.StateDriverPeriod;
+    return period.HeldAtZero() and period.Chosen() ~= 0;
 end
 --- Fills in defaults for `options` / `switches` and **hands those tables to `DebindPrivate`**.
 ---

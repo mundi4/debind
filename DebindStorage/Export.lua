@@ -191,6 +191,7 @@ local OPTION_FIELDS      = {
     giveBackInPetBattle = "boolean",
     giveBackInBindingContext = "boolean",
     giveBackWhenNoActionRuns = "boolean",
+    stateDriverPeriod = "number",
     frameBlacklist = "table",
 };
 DebindStorage.OPTION_FIELDS = OPTION_FIELDS;

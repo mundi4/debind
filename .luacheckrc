@@ -196,6 +196,7 @@ globals = {
 	"ACTION_BUTTON_USE_KEY_DOWN",
 	"GetTime",
 	"debugprofilestop",
+	"debugstack",
 	"time",
 	"date",
 	-- `C_AddOns.EnableAddOn`은 다음 리로드까지 효력이 없다. 그래서 마이그레이션 오버레이의
