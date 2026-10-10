@@ -446,4 +446,19 @@ end
 
 if (DEBUG) then
 	_G.DebindPrivate = DebindPrivate;
+
+	--- The beat's branch calls these on every beat (`BuildJudgeSnippet`), so they stand whether or
+	--- not anything listens: a `CallMethod` to a missing method is a `SoftError` on every frame.
+	--- A listener sets `DebindPrivate.OnBeatTimed(ms)`.
+	local beatStart;
+	BindingDriver.DebindBeatStart = function()
+		beatStart = debugprofilestop();
+	end
+	BindingDriver.DebindBeatEnd = function()
+		local listener = DebindPrivate.OnBeatTimed;
+		if (listener and beatStart) then
+			listener(debugprofilestop() - beatStart);
+		end
+		beatStart = nil;
+	end
 end

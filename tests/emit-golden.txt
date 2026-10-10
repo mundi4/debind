@@ -2987,12 +2987,7 @@ SetAttribute DebindBindingDriver JudgeWatchCheck =
   | self:CallMethod("DebindTestWatchMiss", 13)
   | end
   | end
-SetAttribute DebindBindingDriver _onattributechanged =
-  | if (name == "judgebeat") then
-  | if (value == 0) then
-  | return
-  | end
-  | self:SetAttribute("judgebeat", 0)
+SetAttribute DebindBindingDriver JudgeBeatBody =
   | local wake = true
   | local J = Judge
   | if (not J) then
@@ -3694,6 +3689,15 @@ SetAttribute DebindBindingDriver _onattributechanged =
   | 		end
   | 	end
   | 
+SetAttribute DebindBindingDriver _onattributechanged =
+  | if (name == "judgebeat") then
+  | if (value == 0) then
+  | return
+  | end
+  | self:CallMethod("DebindBeatStart")
+  | self:SetAttribute("judgebeat", 0)
+  | self:RunAttribute("JudgeBeatBody")
+  | self:CallMethod("DebindBeatEnd")
   | return
   | end
   | if (name == "state-giveback") then

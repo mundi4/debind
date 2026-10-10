@@ -505,6 +505,7 @@ local function ApplyBindingPlan(plan)
     driver:SetAttribute("JudgePass", plan.judgePass);
     if (Constants.DEBUG) then
         driver:SetAttribute("JudgeWatchCheck", plan.judgeWatchCheck);
+        driver:SetAttribute("JudgeBeatBody", plan.judgeBeatBody);
     end
 
     driver:SetAttribute("_onattributechanged", plan.attrChangedSnippet);

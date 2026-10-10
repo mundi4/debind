@@ -2125,7 +2125,10 @@ return function(DebindPrivate, _, ctx)
                 action({ type = Constants.GIVEBACK }),
             });
             local handler = interp.driver:GetAttribute("_onattributechanged");
-            check(handler and handler:find("PROBE", 1, true) == nil and handler:find("SecureCmdOptionParse(fragment)", 1, true),
+            -- A development build runs the beat's body from its own attribute.
+            local beat = interp.driver:GetAttribute("JudgeBeatBody") or handler;
+            check(handler and handler:find("PROBE", 1, true) == nil and beat:find("PROBE", 1, true) == nil
+                and beat:find("SecureCmdOptionParse(fragment)", 1, true),
                 "the beat does not parse the units one at a time");
             Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
             TokenMoves();

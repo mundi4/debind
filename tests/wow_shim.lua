@@ -343,6 +343,7 @@ function M.install()
     _G.MAX_ARENA_ENEMIES = 5;
 
     _G.GetTime = function() return 0; end
+    _G.debugprofilestop = function() return 0; end
     _G.GetLocale = function() return "enUS"; end
     _G.UnitClass = function() return "Druid", "DRUID", 11; end
     --- **The units that exist, and which of them are the same unit.** `M.world.units` is

@@ -40,6 +40,9 @@ local _judgePassBody;
 local _judgeWakeBodies = {};
 --- A development build's check of the watch (`PROBE.WatchCheck`), nil where there is none.
 local _judgeWatchCheckBody;
+--- A development build's beat body, run from the handler's branch rather than spliced into it, nil
+--- in a shipped one.
+local _judgeBeatBody;
 --- Does the beat measure any column of this rebuild (`JudgedOnBeat`)?
 local _judgeBeats = false;
 --- What carries the beat in this rebuild: `"visibility"` where the login's check found the manager
@@ -1804,6 +1807,11 @@ local function BuildJudgeSnippet()
         _judgeWatchCheckBody = DebindPrivate.BakeSnippet(tconcat(lines, "\n"));
         AssertSnippetCompiles(_judgeWatchCheckBody, "JudgeWatchCheck");
     end
+    --- **A development build times the beat** (`DebindBeatStart`, `DebindBeatEnd` in `Debind.lua`).
+    --- The body is run as an attribute there, because the judging half returns early on a beat
+    --- where nothing moved and an end spliced after it would be skipped; the timing then holds one
+    --- `RunAttribute` that a shipped build does not pay. The start goes before the turn-back, so its
+    --- second entry is timed inside the first.
     local opening;
     if (_judgeBeatSignal == "visibility") then
         opening = { [[if (name == "statehidden") then]] };
@@ -1813,10 +1821,22 @@ local function BuildJudgeSnippet()
             "if (value == 0) then",
             "return",
             "end",
-            format("self:SetAttribute(%q, 0)", JUDGE_BEAT_ATTRIBUTE),
         };
     end
-    opening[#opening + 1] = beatBody;
+    if (Constants.DEBUG) then
+        opening[#opening + 1] = [[self:CallMethod("DebindBeatStart")]];
+    end
+    if (_judgeBeatSignal ~= "visibility") then
+        opening[#opening + 1] = format("self:SetAttribute(%q, 0)", JUDGE_BEAT_ATTRIBUTE);
+    end
+    if (Constants.DEBUG) then
+        _judgeBeatBody = DebindPrivate.BakeSnippet(beatBody);
+        AssertSnippetCompiles(_judgeBeatBody, "JudgeBeatBody");
+        opening[#opening + 1] = [[self:RunAttribute("JudgeBeatBody")]];
+        opening[#opening + 1] = [[self:CallMethod("DebindBeatEnd")]];
+    else
+        opening[#opening + 1] = beatBody;
+    end
     opening[#opening + 1] = "return";
     opening[#opening + 1] = "end";
     local branch = DebindPrivate.BakeSnippet(tconcat(opening, "\n"));
@@ -1868,6 +1888,7 @@ local function FillJudgePlan(plan)
     plan.judgePass = _judgePassBody;
     plan.judgeWakes = _judgeWakeBodies;
     plan.judgeWatchCheck = _judgeWatchCheckBody;
+    plan.judgeBeatBody = _judgeBeatBody;
 end
 
 --- What a rebuild with no judgment item leaves in place of the bodies: nothing to run.
@@ -1876,6 +1897,7 @@ local function ClearJudgeBodies()
     wipe(_judgeWakeBodies);
     _judgeBeats = false;
     _judgeWatchCheckBody = nil;
+    _judgeBeatBody = nil;
 end
 
 Rebuild.JudgmentEntryFor  = JudgmentEntryFor;
