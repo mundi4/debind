@@ -594,34 +594,16 @@ local function CreateCastingMenu(parentDescription, ctx)
                 end);
         end
 
-        -- **A command or giveback casts at nothing**, so on it the two values that run say what the
-        -- action does instead, and say it once for both: they come to the same press. **A selection
-        -- mixing it with anything else gets no sentence on those two**: none would be true of all.
-        local function isTail(action)
-            return action.type == Constants.GIVEBACK or action.type == Constants.COMMAND;
-        end
-        local tailType;
-        if (AllActions(ctx, function(action) return action.type == Constants.GIVEBACK; end)) then
-            tailType = "GIVEBACK";
-        elseif (AllActions(ctx, function(action) return action.type == Constants.COMMAND; end)) then
-            tailType = "COMMAND";
-        end
-
+        -- **The same sentences on every type, `GIVEBACK` and `COMMAND` included** (2026-10-11,
+        -- owner). A tooltip that changes with the type is one the reader cannot learn, and nobody
+        -- takes those two for aimed actions, so the sentences reach them as whether the action runs
+        -- while they point at a unit. On those types the two values come to the same press, and how
+        -- a unit frame click differs between them is left to the types' own descriptions.
         SetInstructionTooltip(Choice(LLL["CASTING_SKIP"], "skip"), LLL["CASTING_SKIP_DESC"]);
-
-        if (tailType) then
-            local text = LLL["CASTING_HOVER_TAIL_" .. tailType .. "_DESC"];
-            SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"), text);
-            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"), text);
-        elseif (AnyAction(ctx, isTail)) then
-            Choice(LLL["CASTING_POINTED_CAST"], "cast");
-            Choice(LLL["CASTING_AS_USUAL"], "usual");
-        else
-            SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"),
-                withPickedNote(LLL["CASTING_POINTED_CAST_DESC"]));
-            SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
-                withPickedNote(LLL["CASTING_HOVER_USUAL_DESC"]));
-        end
+        SetInstructionTooltip(Choice(LLL["CASTING_POINTED_CAST"], "cast"),
+            withPickedNote(LLL["CASTING_POINTED_CAST_DESC"]));
+        SetInstructionTooltip(Choice(LLL["CASTING_AS_USUAL"], "usual"),
+            withPickedNote(LLL["CASTING_HOVER_USUAL_DESC"]));
 
         hoverDescription:CreateDivider();
     end

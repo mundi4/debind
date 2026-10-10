@@ -1462,13 +1462,6 @@ L["CASTING_HOVER_USUAL_DESC"] = "Pointing at a unit does not send this action to
 L["CASTING_SKIP"] = "Skip this action"
 L["CASTING_SKIP_DESC"] = "The action sits this press out, and the next action on the key takes it."
 L["CASTING_HOVER_CAST_DESC"] = "What this action does while you point at a unit with no key held, and which units count as pointed at."
--- **A command or giveback casts at nothing**, so its two values that run say what it does instead, in
--- one sentence for both: on these types they come to the same press (`ActionMenuItems.lua`). **Only
--- that press**, not "pointing makes no difference": with Normal Cast unticked these values are what
--- the action runs on at all (2026-10-05, review). The unit frame click is said because it is where
--- the two types part.
-L["CASTING_HOVER_TAIL_GIVEBACK_DESC"] = "While you point at a unit, the key does what the game has on it. A click on a unit frame goes to the frame."
-L["CASTING_HOVER_TAIL_COMMAND_DESC"] = "While you point at a unit, the key runs the command. A click on a unit frame does nothing."
 -- **The key decides, so the row says so and stops.** Nothing stored here reaches a bare click, and a
 -- reader who came to change it is owed the reason rather than a row that does nothing.
 L["CASTING_HOVER_BARE_CLICK"] = "A left or right click with no modifier only runs on a unit frame, so this action always casts on the unit you click."

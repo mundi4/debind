@@ -50,7 +50,8 @@ says.
 in its own tooltip.
 
 **What a Give Key Back or WoW Binding action does on these rows is not here.** It casts at nothing,
-and the two values that run say what it does in their own tooltips (`CASTING_HOVER_TAIL_*`).
+and nobody reads these rows as aiming it, so their ordinary tooltips reach a reader as whether it
+runs while they point at a unit (2026-10-11, owner).
 -->
 
 # What do Cast Options do?

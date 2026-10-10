@@ -348,6 +348,43 @@ return function(DebindPrivate, _, harness)
         check(TopRow(root, LLL["ACTION_SET_KEY"]) ~= nil, "an action of the reader's own lost the plain key row");
     end);
 
+    -- **Hover Cast's values say the same thing on every type** (2026-10-11, owner), `GIVEBACK` and
+    -- `COMMAND` included, alone or picked with an action that is aimed.
+    test("Hover Cast's values carry the ordinary sentences on a Give Key Back and a WoW Binding", function()
+        for _, actionType in ipairs({ Constants.GIVEBACK, Constants.COMMAND, "mixed" }) do
+            local action = { type = actionType, value = "TOGGLEGAMEMENU", key = "F" };
+            local picked = { action };
+            if (actionType == "mixed") then
+                action.type = Constants.GIVEBACK;
+                picked[2] = Spell(1);
+            end
+            ResetProfile(picked);
+            local hover;
+            local function Walk(element)
+                for _, child in ipairs(element.children or {}) do
+                    if (hover == nil and child.text == LLL["POINTED_UNIT_CAST"]) then
+                        hover = child;
+                    end
+                    Walk(child);
+                end
+            end
+            Walk(Build(picked));
+            check(hover ~= nil, actionType .. ": no Hover Cast row");
+            for _, pair in ipairs({
+                { LLL["CASTING_POINTED_CAST"], LLL["CASTING_POINTED_CAST_DESC"] },
+                { LLL["CASTING_AS_USUAL"], LLL["CASTING_HOVER_USUAL_DESC"] },
+            }) do
+                local choice = FindChoice(hover, pair[1]);
+                check(choice ~= nil, actionType .. ": no " .. pair[1]);
+                local said = "";
+                for _, line in ipairs(TooltipLines(choice)) do
+                    said = said .. line.text;
+                end
+                check(said:find(pair[2], 1, true) ~= nil, actionType .. ", " .. pair[1] .. " said: " .. said);
+            end
+        end
+    end);
+
     -- **The shared-layer warning stands in every state** (2026-10-11, owner): a line shown only on a
     -- shared layer never reaches whoever read the row on their own one first. So it is asked on a
     -- layer only this character has.
