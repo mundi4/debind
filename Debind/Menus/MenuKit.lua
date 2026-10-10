@@ -32,10 +32,12 @@ MenuKit.TOGGLE = {};
 --- has to say what is locking it, and what that is moves while the menu is open: picking a target
 --- two rows up locks or frees the box below without the description being rebuilt. A string caught
 --- here would be the answer from whenever the menu was assembled.
+--- `text` may be a function, asked each time the tooltip is drawn, for a line naming a value that
+--- can change while the menu stands open.
 function MenuKit.SetInstructionTooltip(description, text, lockReason)
     description:SetTooltip(function(tooltip, elementDescription)
         GameTooltip_SetTitle(tooltip, MenuUtil.GetElementText(elementDescription));
-        GameTooltip_AddInstructionLine(tooltip, text);
+        GameTooltip_AddInstructionLine(tooltip, type(text) == "function" and text() or text);
         local reason = lockReason and lockReason();
         if (reason) then
             GameTooltip_AddBlankLineToTooltip(tooltip);

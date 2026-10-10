@@ -1488,10 +1488,11 @@ L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, i
 -- in the shape of the two it does name.
 L["AUTO_CANCEL_FORM"] = "Auto Cancel Form"
 L["AUTO_DISMOUNT_TEXT"] = "Auto Dismount"
-L["AUTOMATIC_SELF_CAST_DESC"] = "Casting a helpful spell with no friendly target sends it to you."
-L["AUTOMATIC_CANCEL_FORM_DESC"] = "Casting a spell your current form does not allow leaves the form first."
-L["AUTOMATIC_DISMOUNT_DESC"] = "Casting a spell while mounted gets you off the mount first."
-L["AUTOMATIC_DISMOUNT_FLYING_DESC"] = "Casting a spell while flying gets you off the mount first."
+-- **One sentence for all four rows, and it does not explain the feature** (2026-10-11, owner). The
+-- row only turns a game feature on or off for this action, and every player already knows what
+-- dismounting before a cast is; the tooltip's title is the row's name, so the body does not repeat
+-- it. **It does not point at the game's settings panel**: two of the four are not in it.
+L["AUTOMATIC_ROW_DESC"] = "Turns this game feature on or off for this action, or leaves it as the game has it."
 -- **Their own keys, though `DISABLE` says `Off` in this window too.** That one is a condition that
 -- constrains nothing. These are not: the label above them names a setting of the game's, so they
 -- are that setting's two states and nothing else. Kept apart so a translator can use different
@@ -1501,7 +1502,11 @@ L["AUTOMATIC_OFF"] = "Off"
 -- **The third answer, and the one every action starts on.** Named after the row it follows rather
 -- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
 L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
-L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever this is set to in the game's own settings, for this action as for every other."
+-- **It names the value the game has right now** (2026-10-11, owner), as `CASTING_HOVER_ACCOUNT_DESC`
+-- does: for the two rows the settings panel does not offer, this is the only place it can be seen.
+-- `%s` is `AUTOMATIC_ON` or `AUTOMATIC_OFF`, read when the menu is built. **Not "for every other
+-- action"**: another Debind action can set the same feature for itself.
+L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever the game is set to, which is %s right now."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not
 -- literal there; on the middle one it is why the row stands locked, since with a target picked the

@@ -64,10 +64,10 @@ In *Cast Options* in an action's right-click menu, the first four rows each cove
 - *Normal Cast*: a press with no key held. Untick it and the action runs on such a press only while you point at a unit, going where its *Hover Cast* row sends it; with nothing pointed at, the actions below it are tried instead. For an action that, with no key held, runs only on the unit you point at, untick this and set *Hover Cast* to *Cast on the unit you point at*. With *Hover Cast* on *Skip this action* as well, the action never runs, not even with a key held, and the *Overview* tab marks it *Needs checking*. A new action starts ticked.
 
 <!--
-**The automatics get one paragraph, not a list** (2026-09-30). Each row's tooltip already says what it does; what the page adds is that they apply to this action alone and where a new action starts. Two labels are the client's (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and two ours, and all four are rows of our menu, so all four are blue (`writing-a-help-page.md`).
+**The automatics get one paragraph, not a list** (2026-09-30). The feature itself is the game's and every player knows it; what the page adds is that they apply to this action alone and where a new action starts. Two labels are the client's (`AUTO_SELF_CAST_TEXT`, `AUTO_DISMOUNT_FLYING_TEXT`) and two ours, and all four are rows of our menu, so all four are blue (`writing-a-help-page.md`).
 -->
 
-The four rows below them, *Auto Self Cast*, *Auto Cancel Form*, *Auto Dismount* and *Auto Dismount in Flight*, turn that behaviour of the game on or off for this action alone. A new action starts on *Use the game's setting*, which follows the game's own Options.
+The four rows below them, *Auto Self Cast*, *Auto Cancel Form*, *Auto Dismount* and *Auto Dismount in Flight*, turn that behaviour of the game on or off for this action alone. A new action starts on *Use the game's setting*, which follows whatever the game is set to; its tooltip says what that is right now.
 
 <!--
 **The rest is one list after the answer, not grey asides** (2026-09-30, owner). Four grey paragraphs in a row read as one block to skip, and the last is the fix a player with a broken key came for. A plain lead-in line and not a heading, because this page opens from a menu row (`writing-a-help-page.md`).

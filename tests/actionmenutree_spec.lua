@@ -292,6 +292,27 @@ return function(DebindPrivate, _, harness)
         return found;
     end
 
+    --- The first row anywhere under `root` with this label, of whatever kind.
+    local function FindRow(root, text)
+        for _, child in ipairs(root.children or {}) do
+            if (child.text == text) then
+                return child;
+            end
+            local found = FindRow(child, text);
+            if (found) then
+                return found;
+            end
+        end
+    end
+
+    local function TooltipText(element)
+        local said = "";
+        for _, line in ipairs(TooltipLines(element)) do
+            said = said .. line.text;
+        end
+        return said;
+    end
+
     -- **A row a mixed pick shows is written to the actions it applies to alone** (2026-09-23,
     -- owner). The spell beside them has nothing either value could mean.
     test("the spec-resolved rows write only to the actions they apply to", function()
@@ -359,16 +380,7 @@ return function(DebindPrivate, _, harness)
                 picked[2] = Spell(1);
             end
             ResetProfile(picked);
-            local hover;
-            local function Walk(element)
-                for _, child in ipairs(element.children or {}) do
-                    if (hover == nil and child.text == LLL["POINTED_UNIT_CAST"]) then
-                        hover = child;
-                    end
-                    Walk(child);
-                end
-            end
-            Walk(Build(picked));
+            local hover = FindRow(Build(picked), LLL["POINTED_UNIT_CAST"]);
             check(hover ~= nil, actionType .. ": no Hover Cast row");
             for _, pair in ipairs({
                 { LLL["CASTING_POINTED_CAST"], LLL["CASTING_POINTED_CAST_DESC"] },
@@ -376,12 +388,50 @@ return function(DebindPrivate, _, harness)
             }) do
                 local choice = FindChoice(hover, pair[1]);
                 check(choice ~= nil, actionType .. ": no " .. pair[1]);
-                local said = "";
-                for _, line in ipairs(TooltipLines(choice)) do
-                    said = said .. line.text;
-                end
+                local said = TooltipText(choice);
                 check(said:find(pair[2], 1, true) ~= nil, actionType .. ", " .. pair[1] .. " said: " .. said);
             end
+        end
+    end);
+
+    -- **"Use the game's setting" says what the game has now** (2026-10-11, owner): two of the four
+    -- features are in no settings panel. Every row, since each asks the CVar its row is named after.
+    -- The headless locale answers with key names, so the sentence is given a slot for the length of
+    -- the test.
+    test("Use the game's setting names the game's current value", function()
+        local cvars = require("wow_shim").world.cvars;
+        local action = Spell(1);
+        ResetProfile({ action });
+        local root = Build({ action });
+        local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+        local savedText = rawget(LLL, "AUTOMATIC_GAME_SETTING_DESC");
+        local savedCVars = {};
+        for _, row in ipairs(rows) do
+            savedCVars[row] = cvars[row];
+        end
+        rawset(LLL, "AUTOMATIC_GAME_SETTING_DESC", "%s");
+        local ok, err = pcall(function()
+            for _, row in ipairs(rows) do
+                local rowElement = FindRow(root, DebindPrivate.CastAutomaticLabel(row));
+                check(rowElement ~= nil, "no row for " .. row);
+                local choice = FindChoice(rowElement, LLL["AUTOMATIC_GAME_SETTING"]);
+                check(choice ~= nil, row .. ": no " .. LLL["AUTOMATIC_GAME_SETTING"]);
+                -- Asked twice on the one menu: the value is read as the tooltip is drawn.
+                for _, value in ipairs({ true, false }) do
+                    cvars[row] = value;
+                    local said = TooltipText(choice);
+                    local wanted = LLL[value and "AUTOMATIC_ON" or "AUTOMATIC_OFF"];
+                    check(said:find(wanted, 1, true) ~= nil,
+                        row .. " " .. tostring(value) .. ": the value said " .. said);
+                end
+            end
+        end);
+        rawset(LLL, "AUTOMATIC_GAME_SETTING_DESC", savedText);
+        for _, row in ipairs(rows) do
+            cvars[row] = savedCVars[row];
+        end
+        if (not ok) then
+            error(err, 0);
         end
     end);
 

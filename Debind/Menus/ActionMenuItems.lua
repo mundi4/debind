@@ -665,37 +665,35 @@ local function CreateCastingMenu(parentDescription, ctx)
     -- owner). A value set there is kept and does nothing (`CastAutomaticsBlockedReason`), so the
     -- press comes out the same whatever the reader picks, and knowing would change nothing. The
     -- unit rows above are unlike that: on them the label promises a unit the action does not use.
-    for _, row in ipairs({
-        { row = "autoSelfCast", instruction = LLL["AUTOMATIC_SELF_CAST_DESC"] },
-        { row = "autoUnshift", instruction = LLL["AUTOMATIC_CANCEL_FORM_DESC"] },
-        { row = "autoDismount", instruction = LLL["AUTOMATIC_DISMOUNT_DESC"] },
-        { row = "autoDismountFlying", instruction = LLL["AUTOMATIC_DISMOUNT_FLYING_DESC"] },
-    }) do
+    for _, row in ipairs(DebindPrivate.CAST_AUTOMATIC_ROWS) do
         local rowDescription = ActionMenus:BuildNode(description, {
-            label = DebindPrivate.CastAutomaticLabel(row.row),
-            instruction = row.instruction,
+            label = DebindPrivate.CastAutomaticLabel(row),
+            instruction = LLL["AUTOMATIC_ROW_DESC"],
             isActive = function()
                 return AnyAction(ctx, function(action)
-                    return DebindPrivate.CastAutomaticOf(action, row.row) ~= nil;
+                    return DebindPrivate.CastAutomaticOf(action, row) ~= nil;
                 end);
             end,
             valueOf = function(action)
-                return DebindPrivate.CastAutomaticOf(action, row.row);
+                return DebindPrivate.CastAutomaticOf(action, row);
             end,
         }, ctx);
 
         local function Choice(text, choice)
             return CreateRadio(rowDescription, ctx, text,
                 function()
-                    return CastAutomaticIs(ctx, row.row, choice);
+                    return CastAutomaticIs(ctx, row, choice);
                 end,
                 function()
-                    return SetCastAutomatic(ctx, row.row, choice);
+                    return SetCastAutomatic(ctx, row, choice);
                 end);
         end
 
-        SetInstructionTooltip(Choice(LLL["AUTOMATIC_GAME_SETTING"], nil),
-            LLL["AUTOMATIC_GAME_SETTING_DESC"]);
+        -- The row's name is the CVar's (`CAST_AUTOMATIC_ROWS`), read as the tooltip is drawn.
+        SetInstructionTooltip(Choice(LLL["AUTOMATIC_GAME_SETTING"], nil), function()
+            return format(LLL["AUTOMATIC_GAME_SETTING_DESC"],
+                LLL[GetCVarBool(row) and "AUTOMATIC_ON" or "AUTOMATIC_OFF"]);
+        end);
         Choice(LLL["AUTOMATIC_ON"], true);
         Choice(LLL["AUTOMATIC_OFF"], false);
     end
