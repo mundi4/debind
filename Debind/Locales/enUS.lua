@@ -1587,7 +1587,11 @@ L["TYPE_SETCUSTOM_DESC"] = "Pins the unit whose frame you are hovering over as t
 L["TYPE_SETCUSTOM"] = "Set Custom Target"
 L["TYPE_SETCUSTOM1"] = "Set Custom Target 1"
 L["TYPE_SETCUSTOM2"] = "Set Custom Target 2"
-L["TYPE_SETSWITCH_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or flips it.|n|nThe key works |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
+L["TYPE_SETSWITCH_DESC"] = "Turns a Switch on or off. A Switch is an on/off value of your own that other actions take as a condition, so one key does one thing while it is on and another while it is off.|n|nRight-click it once it is in to pick which Switch it works, and whether the key turns that Switch on, turns it off, or toggles it.|n|nThe key works |cnHIGHLIGHT_FONT_COLOR:in combat|r too."
+-- The same action's row in its own right-click menu. **Not `TYPE_SETSWITCH_DESC`**, which is written
+-- for the picker: it explains what a Switch is and tells the reader to right-click, and whoever reads
+-- this has done both. **"Toggles"**, as the radio under this row says (`SWITCH_ACTION_TOGGLE`).
+L["TYPE_SETSWITCH_ROW_DESC"] = "Which Switch this action works, and whether the key turns it on, turns it off, or toggles it."
 L["TYPE_SETSWITCH_ANY"] = "a Switch"
 L["TYPE_SETSWITCH_OFF"] = "Turn Off %s"
 L["TYPE_SETSWITCH_ON"] = "Turn On %s"

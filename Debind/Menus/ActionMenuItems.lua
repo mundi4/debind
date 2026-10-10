@@ -167,7 +167,7 @@ local function CreateSetSwitchMenuItem(parentDescription, ctx)
     -- right issue code and then print `BINDING_ERROR_UNDEFINED_SWITCH` with its `%s` unfilled.
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "TYPE_SETSWITCH",
-        instruction = LLL["TYPE_SETSWITCH_DESC"],
+        instruction = LLL["TYPE_SETSWITCH_ROW_DESC"],
         blocked = function()
             return SomeCannotReason(acceptance);
         end,

@@ -478,6 +478,15 @@ return function(DebindPrivate, _, harness)
         end
     end
 
+    test("the Switch row says what it picks rather than what a Switch is", function()
+        local actions = ResetProfile({ { type = Constants.SETSWITCH_ON, key = "F" } });
+        local row = TopRow(Build(actions), LLL["TYPE_SETSWITCH"]);
+        check(row ~= nil, "no Switch row");
+        local said = TooltipText(row);
+        check(said:find(LLL["TYPE_SETSWITCH_ROW_DESC"], 1, true) ~= nil, "the row said: " .. said);
+        check(said:find(LLL["TYPE_SETSWITCH_DESC"], 1, true) == nil, "the row said the picker's sentence: " .. said);
+    end);
+
     test("the Switch row says which of the two ways it is wrong, in words", function()
         local actions = ResetProfile({
             { type = Constants.SETSWITCH_ON, key = "F" },
