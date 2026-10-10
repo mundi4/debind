@@ -348,6 +348,34 @@ return function(DebindPrivate, _, harness)
         check(TopRow(root, LLL["ACTION_SET_KEY"]) ~= nil, "an action of the reader's own lost the plain key row");
     end);
 
+    -- **The shared-layer warning stands in every state** (2026-10-11, owner): a line shown only on a
+    -- shared layer never reaches whoever read the row on their own one first. So it is asked on a
+    -- layer only this character has.
+    test("the Importance row warns about shared layers on a character's own layer, and links the order page", function()
+        local actions = ResetProfile({ Spell(1) });
+        local layerID = DebindPrivate.GetLayerID(0, true);
+        local layer = DebindPrivate.GetProfileLayer(layerID);
+        check(layer ~= nil and layer.isCharacterSpecific, "no character layer to ask on");
+
+        local row = TopRow(BuildIn(actions, { layer = layerID }), LLL["IMPORTANCE"]);
+        check(row ~= nil, "no Importance row");
+        local said = "";
+        for _, line in ipairs(TooltipLines(row)) do
+            if (line.kind == "instruction") then
+                said = said .. line.text;
+            end
+        end
+        check(said:find(LLL["IMPORTANCE_SHARED_WARNING"], 1, true) ~= nil, "the row said: " .. said);
+
+        local help;
+        for _, child in ipairs(row.children) do
+            if (child.text == DebindPrivate.MenuKit.HelpLinkText(LLL["HELP_ORDERING_TITLE"])) then
+                help = child;
+            end
+        end
+        check(help ~= nil, "no link to the order page under the Importance radios");
+    end);
+
     --- The issue a node reports is a **code**, and the family turns it into a sentence
     --- (`resolveIssue` in ActionMenuModel.lua). A node that handed over the finished sentence
     --- instead had it run through the resolver a second time, and the reader got the locale key

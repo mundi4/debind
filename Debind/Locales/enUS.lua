@@ -580,8 +580,7 @@ L["KEY_GROUP_CONFLICT"] = "|cnHIGHLIGHT_FONT_COLOR:%2$s|r already has |cnHIGHLIG
 ---
 --- **Only then, because most of the time it is not true**, and a dialog that warns about other
 --- characters every time teaches the reader to stop reading it. The test is the layer's own
---- `isCharacterSpecific`, the same one the importance menu asks before it warns
---- (`IMPORTANCE_SHARED_WARNING`).
+--- `isCharacterSpecific`.
 ---
 --- **It does not name the button.** Spelling out what [Overwrite] says leaves this sentence pointing
 --- at something that is not there the day that word changes, and a line here has already died that
@@ -909,29 +908,21 @@ L["ORDER_LAYER_LABEL"] = "%1$s / %2$s"
 L["ORDER_LINE_TOOLTIP_INSTRUCTION_GOTO"] = "Left-click to go to this action. Hold CTRL or SHIFT while clicking to select more than one."
 L["OTHER_OPTIONS"] = "Other Options"
 L["PET"] = "Pet"
--- **The subject of item 3 is not "the one bound first".** A copy, a move and a move to another
--- layer all land at the end of the key group (`Profile.lua`'s `PlaceInKeyGroup`), so "added" is
--- what is true.
+-- The Importance row's tooltip, two lines (`CreateImportanceMenu`). Importance is this addon's own
+-- idea, so the first line says what it is: **that it comes before every other rule, and that it is
+-- the last thing to reach for** (2026-10-10, owner, `ordering.md`). The full order is that help
+-- page's, linked from the bottom of the submenu.
 --
--- **The arrows are not named.** A sentence spelling out another control's label goes on pointing at
--- it after a rename.
-L["IMPORTANCE_DESC"] = "The same key can be assigned to more than one action. When you press it, Debind tries them in order and runs the first one whose conditions are met. Only one of them ever runs.|n|nImportance is compared first, so it beats everything below it. Between actions that are equally important, the order is decided by:|n|n1. Conditions. An action with conditions is tried before one without.|n2. Tab. The more specific tab is tried first, from this character and specialization down to Account.|n3. Order. When everything above is equal, an action added to the key goes last. This is the only step you can move an action within."
--- 끝의 이유절에 **주어를 세웠다.** 원래는 "their own bindings are not loaded this session"이라
--- 누가 안 불러왔는지가 없었는데, 3.1 전까지는 읽을 갈래가 하나뿐이라 그래도 됐다 - 캐릭터
--- 전용 지정이 진짜 캐릭터별 SavedVariables(`DebounceVarsPerChar`)에 있어서, 그 캐릭터로
--- 접속하지 않은 세션에는 **디스크에서 올라오지도 않았다.**
+-- "Change it only when" rather than "change it last", which reads as an order of steps.
+L["IMPORTANCE_DESC"] = "Sets which action on a key is tried first, over every other ordering rule. Change it only when layers and conditions cannot give you the order you want."
+-- **Always shown, on every layer** (2026-10-11, owner): a line that appears in one state reaches
+-- only the readers who arrive in it. The opening clause carries the condition, so it stays true on a
+-- character's own layer.
 --
--- 3.1이 그걸 계정 파일 하나로 접었다(`DebindVars.characters[guid]`). 이제 부캐 지정도 로그인
--- 때 통째로 메모리에 올라오고 세션 내내 거기 있다 - `CleanUpDB`도 지금 guid 한 칸만 만진다.
--- 안 하는 것은 그걸 `LayerArray`로 짓는 일뿐이다(`Profile.lua`의 `InitDB`).
---
--- 그래서 주어 없는 원문이 **"우리가 안 읽었다"로 읽으면 참, "파일에서 안 올라왔다"로 읽으면
--- 거짓**이 됐다. 문장이 스스로 어느 쪽인지 못 정한다. 하필 이 줄은 계정 전체를 바꾼다는
--- 경고에 붙어서 "숨기는 게 아니라 여기 없는 것"이라는 안심을 맡고 있는데, 계정 파일 하나에
--- 부캐 지정이 다 들어 있는 것을 나중에 본 사람에게 그 안심은 얼버무린 것이 된다.
---
--- 낱말은 그대로 "load"를 쓴다. 갈라진 것은 낱말이 아니라 빠진 주어였다.
-L["IMPORTANCE_SHARED_WARNING"] = "This action lives in the Account tab, so its importance does too: it changes the order this action is tried on EVERY key it is bound to, on EVERY character of this account. What happens on your other characters cannot be shown here -- Debind only loads the bindings of the character you are on."
+-- **It says why only Importance gets a warning.** Every other setting on a shared layer comes out
+-- the same whichever character looks at it. An order is relative, and on another character what it
+-- is relative to is that character's own actions, which this window does not load.
+L["IMPORTANCE_SHARED_WARNING"] = "In a layer other characters share, this also changes the action's place among each character's own actions on that key. This window cannot show those."
 L["OVERVIEW"] = "Overview"
 -- 이름표에 매달린 툴팁. 열 이름이 한 낱말이라 이 열의 규칙을 말할 자리가 여기밖에 없다.
 --
@@ -1018,8 +1009,8 @@ L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 --
 -- **The second half is the rule, not the comparison.** They all once ended "...is compared before
 -- the order on this key", but a ladder of comparisons is not an idea the reader has, so that
--- sentence answered nothing and only said what we compare first. The whole ladder is in
--- IMPORTANCE_DESC, reachable from the same screen.
+-- sentence answered nothing and only said what we compare first. The whole ladder is the ordering
+-- help page's (`ordering.md`), linked from the Importance submenu.
 --
 -- **None of them says "always".** Everything under Importance has another step above it, which
 -- would make "always" false. Each states its own step's rule and stops.
@@ -1240,11 +1231,9 @@ L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"] = "While the House Editor is open, the key
 -- not something a checkbox can promise.
 -- What one switch is set to, on the right of the Switches tab.
 --
--- ⚠ **Not "tab", which is what this said first.** IMPORTANCE_DESC calls a layer a tab, and it is right
--- to: that line compares two actions by *where they were put*. These answer *when does this
--- apply*, the Switches tab has no side tabs to point at, and an override does not live in the tab it
--- names -- copying a tab copies actions and leaves the override behind (§4-7-1). Naming the tab
--- would promise the opposite.
+-- ⚠ **Not "tab".** These answer *when does this apply*, the Switches tab has no side tabs to point
+-- at, and an override does not live in the tab it names -- copying a tab copies actions and leaves
+-- the override behind (§4-7-1). Naming the tab would promise the opposite.
 --
 -- **The axis has no name here, only its values**: a class, a specialization, a character. That is
 -- the `reaction` move in `writing-user-facing-text.md`, and it is what keeps the sentence

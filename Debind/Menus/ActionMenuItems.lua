@@ -723,30 +723,19 @@ local function CreateCastingMenu(parentDescription, ctx)
     MenuKit.CreateHelpButton(description, "targeting", LLL["HELP_TARGETING_TITLE"]);
 end
 
---- Importance is **the value with the widest reach** in this menu, on both axes: it reorders every
---- key this action is on (not only this one), and on a shared layer it does so for every character
---- on the account.
----
---- The title line's warning can only say the first of those. The second is written nowhere on
---- screen, and the reader who came to this list is thinking about this key's order, which is exactly
---- where it misses. So it rides the item's tooltip, where it is read while the hand is on the radio.
+--- **The one value here whose result depends on which character looks at it.** Everything else on
+--- a shared layer comes out the same on every character; an order is relative, and on another
+--- character the action is ordered among that character's own actions on the key, which this
+--- window does not load. So the row's tooltip says so on every layer (`IMPORTANCE_SHARED_WARNING`),
+--- where it is read while the hand is on the radio.
 ---
 --- **One action at a time.** Raised on a dozen at once, their order among themselves stays put while
 --- their order against everything left unpicked turns over, on keys the reader is not looking at.
 local function CreateImportanceMenu(rootDescription, ctx)
-    -- `rawget`이라 없으면 nil이다(로케일 표의 __index를 건너뛴다). 이어붙이기 전에
-    -- 갈라서 둔다 - 번역본 한 줄이 빠졌다고 메뉴가 통째로 터지면 안 된다.
-    local instruction = rawget(LLL, "IMPORTANCE_DESC");
-    local layer = ctx.layer and DebindPrivate.GetProfileLayer(ctx.layer);
-    if (layer and not layer.isCharacterSpecific) then
-        local warning = LLL["IMPORTANCE_SHARED_WARNING"];
-        instruction = instruction and (instruction .. "|n|n" .. warning) or warning;
-    end
-
     local description = ActionMenus:BuildNode(rootDescription, {
         label = "IMPORTANCE",
         key = "priority",
-        instruction = instruction,
+        instruction = LLL["IMPORTANCE_DESC"] .. "|n|n" .. LLL["IMPORTANCE_SHARED_WARNING"],
         blocked = OnlyOneReason,
         isActive = function()
             local action = ctx.actions[1];
@@ -772,6 +761,9 @@ local function CreateImportanceMenu(rootDescription, ctx)
             end
         );
     end
+
+    description:CreateDivider();
+    MenuKit.CreateHelpButton(description, "ordering", LLL["HELP_ORDERING_TITLE"]);
 end
 
 --- Taking the badge off imported actions, which is what makes them fire.

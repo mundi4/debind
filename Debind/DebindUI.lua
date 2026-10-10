@@ -6272,8 +6272,7 @@ end
 
 --- Is any of what already holds the key **shared with other characters**.
 ---
---- The layer's own `isCharacterSpecific`, which is the same question the importance menu asks before
---- it warns (`IMPORTANCE_SHARED_WARNING`). Two of the eleven layers belong to the class and one to the
+--- The layer's own `isCharacterSpecific`. Two of the eleven layers belong to the class and one to the
 --- account, so "take the key from them" can reach every character the reader has - and the count in
 --- the prompt above cannot show that on its own.
 local function AnySharedOccupant(occupants)
