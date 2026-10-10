@@ -173,8 +173,6 @@ Constants.INVALID                         = "invalid";
 ---   `pet`       the pet bar's `index`th action, which is `CastPetAction(index)` and no slot at all;
 ---               nothing while there is no pet
 ---   `stance`    the `index`th stance, pressed through `button` (`StanceBar:Select` is plain Lua)
----   `button`    the bar button a flyout slot is handed to, since `type=action` cannot open one
----   `override`  the skinned override bar's button, which shows the main bar's first six
 ---   `petBattle` the pet battle button pressed in its place during a pet battle, as
 ---               `PetBattleFrame_ButtonDown(id)` numbers them. Past the fifth there is none, and the
 ---               press does nothing, as the binding's own does (`SecureBindings.lua`'s
@@ -185,25 +183,15 @@ Constants.ACTION_BUTTON_COMMANDS          = {};
 do
     local commands = Constants.ACTION_BUTTON_COMMANDS;
     for i = 1, 12 do
-        commands["ACTIONBUTTON" .. i] = { index = i, button = "ActionButton" .. i,
-            override = i <= 6 and ("OverrideActionBarButton" .. i) or nil, petBattle = i };
+        commands["ACTIONBUTTON" .. i] = { index = i, petBattle = i };
     end
-    local FIXED_BARS = {
-        { "MultiBarBottomLeftButton", 6 },
-        { "MultiBarBottomRightButton", 5 },
-        { "MultiBarRightButton", 3 },
-        { "MultiBarLeftButton", 4 },
-        { "MultiBar5Button", 13 },
-        { "MultiBar6Button", 14 },
-        { "MultiBar7Button", 15 },
-    };
-    for bar = 1, #FIXED_BARS do
+    local FIXED_BAR_PAGES = { 6, 5, 3, 4, 13, 14, 15 };
+    for bar = 1, #FIXED_BAR_PAGES do
         for i = 1, 12 do
-            commands["MULTIACTIONBAR" .. bar .. "BUTTON" .. i] = { index = i,
-                page = FIXED_BARS[bar][2], button = FIXED_BARS[bar][1] .. i };
+            commands["MULTIACTIONBAR" .. bar .. "BUTTON" .. i] = { index = i, page = FIXED_BAR_PAGES[bar] };
         end
     end
-    commands.EXTRAACTIONBUTTON1 = { index = 1, extra = true, button = "ExtraActionButton1" };
+    commands.EXTRAACTIONBUTTON1 = { index = 1, extra = true };
     for i = 1, 10 do
         commands["BONUSACTIONBUTTON" .. i] = { index = i, pet = true };
         commands["SHAPESHIFTBUTTON" .. i] = { index = i, stance = true, button = "StanceButton" .. i };

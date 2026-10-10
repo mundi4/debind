@@ -180,6 +180,8 @@ HandoffBindings = nil
 HandoffWinner = nil
 HandoffUnitFrameUnit = nil
 wipe(DeferredMacroTexts)
+-- A flyout whose last slot went empty has to lose its opener here, since the rebuild only adds.
+wipe(FlyoutOpeners)
 wipe(SwitchExpressions)
 wipe(SwitchEntries)
 wipe(ComputedSwitches)

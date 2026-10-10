@@ -94,7 +94,8 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 	ActionSlots = newtable()
-	OverrideActionBar = self:GetFrameRef("overrideActionBar")
+
+	FlyoutOpeners = newtable()
 
 
 	PetBattleButtons = newtable()
@@ -1601,11 +1602,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				end
 			end
 			local slot = actionSlot.index + (page - 1) * 12
-			if (GetActionInfo(slot) == "flyout") then
-				slotButton = actionSlot.bar
-				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
-					slotButton = actionSlot.overrideBar
-				end
+			local kind, flyoutID = GetActionInfo(slot)
+			if (kind == "flyout") then
+				slotButton = FlyoutOpeners[flyoutID]
 				if (not slotButton) then
 					return false
 				end
@@ -2302,11 +2301,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				end
 			end
 			local slot = actionSlot.index + (page - 1) * 12
-			if (GetActionInfo(slot) == "flyout") then
-				slotButton = actionSlot.bar
-				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
-					slotButton = actionSlot.overrideBar
-				end
+			local kind, flyoutID = GetActionInfo(slot)
+			if (kind == "flyout") then
+				slotButton = FlyoutOpeners[flyoutID]
 				if (not slotButton) then
 					return false
 				end
@@ -2912,11 +2909,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				end
 			end
 			local slot = actionSlot.index + (page - 1) * 12
-			if (GetActionInfo(slot) == "flyout") then
-				slotButton = actionSlot.bar
-				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
-					slotButton = actionSlot.overrideBar
-				end
+			local kind, flyoutID = GetActionInfo(slot)
+			if (kind == "flyout") then
+				slotButton = FlyoutOpeners[flyoutID]
 				if (not slotButton) then
 					return false
 				end
@@ -3426,11 +3421,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 				end
 			end
 			local slot = actionSlot.index + (page - 1) * 12
-			if (GetActionInfo(slot) == "flyout") then
-				slotButton = actionSlot.bar
-				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
-					slotButton = actionSlot.overrideBar
-				end
+			local kind, flyoutID = GetActionInfo(slot)
+			if (kind == "flyout") then
+				slotButton = FlyoutOpeners[flyoutID]
 				if (not slotButton) then
 					return false
 				end
@@ -4581,6 +4574,8 @@ HandoffBindings = nil
 HandoffWinner = nil
 HandoffUnitFrameUnit = nil
 wipe(DeferredMacroTexts)
+
+wipe(FlyoutOpeners)
 wipe(SwitchExpressions)
 wipe(SwitchEntries)
 wipe(ComputedSwitches)

@@ -38,6 +38,8 @@ M.world = {
     mounts = {},
     callPetSlots = {},
     flyouts = {},
+    --- The ids in `flyouts` the spellbook holds, in book order. Only the retail book has them.
+    bookFlyouts = {},
     inCombat = false,
     bindings = {},
     units = {},
@@ -52,7 +54,8 @@ M.world = {
     --- The dialogs `StaticPopup_Show` was asked for, in order, as `{ which, ... }`.
     popups = {},
     --- `{ name =, spells = { spellID… } }` per profession the character has, in `GetProfessions`
-    --- order. Its spells are not in `spellbook`: the client keeps them past every skill line.
+    --- order, with a flyout among its spells as `{ flyoutID = id }`. Its spells are not in
+    --- `spellbook`: the client keeps them past every skill line.
     professions = {},
     --- `GetModifiedClick`'s answers, `[action] = "ALT" | "CTRL" | "SHIFT" | "NONE"`. Reset to
     --- SELFCAST on CTRL and FOCUSCAST on ALT: the game's own default puts both on ALT, where the
@@ -712,10 +715,20 @@ function M.install()
         return ids;
     end
 
+    --- The first line's items: its spells, then each of `bookFlyouts` as `{ flyoutID = id }`, the
+    --- shape a flyout's slot has everywhere in the book.
+    local function BookItems()
+        local items = BookSlots();
+        for _, flyoutID in ipairs(M.world.bookFlyouts) do
+            items[#items + 1] = { flyoutID = flyoutID };
+        end
+        return items;
+    end
+
     --- The book's slots and, past them, each profession's, which is where the client keeps those:
     --- outside every skill line, reached through `GetProfessionInfo`'s offset.
     local function AllSlots()
-        local ids = BookSlots();
+        local ids = BookItems();
         for _, profession in ipairs(M.world.professions) do
             for _, spellID in ipairs(profession.spells) do
                 ids[#ids + 1] = spellID;
@@ -734,7 +747,7 @@ function M.install()
     _G.GetProfessionInfo = function(index)
         local profession = M.world.professions[index];
         if (not profession) then return nil; end
-        local offset = #BookSlots();
+        local offset = #BookItems();
         for i = 1, index - 1 do
             offset = offset + #M.world.professions[i].spells;
         end
@@ -1016,7 +1029,7 @@ function M.install()
         end,
         --- `M.world.spellbook` again, this time as the **skill-line walk** sees it: one
         --- player-bank line holding every id in it, in id order so a slot number means the same
-        --- thing on two reads. What a spell is learned at comes off
+        --- thing on two reads, and `bookFlyouts` after them. What a spell is learned at comes off
         --- `M.world.spells[id].levelLearned`, and an id without one answers no level at all --
         --- the shape `Spells` reads as a spell the book cannot date.
         --- No pet, which is what a spec that does not stand one up gets. The client answers nil
@@ -1025,11 +1038,14 @@ function M.install()
         GetNumSpellBookSkillLines = function() return 1; end,
         GetSpellBookSkillLineInfo = function(index)
             if (index ~= 1) then return nil; end
-            return { itemIndexOffset = 0, numSpellBookItems = #BookSlots() };
+            return { itemIndexOffset = 0, numSpellBookItems = #BookItems() };
         end,
         GetSpellBookItemInfo = function(slot, bank)
             local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             if (not spellID) then return nil; end
+            if (type(spellID) == "table") then
+                return { actionID = spellID.flyoutID, itemType = Enum.SpellBookItemType.Flyout };
+            end
             local spell = M.world.spells[spellID];
             return {
                 spellID = spellID,
@@ -1042,6 +1058,12 @@ function M.install()
             local spellID = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
             local spell = spellID and M.world.spells[spellID];
             return spell and spell.levelLearned;
+        end,
+        --- A flyout's own picture, `M.world.flyouts[id].icon`. Only a flyout's row is asked.
+        GetSpellBookItemTexture = function(slot, bank)
+            local item = bank == Enum.SpellBookSpellBank.Player and AllSlots()[slot];
+            local flyout = type(item) == "table" and M.world.flyouts[item.flyoutID];
+            return flyout and flyout.icon;
         end,
     };
     --- **Only camelot has spell ranks, and only it has this call.** A low rank is an id in
@@ -1075,7 +1097,8 @@ function M.install()
             return { name = "Druid", iconID = 625999, itemIndexOffset = 0, numSpellBookItems = 0 };
         end
     end
-    --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`; a
+    --- A flyout and its slots. `M.world.flyouts[id]` is `{ name =, slots = { spellID… } }`, with
+    --- `known = false` for one this character has not learned; a
     --- flyout the world does not name answers with no slot count at all, which is the "not
     --- learned" case and the one that makes `SetBindingAttributes` refuse to bind the key.
     ---
@@ -1088,7 +1111,7 @@ function M.install()
             error("No flyout found for ID=" .. tostring(flyoutID), 2);
         end
         if (not flyout) then return; end
-        return flyout.name, flyout.description, #flyout.slots, true;
+        return flyout.name, flyout.description, #flyout.slots, flyout.known ~= false;
     end
     _G.GetFlyoutSlotInfo = function(flyoutID, slot)
         local flyout = M.world.flyouts[flyoutID];

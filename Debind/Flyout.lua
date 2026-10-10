@@ -323,15 +323,22 @@ end
 -- 짓기
 --------------------------------------------------------------------------------
 
---- 홀더 하나를 지금의 주문서 내용으로 다시 채운다. **전투 밖에서만 부른다.**
+--- The rows `RebuildFlyout` reads, refilled on every call.
+local _slots = {};
+
+--- Fills one holder from the spellbook as it stands now. **Out of combat only.**
 ---
---- 버튼은 재사용한다 - 야수를 한 마리 길들일 때마다 프레임을 새로 만들면 로그인 세션 하나에
---- 쓰레기가 쌓인다. 슬롯이 줄면 남는 버튼은 숨긴다.
+--- Buttons are reused: a frame made on every tamed beast would pile up over a session. Slots that
+--- went away hide theirs.
 ---
---- **"쓸 수 있느냐"가 뒤집혔으면 참을 돌려준다.** 그 경계에서 바인딩을 다시 걸어야 하기
---- 때문이다 - 아래 `RebuildAll`이 그 일을 한다.
+--- **What has not changed is not written again.** Every flyout this character knows has an entry
+--- once an action button action reaches a slot (`GetBookFlyoutOpeners`), and every one is rebuilt
+--- on each `SPELLS_CHANGED`, which fires often; nearly all of those change nothing.
+---
+--- **Answers true when whether it opens anything flipped**, since a key has to be bound again at
+--- that edge; `RebuildAll` does that.
 local function RebuildFlyout(entry, flyoutID)
-	local slots = DebindPrivate.GetFlyoutCastableSlots(flyoutID);
+	local slots = DebindPrivate.GetFlyoutCastableSlots(flyoutID, _slots);
 	local holder, buttons = entry.holder, entry.buttons;
 	local numSlots = #slots;
 	local wasUsable = entry.numSlots > 0;
@@ -342,38 +349,45 @@ local function RebuildFlyout(entry, flyoutID)
 		if (not button) then
 			button = CreateSlotButton(holder, i);
 			buttons[i] = button;
-		end
-
-		button:ClearAllPoints();
-		if (i == 1) then
-			button:SetPoint("TOP", holder, "TOP", 0, -END_PADDING);
-		else
-			button:SetPoint("TOP", buttons[i - 1], "BOTTOM", 0, -SPACING);
+			if (i == 1) then
+				button:SetPoint("TOP", holder, "TOP", 0, -END_PADDING);
+			else
+				button:SetPoint("TOP", buttons[i - 1], "BOTTOM", 0, -SPACING);
+			end
 		end
 
 		-- Set by name. Some spells share a name under different ids, and set by id one of them
 		-- does not go out in another specialization. The same rule as the `Constants.SPELL`
 		-- branch in `ButtonAttributes.lua`, and `GetFlyoutCastableSlots` is the one place the value
 		-- is made.
-		button:SetAttribute("spell", slot.cast);
+		if (button.cast ~= slot.cast) then
+			button:SetAttribute("spell", slot.cast);
+			button.cast = slot.cast;
+		end
 		button.spellID = slot.spellID;
-		button.icon:SetTexture(slot.icon);
+		if (button.iconID ~= slot.icon) then
+			button.icon:SetTexture(slot.icon);
+			button.iconID = slot.icon;
+		end
 		button:Show();
 	end
 
 	for i = numSlots + 1, #buttons do
-		buttons[i]:Hide();
-		buttons[i]:SetAttribute("spell", nil);
-		buttons[i].spellID = nil;
+		local button = buttons[i];
+		if (button.cast ~= nil) then
+			button:Hide();
+			button:SetAttribute("spell", nil);
+			button.cast = nil;
+			button.spellID = nil;
+		end
 	end
 
-	entry.numSlots = numSlots;
-
-	if (numSlots > 0) then
+	if (numSlots > 0 and numSlots ~= entry.numSlots) then
 		holder:SetSize(
 			CROSS_SIZE,
 			numSlots * BUTTON_SIZE + (numSlots - 1) * SPACING + END_PADDING * 2);
 	end
+	entry.numSlots = numSlots;
 
 	-- 슬롯이 하나도 없으면 손잡이를 눌러도 빈 상자만 뜬다. 프레임 참조를 끊어서
 	-- 스니펫이 첫 줄에서 되돌아가게 한다 - 목록에 있는데 눌러도 아무 일이 없는 것보다
@@ -381,9 +395,9 @@ local function RebuildFlyout(entry, flyoutID)
 	--
 	-- 끊는 쪽은 속성을 직접 지운다. `SecureHandlerSetFrameRef`는 nil을 받으면
 	-- `Invalid reference frame`으로 죽는다(`SecureHandlers.lua:715`).
-	if (numSlots > 0) then
+	if (numSlots > 0 and not wasUsable) then
 		SecureHandlerSetFrameRef(entry.opener, "holder", holder);
-	else
+	elseif (numSlots == 0 and wasUsable) then
 		entry.opener:SetAttribute("frameref-holder", nil);
 	end
 
@@ -532,33 +546,83 @@ local IsEmptyCallPetSlot = DebindPrivate.IsEmptyCallPetSlot;
 local FlyoutIcons = {};
 local flyoutIconsSwept = false;
 
-local function SweepFlyoutIconsInBank(first, last, bank)
+local function ForEachBookFlyoutInBank(first, last, bank, fn, arg)
 	for slotIndex = first, last do
 		local info = C_SpellBook.GetSpellBookItemInfo(slotIndex, bank);
 		if (info and info.itemType == Enum.SpellBookItemType.Flyout) then
-			local icon = C_SpellBook.GetSpellBookItemTexture(slotIndex, bank);
-			if (icon) then
-				FlyoutIcons[info.actionID] = icon;
-			end
+			fn(arg, info.actionID, slotIndex, bank);
 		end
 	end
 end
 
-local function SweepFlyoutIcons()
+local function ForEachProfessionFlyout(professionIndex, fn, arg)
+	if (professionIndex) then
+		local _, _, _, _, numSpells, spellOffset = GetProfessionInfo(professionIndex);
+		ForEachBookFlyoutInBank(spellOffset + 1, spellOffset + (numSpells or 0),
+			Enum.SpellBookSpellBank.Player, fn, arg);
+	end
+end
+
+--- `fn(arg, flyoutID, slotIndex, bank)` for every flyout in the spellbook, the pet's and the
+--- professions' included. **The professions' slots sit past every skill line**, reached through
+--- `GetProfessionInfo`'s offset (`ActionCatalog.lua`'s `AddProfessionSpells`), and a flyout there
+--- can be put on a bar like any other.
+local function ForEachBookFlyout(fn, arg)
 	local playerBank = Enum.SpellBookSpellBank.Player;
 	local numSkillLines = C_SpellBook.GetNumSpellBookSkillLines() or 0;
 	for skillLineIndex = 1, numSkillLines do
 		local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(skillLineIndex);
 		if (skillLineInfo) then
-			SweepFlyoutIconsInBank(skillLineInfo.itemIndexOffset + 1,
-				skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems, playerBank);
+			ForEachBookFlyoutInBank(skillLineInfo.itemIndexOffset + 1,
+				skillLineInfo.itemIndexOffset + skillLineInfo.numSpellBookItems, playerBank, fn, arg);
 		end
 	end
 
 	local numPetSpells = C_SpellBook.HasPetSpells();
 	if (numPetSpells) then
-		SweepFlyoutIconsInBank(1, numPetSpells, Enum.SpellBookSpellBank.Pet);
+		ForEachBookFlyoutInBank(1, numPetSpells, Enum.SpellBookSpellBank.Pet, fn, arg);
 	end
+
+	local prof1, prof2, archaeology, fishing, cooking = GetProfessions();
+	ForEachProfessionFlyout(prof1, fn, arg);
+	ForEachProfessionFlyout(prof2, fn, arg);
+	ForEachProfessionFlyout(archaeology, fn, arg);
+	ForEachProfessionFlyout(fishing, fn, arg);
+	ForEachProfessionFlyout(cooking, fn, arg);
+end
+
+local function NoteFlyoutIcon(_, flyoutID, slotIndex, bank)
+	local icon = C_SpellBook.GetSpellBookItemTexture(slotIndex, bank);
+	if (icon) then
+		FlyoutIcons[flyoutID] = icon;
+	end
+end
+
+local function SweepFlyoutIcons()
+	ForEachBookFlyout(NoteFlyoutIcon);
+end
+
+--- **Only a flyout this character knows**, the one `SpellFlyout:Toggle` would open: the others
+--- would get frames that never open anything.
+local function NoteBookFlyoutOpener(out, flyoutID)
+	local _, _, _, isKnown = DebindPrivate.Client.FlyoutInfo(flyoutID);
+	if (isKnown) then
+		out[flyoutID] = DebindPrivate.GetFlyoutOpener(flyoutID);
+	end
+end
+
+--- `flyoutID -> opener` for every flyout in the spellbook that opens anything, into `out`. **Out
+--- of combat only**, since it makes the openers it has not made yet.
+---
+--- **The book is walked again on every call, not kept the way `FlyoutIcons` is.** A specialization
+--- change rebuilds on the spot (`Events.ACTIVE_PLAYER_SPECIALIZATION_CHANGED`), and nothing orders
+--- that ahead of or behind `SPELLS_CHANGED`: a list cleared by that event could still be the old
+--- specialization's at that rebuild, leaving the new one's flyouts with no opener until the next. A
+--- stale icon is a wrong picture; a stale list is a key that does nothing.
+function DebindPrivate.GetBookFlyoutOpeners(out)
+	wipe(out);
+	ForEachBookFlyout(NoteBookFlyoutOpener, out);
+	return out;
 end
 
 local function GetFlyoutIcon(flyoutID)
@@ -632,30 +696,32 @@ end
 --- **Two icons and they are not the same question.** `icon` comes from the slot's own spell so a
 --- slot always has one, `displayIcon` from whatever is overriding it right now, which is the picture
 --- the spellbook draws. Casting still goes by the base spell's name.
+---
+--- **`out`'s rows are refilled in place**, so a caller passing one keeps no row across calls.
 function DebindPrivate.GetFlyoutCastableSlots(flyoutID, out)
 	out = out or {};
-	wipe(out);
+	local count = 0;
 
 	local _, _, numSlots = DebindPrivate.Client.FlyoutInfo(flyoutID);
-	if (not numSlots) then
-		return out;
-	end
-
-	for slot = 1, numSlots do
+	for slot = 1, numSlots or 0 do
 		local spellID, overrideSpellID, isKnown, spellName = GetFlyoutSlotInfo(flyoutID, slot);
 		if (spellID and isKnown and not IsEmptyCallPetSlot(spellID)) then
 			local castName = GetSpellCastName(spellID);
 			local _, icon = GetSpellNameAndIconID(spellID);
 
 			local _, displayIcon = GetSpellNameAndIconID(overrideSpellID or spellID);
-			tinsert(out, {
-				spellID = spellID,
-				cast = castName or spellID,
-				name = spellName or castName,
-				icon = displayIcon or icon,
-			});
+			count = count + 1;
+			local row = out[count] or {};
+			out[count] = row;
+			row.spellID = spellID;
+			row.cast = castName or spellID;
+			row.name = spellName or castName;
+			row.icon = displayIcon or icon;
 		end
 	end
 
+	for i = #out, count + 1, -1 do
+		out[i] = nil;
+	end
 	return out;
 end

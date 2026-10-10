@@ -590,7 +590,11 @@ local function buildEnv(interp)
     env.GetOverrideBarIndex = function() return 18; end
     env.GetBonusBarIndex = function() return state.bonusIndex; end
     env.GetActionInfo = function(slot)
-        return state.actions[slot] or "spell";
+        local action = state.actions[slot];
+        if (type(action) == "table") then
+            return action[1], action[2];
+        end
+        return action or "spell";
     end
     --- **The saved bindings, the same table the insecure side reads.** `GetBindingKey` is in the
     --- restricted environment (`RestrictedEnvironment.lua`), which is what lets a body ask what a
@@ -1293,7 +1297,8 @@ function M.new(DebindPrivate, world, opts)
         bonusactionbar = false,
         actionBarPage = 1,
         bonusIndex = 0,
-        --- What `GetActionInfo` answers per slot. Empty is every slot holding a plain action.
+        --- What `GetActionInfo` answers per slot: a type, or `{ type, id }`. Empty is every slot
+        --- holding a plain action.
         actions = {},
         mounted = false,
         indoors = false,

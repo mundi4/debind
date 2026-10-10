@@ -45,10 +45,6 @@ end
 --- since the other axes have no value at all for one.
 SecureHandlerSetFrameRef(BindingDriver, "clickFrame", DebindPrivate.DefaultClickFrame);
 SecureHandlerSetFrameRef(BindingDriver, "castFrame", DebindPrivate.CastFrame);
--- A protected frame, so its handle still answers `IsShown` in combat.
-if (OverrideActionBar) then
-	SecureHandlerSetFrameRef(BindingDriver, "overrideActionBar", OverrideActionBar);
-end
 SecureHandlerExecute(BindingDriver, [[
 
 	debind_driver = self
@@ -78,7 +74,8 @@ SecureHandlerExecute(BindingDriver, [[
 	-- `button name -> where its slot is` for every action button action, rewritten whole by the
 	-- rebuild (`UpdateBindingsMap`). `ACTION_SLOT_SNIPPET` reads it.
 	ActionSlots = newtable()
-	OverrideActionBar = self:GetFrameRef("overrideActionBar")
+	-- `flyoutID -> the button name that clicks that flyout's opener`, for a slot holding one.
+	FlyoutOpeners = newtable()
 	-- `n -> the button name that clicks the n-th pet battle button`, filled as each is stamped
 	-- (`StampPetBattleButtons`) and never by a rebuild.
 	PetBattleButtons = newtable()
@@ -432,10 +429,16 @@ local BAKE_WINNER_MACROTEXT_SNIPPET = [==[
 ---
 --- **The page is `ActionBarController_UpdateAll`'s order**, and a bonus bar only counts on page 1.
 ---
---- **A flyout slot goes to the bar button that shows it.** `SECURE_ACTIONS.action` opens a flyout
---- with `SpellFlyout:Toggle(self, ...)`, which calls `GetPopupDirection` on the button that fired,
---- and ours has none. The skinned override bar has its own buttons, and `IsShown` rather than
---- `IsVisible` picks between them: the bar slides out still visible.
+--- **A flyout slot opens our own flyout, at the cursor, as a flyout action does.**
+--- `SECURE_ACTIONS.action` opens one with `SpellFlyout:Toggle(self, ...)`, which calls
+--- `GetPopupDirection` on the button that fired, and ours has none. Clicking Blizzard's bar button
+--- instead works only while that button is on screen: a bar addon that hides Blizzard's bars leaves
+--- the popup parented to a hidden button, so nothing shows, and the popup keeps that button as its
+--- owner after something hides it, which then makes the addon's own button raise `FlyoutPopup
+--- already has a button set` (2026-10-10). A flyout with no opener, not known or every slot empty,
+--- does nothing, as `SpellFlyout:Toggle` does; so does one outside the spellbook, which
+--- `GetBookFlyoutOpeners` never reaches. Falling back to Blizzard's bar button for that one would
+--- bring the same error back wherever the bar is hidden.
 ---
 --- **In a pet battle the main bar's buttons press the battle's**, whatever `giveBackInPetBattle` says
 --- (2026-10-10, owner): the binding's own `ActionButtonDown` turns to `PetBattleFrame_ButtonDown`
@@ -477,11 +480,9 @@ local ACTION_SLOT_SNIPPET = [==[
 				end
 			end
 			local slot = actionSlot.index + (page - 1) * 12
-			if (GetActionInfo(slot) == "flyout") then
-				slotButton = actionSlot.bar
-				if (actionSlot.overrideBar and OverrideActionBar and OverrideActionBar:IsShown()) then
-					slotButton = actionSlot.overrideBar
-				end
+			local kind, flyoutID = GetActionInfo(slot)
+			if (kind == "flyout") then
+				slotButton = FlyoutOpeners[flyoutID]
 				if (not slotButton) then
 					return false
 				end
@@ -603,7 +604,7 @@ do
     local stampOwed = false;
 
     --- The pet battle buttons onto the click frame, for `ACTION_SLOT_SNIPPET` to name, in
-    --- `PetBattleFrame_ButtonDown`'s numbering. **Insecurely and as frames** (`BarClickButton`): a
+    --- `PetBattleFrame_ButtonDown`'s numbering. **Insecurely and as frames** (`ClickButtonFor`): a
     --- handle set from the restricted environment reaches `SECURE_ACTIONS.click` as a handle, which
     --- has no `HasAccessConstraints` (`Probe_ActionBars.lua`'s header), and these buttons have no
     --- names to give.
@@ -645,7 +646,7 @@ do
             if (frame and stamped[n] ~= frame) then
                 stamped[n] = frame;
                 body = (body or "") .. format("PetBattleButtons[%d]=%q ", n,
-                    DebindPrivate.Rebuild.BarClickButton(frame));
+                    DebindPrivate.Rebuild.ClickButtonFor(frame));
             end
         end
         if (body) then

@@ -30,14 +30,21 @@ return function(DebindPrivate, _, ctx)
         end
     end
 
-    -- The bar buttons a flyout slot is handed to. Before the first rebuild, which is when the
-    -- stamp looks them up.
-    for _, name in ipairs({ "ActionButton1", "ActionButton3", "ActionButton4", "ActionButton5",
-        "ActionButton7", "OverrideActionBarButton1", "OverrideActionBarButton3",
-        "OverrideActionBarButton4", "OverrideActionBarButton5", "MultiBarBottomLeftButton5",
-        "ExtraActionButton1", "StanceButton3" }) do
-        _G[name] = frames.newFrame("CheckButton", name, nil, "ActionBarButtonTemplate");
-    end
+    -- The stance button a stance action clicks. Before the first rebuild, which is when the stamp
+    -- looks it up.
+    _G.StanceButton3 = frames.newFrame("CheckButton", "StanceButton3", nil, "StanceButtonTemplate");
+
+    -- The flyouts a slot can hold, in the book before the first rebuild, which is when their
+    -- openers are made: one with a slot, one this character has not learned, and one a
+    -- profession holds, past every skill line.
+    shim.world.flyouts[66] = { name = "Call Pet", slots = { 883 } };
+    shim.world.spells[883] = { name = "Call Pet 1" };
+    shim.world.flyouts[67] = { name = "Unlearned", slots = { 884 }, known = false };
+    shim.world.spells[884] = { name = "Unlearned 1" };
+    shim.world.bookFlyouts = { 66, 67 };
+    shim.world.flyouts[69] = { name = "Wormholes", slots = { 885 } };
+    shim.world.spells[885] = { name = "Wormhole 1" };
+    shim.world.professions = { { name = "Engineering", spells = { 886, { flyoutID = 69 } } } };
 
     local GUID = "Player-1-TESTGUID";
     local interp;
@@ -157,35 +164,123 @@ return function(DebindPrivate, _, ctx)
         });
     end);
 
-    -- **A flyout slot goes to the real bar button** (§4-4): `type=action` would open the flyout on
-    -- our button and fail on `GetPopupDirection`.
-    test("a flyout slot is handed to the bar button that shows it", function()
+    -- **A flyout slot opens our own flyout** (`ACTION_SLOT_SNIPPET`): Blizzard's bar button shows
+    -- nothing while a bar addon hides it, and `type=action` fails on `GetPopupDirection`.
+    test("a flyout slot clicks the opener of the flyout it holds", function()
         local state = interp.state;
-        state.actions[3] = "flyout";
-        local button = Press("F1");
-        check(button, "nothing fired");
-        check(clickFrame:GetAttribute("*type-" .. button) == "click",
-            "type " .. tostring(clickFrame:GetAttribute("*type-" .. button)));
-        check(clickFrame:GetAttribute("*clickbutton-" .. button) == _G.ActionButton3,
-            "clicks " .. tostring(clickFrame:GetAttribute("*clickbutton-" .. button)));
+        local opener = DebindPrivate.GetFlyoutOpener(66);
+        check(opener, "flyout 66 has no opener to compare with");
+        local function Clicks(key)
+            local button = Press(key);
+            return button and clickFrame:GetAttribute("*type-" .. button) == "click"
+                and clickFrame:GetAttribute("*clickbutton-" .. button) or nil;
+        end
 
-        -- The skinned override bar shows its own buttons, on the override page.
+        state.actions[3] = { "flyout", 66 };
+        local main = Clicks("F1");
+        check(main == opener, "the main bar clicks " .. tostring(main));
+
+        -- On the override page, where the main bar's slot moves to.
         state.actions[3] = nil;
         state.overridebar = true;
-        state.actions[207] = "flyout";
-        _G.OverrideActionBar:Show();
-        button = Press("F1");
-        check(button and clickFrame:GetAttribute("*clickbutton-" .. button) == _G.OverrideActionBarButton3,
-            "under the override bar it clicks "
-            .. tostring(button and clickFrame:GetAttribute("*clickbutton-" .. button)));
-        _G.OverrideActionBar:Hide();
+        state.actions[207] = { "flyout", 66 };
+        local override = Clicks("F1");
+        check(override == opener, "under an override bar it clicks " .. tostring(override));
 
         state.actions[207] = nil;
-        state.actions[65] = "flyout";
-        button = Press("F2");
-        check(button and clickFrame:GetAttribute("*clickbutton-" .. button) == _G.MultiBarBottomLeftButton5,
-            "the fixed bar clicks " .. tostring(button and clickFrame:GetAttribute("*clickbutton-" .. button)));
+        state.overridebar = false;
+        state.actions[65] = { "flyout", 66 };
+        local fixed = Clicks("F2");
+        check(fixed == opener, "the fixed bar clicks " .. tostring(fixed));
+
+        state.actions[65] = { "flyout", 69 };
+        local profession = Clicks("F2");
+        check(profession and profession == DebindPrivate.GetFlyoutOpener(69),
+            "a profession's flyout clicks " .. tostring(profession));
+
+        -- A flyout not learned, and one the book does not hold, open nothing, as
+        -- `SpellFlyout:Toggle` does.
+        state.actions[65] = nil;
+        state.actions[3] = { "flyout", 67 };
+        check(Press("F1") == nil, "an unlearned flyout fired");
+        state.actions[3] = { "flyout", 68 };
+        check(Press("F1") == nil, "a flyout outside the book fired");
         interp:resetState();
+    end);
+
+    -- **A flyout whose slots change carries the new ones** (`RebuildFlyout`). What did not change
+    -- is not written again, so this is the case that still has to be: a slot that moved, one that
+    -- came, and one that went.
+    test("a flyout rebuilt after its slots change carries the new spells", function()
+        local opener = DebindPrivate.GetFlyoutOpener(66);
+        check(opener, "flyout 66 has no opener");
+        local holder;
+        for _, entry in ipairs(frames.recorder.entries) do
+            if (entry.kind == "SetFrameRef" and entry.frame == opener and entry.name == "holder") then
+                holder = entry.ref;
+            end
+        end
+        check(holder, "the opener was never handed its holder");
+        local function Casts()
+            local out, n = {}, 0;
+            for _, child in ipairs({ holder:GetChildren() }) do
+                if (child:GetAttribute("type") == "spell") then
+                    n = n + 1;
+                    out[n] = child:IsShown() and child:GetAttribute("spell") or false;
+                end
+            end
+            return table.concat({ tostring(out[1] or false), tostring(out[2] or false),
+                tostring(out[3] or false) }, ",");
+        end
+        local function Expected()
+            local slots = DebindPrivate.GetFlyoutCastableSlots(66);
+            return table.concat({ tostring(slots[1] and slots[1].cast or false),
+                tostring(slots[2] and slots[2].cast or false),
+                tostring(slots[3] and slots[3].cast or false) }, ",");
+        end
+        local function SpellsChanged()
+            check(frames.fireEvent("SPELLS_CHANGED") > 0, "nothing is listening for SPELLS_CHANGED");
+        end
+
+        local first = Casts();
+        check(first == Expected(), "at first " .. first);
+
+        shim.world.spells[887] = { name = "Call Pet 2" };
+        shim.world.flyouts[66].slots = { 887, 883 };
+        SpellsChanged();
+        local grown = Casts();
+        check(grown == Expected() and grown ~= first, "after a slot came " .. grown);
+
+        shim.world.flyouts[66].slots = { 883 };
+        SpellsChanged();
+        local shrunk = Casts();
+        check(shrunk == first, "after it went " .. shrunk);
+    end);
+
+    -- **The openers go out only while an action button action reaches a slot**, this rebuild's
+    -- actions and not every one stamped earlier in the session.
+    test("a rebuild with no action button action on a slot sends no flyout opener", function()
+        local function SendsOpeners(actions)
+            local mark = frames.mark();
+            Bind(actions);
+            for _, entry in ipairs(frames.since(mark)) do
+                if (type(entry.body) == "string" and entry.body:find("FlyoutOpeners[", 1, true)) then
+                    return true;
+                end
+            end
+            return false;
+        end
+        check(SendsOpeners({ action({ value = "ACTIONBUTTON3", key = "F1" }) }),
+            "a main bar button sent no opener");
+        check(not SendsOpeners({ action({ value = "BONUSACTIONBUTTON3", key = "F4" }) }),
+            "after it went, a pet bar button alone still sent openers");
+        Bind({
+            action({ value = "ACTIONBUTTON3", key = "F1" }),
+            action({ value = "MULTIACTIONBAR1BUTTON5", key = "F2" }),
+            action({ value = "EXTRAACTIONBUTTON1", key = "F3" }),
+            action({ value = "BONUSACTIONBUTTON3", key = "F4" }),
+            action({ value = "SHAPESHIFTBUTTON3", key = "F5" }),
+        });
     end);
 
     -- **The pet bar's slot never moves, so nothing is worked out at the press** beyond the check the

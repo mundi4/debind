@@ -67,7 +67,6 @@ return function(DebindPrivate)
             interp.state.actionBarPage = 1;
             interp.driver.__attributes["state-giveback"] = nil;
         end
-        _G.OverrideActionBar:Hide();
         shim.world.bindingContexts = {};
         shim.world.activeBindingContexts = {};
     end

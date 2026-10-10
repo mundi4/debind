@@ -8996,10 +8996,32 @@ RegisterTest("Cast tier: a Self Cast Key on the bare key picks the self twin", {
     end,
 })
 
+--- The slot `command`'s bar button shows right now, worked out on the insecure side in
+--- `ActionBarController_UpdateAll`'s order.
+local function ShownActionSlot(command)
+    local AB = C_ActionBar
+    local info = Constants.ACTION_BUTTON_COMMANDS[command]
+    local page = info.page or (info.extra and AB.GetExtraBarIndex())
+    if not page then
+        if AB.HasVehicleActionBar() then
+            page = AB.GetVehicleBarIndex()
+        elseif AB.HasOverrideActionBar() then
+            page = AB.GetOverrideBarIndex()
+        elseif AB.HasTempShapeshiftActionBar() then
+            page = AB.GetTempShapeshiftBarIndex()
+        elseif AB.HasBonusActionBar() and AB.GetActionBarPage() == 1 then
+            page = AB.GetBonusBarIndex()
+        else
+            page = AB.GetActionBarPage()
+        end
+    end
+    return info.index + (page - 1) * 12
+end
+
 -- **The action button action works its slot out in the client** (`dropping-the-game-fallback.md`
 -- §4). The page table is headless (`tests/actionbutton_spec.lua`); what is left for the client is
 -- that the snippet compiles against the real bar functions and lands on the slot the bar controller
--- would pick, read here on the insecure side in `ActionBarController_UpdateAll`'s order.
+-- would pick.
 RegisterTest("Action button: the press writes the slot the bar shows", {
     description = "An action button action writes *action- with the slot its bar button would fire",
     run = function()
@@ -9025,20 +9047,6 @@ RegisterTest("Action button: the press writes the slot the bar shows", {
         InsertAction({ type = Constants.ACTIONBUTTON, value = "BONUSACTIONBUTTON1", key = "CTRL-SHIFT-F9" })
         ApplyBindings()
 
-        local AB = C_ActionBar
-        local function MainPage()
-            if AB.HasVehicleActionBar() then
-                return AB.GetVehicleBarIndex()
-            elseif AB.HasOverrideActionBar() then
-                return AB.GetOverrideBarIndex()
-            elseif AB.HasTempShapeshiftActionBar() then
-                return AB.GetTempShapeshiftBarIndex()
-            elseif AB.HasBonusActionBar() and AB.GetActionBarPage() == 1 then
-                return AB.GetBonusBarIndex()
-            end
-            return AB.GetActionBarPage()
-        end
-
         local clickFrame = DebindPrivate.DefaultClickFrame
         for _, case in ipairs(cases) do
             local binding = GetKeyBindingsWithoutTwins(case.key)
@@ -9046,16 +9054,14 @@ RegisterTest("Action button: the press writes the slot the bar shows", {
             if not binding or not binding.clickbutton then
                 return Fail(NAME, case.command .. " has no button on its key")
             end
-            local info = Constants.ACTION_BUTTON_COMMANDS[case.command]
-            local page = info.page or (info.extra and AB.GetExtraBarIndex()) or MainPage()
-            local expected = info.index + (page - 1) * 12
+            local expected = ShownActionSlot(case.command)
             local attribute = "*action-" .. binding.clickbutton
             clickFrame:SetAttribute(attribute, nil)
 
             local ran, rerr = EvalClickTimeKey(case.key)
             if not ran then return Fail(NAME, rerr) end
 
-            -- A flyout slot goes to the bar button and writes nothing, so only a plain one is asked.
+            -- A flyout slot opens our flyout and writes nothing, so only a plain one is asked.
             if GetActionInfo(expected) ~= "flyout" then
                 local slot = clickFrame:GetAttribute(attribute)
                 if slot ~= expected then
@@ -9080,6 +9086,86 @@ RegisterTest("Action button: the press writes the slot the bar shows", {
         end
 
         return Pass(NAME, format("%d buttons wrote the slot their bar shows", #cases))
+    end,
+})
+
+--- The first action button command whose shown slot holds a flyout this character knows, and that
+--- flyout's id. The tester's bars are read and never written, so a board with none has no case.
+local function FindShownFlyoutSlot()
+    local commands = {}
+    for command, info in pairs(Constants.ACTION_BUTTON_COMMANDS) do
+        if not info.pet and not info.stance and not info.extra then
+            commands[#commands + 1] = command
+        end
+    end
+    table.sort(commands)
+    for _, command in ipairs(commands) do
+        local kind, flyoutID = GetActionInfo(ShownActionSlot(command))
+        if kind == "flyout" and select(4, GetFlyoutInfo(flyoutID)) then
+            return command, flyoutID
+        end
+    end
+end
+
+-- **A flyout slot opens our own flyout.** Which button a press names is headless
+-- (`tests/actionbutton_spec.lua`); what is left for the client is that the restricted
+-- `GetActionInfo` hands the flyout's id over, that the real spellbook walk gave that flyout an
+-- opener, and that the press answers with the button clicking it. Opening the flyout is the opener's
+-- `_onclick`, which a click from the kit never runs.
+RegisterTest("Action button: a flyout slot answers with our flyout's opener", {
+    description = "An action button action on a slot holding a flyout answers with the click frame button that clicks that flyout's opener",
+    applies = function()
+        if not FindShownFlyoutSlot() then
+            return false, "no slot the bars show holds a flyout this character knows"
+        end
+        return true
+    end,
+    run = function()
+        local NAME = "Action button flyout slot"
+        local KEY = "CTRL-ALT-F9"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+        local command, flyoutID = FindShownFlyoutSlot()
+        if not command then
+            return Fail(NAME, "the flyout slot went away before the run")
+        end
+
+        local driver = DebindPrivate.BindingDriver
+        AddTeardown(function()
+            driver.DebindTestFlyoutAnswer = nil
+        end)
+
+        InsertAction({ type = Constants.ACTIONBUTTON, value = command, key = KEY })
+        ApplyBindings()
+
+        local button = DebindPrivate.ClickTimeKeys and DebindPrivate.ClickTimeKeys[KEY]
+        if not button then
+            return Fail(NAME, command .. " has no button on its key")
+        end
+        local opener = DebindPrivate.GetFlyoutOpener(flyoutID)
+        if not opener then
+            return Fail(NAME, format("flyout %d is known but has no opener", flyoutID))
+        end
+
+        -- **The name the press answers with**, which `EvalClickTimeKey` drops.
+        local answer
+        driver.DebindTestFlyoutAnswer = function(_, name)
+            answer = name
+        end
+        SecureHandlerExecute(driver, format([[
+            self:CallMethod("DebindTestFlyoutAnswer", self:RunAttribute("EvalClickTimeKey", %q))
+        ]], button))
+
+        local clickFrame = DebindPrivate.DefaultClickFrame
+        local clicks = answer and clickFrame:GetAttribute("*type-" .. answer) == "click"
+            and clickFrame:GetAttribute("*clickbutton-" .. answer)
+        if clicks ~= opener then
+            return Fail(NAME, format("%s on flyout %d answered %s, which clicks %s", command, flyoutID,
+                tostring(answer), tostring(clicks and (clicks:GetName() or clicks))))
+        end
+        return Pass(NAME, format("%s answers with flyout %d's opener", command, flyoutID))
     end,
 })
 

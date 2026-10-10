@@ -101,11 +101,16 @@ local _wrappedButtons = {};
 
 --- 감싼 버튼 -> 그 버튼의 올림 엣지가 갈 버튼. 쥐는 주문에만 선다.
 local _wrappedRelease = {};
---- `button name -> { info, bar, overrideBar }` for every action button action stamped this
---- session, emitted as `ActionSlots` on every rebuild. `info` is its `ACTION_BUTTON_COMMANDS` row.
+--- `button name -> its ACTION_BUTTON_COMMANDS row` for every action button action stamped this
+--- session, emitted as `ActionSlots` on every rebuild.
 local _actionSlots = {};
---- Blizzard bar button -> the button name that clicks it (`BarClickButton`).
-local _barClickButtons = {};
+--- Frame -> the button name that clicks it (`ClickButtonFor`).
+local _clickButtons = {};
+--- `flyoutID -> opener`, refilled by each rebuild that emits `FlyoutOpeners`.
+local _flyoutOpeners = {};
+--- Whether an action button action stamped by this rebuild reaches a slot. Cleared once
+--- `EmitStampedButtons` has read it: `_actionSlots` keeps every one the session ever stamped.
+local _reachesSlot = false;
 
 local _sortedA = {};
 
@@ -161,9 +166,8 @@ local function CollectBindingFacts(type, value, unit, facts, automatics, pinnedS
         facts.flyoutOpener = DebindPrivate.GetFlyoutOpener(value);
     elseif (type == Constants.ACTIONBUTTON) then
         local info = Constants.ACTION_BUTTON_COMMANDS[value];
-        if (info) then
+        if (info and info.stance) then
             facts.barButton = _G[info.button];
-            facts.overrideButton = info.override and _G[info.override];
         end
     elseif (type == Constants.SPELL) then
         -- **The name comes off the base and not off the stored id.** A talent version's name only
@@ -228,8 +232,6 @@ local function Inert(out, type)
     out.pressAndHold = false;
     out.castSpell = nil;
     out.actionSlot = nil;
-    out.barButton = nil;
-    out.overrideButton = nil;
     return out;
 end
 
@@ -289,8 +291,6 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     out.value = value;
     out.unit = unit;
     out.actionSlot = nil;
-    out.barButton = nil;
-    out.overrideButton = nil;
     out.castSpell = nil;
 
     -- **The key the stamp files this button under**, taken before any branch below rewrites the
@@ -464,7 +464,7 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         attr(out, "*marker-", value);
     elseif (type == Constants.ACTIONBUTTON) then
         -- `*action-` is the press's to write: the main bar's page moves with vehicles and forms, and
-        -- a flyout slot goes to the bar button instead (`SecureBindings.lua`'s `ACTION_SLOT_SNIPPET`).
+        -- a flyout slot opens our flyout instead (`SecureBindings.lua`'s `ACTION_SLOT_SNIPPET`).
         local info = Constants.ACTION_BUTTON_COMMANDS[value];
         if (not info) then
             return nil, "unknown-action-button";
@@ -485,8 +485,6 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
         else
             attr(out, "*type-", "action");
             out.actionSlot = info;
-            out.barButton = facts.barButton;
-            out.overrideButton = facts.overrideButton;
         end
     else
         return nil, "unhandled-type";
@@ -496,28 +494,28 @@ local function DescribeBinding(type, value, unit, facts, out, automatics)
     return out;
 end
 
+--- A button on the click frame that clicks `frame`, made once per frame: a flyout's opener in
+--- `EmitStampedButtons`, a pet battle button in `StampPetBattleButtons`. Cached for the session the
+--- way `BindingAttrsCache` is: neither kind of frame ever goes away.
+local function ClickButtonFor(frame)
+    if (not frame) then
+        return nil;
+    end
+    local buttonname = _clickButtons[frame];
+    if (not buttonname) then
+        buttonname = NextButtonName();
+        DefaultClickFrame:SetAttribute("*type-" .. buttonname, "click");
+        DefaultClickFrame:SetAttribute("*clickbutton-" .. buttonname, frame);
+        _clickButtons[frame] = buttonname;
+    end
+    return buttonname;
+end
+
 --- Writes a descriptor onto the click frame and answers what a record has to carry to reach it.
 ---
 --- **The cache is this side's business, and `DescribeBinding` knows nothing about it.** A hit
 --- means the attributes are already there under a button name we handed out earlier, so nothing
 --- is written at all.
---- A button on the click frame that clicks one of Blizzard's buttons, made once per button: a bar
---- button here, a pet battle button in `StampPetBattleButtons`. Cached for the session the way
---- `BindingAttrsCache` is: neither kind ever goes away.
-local function BarClickButton(frame)
-    if (not frame) then
-        return nil;
-    end
-    local buttonname = _barClickButtons[frame];
-    if (not buttonname) then
-        buttonname = NextButtonName();
-        DefaultClickFrame:SetAttribute("*type-" .. buttonname, "click");
-        DefaultClickFrame:SetAttribute("*clickbutton-" .. buttonname, frame);
-        _barClickButtons[frame] = buttonname;
-    end
-    return buttonname;
-end
-
 local function StampBinding(descriptor, automatics)
     local type, value, unit = descriptor.type, descriptor.value, descriptor.unit;
 
@@ -542,11 +540,7 @@ local function StampBinding(descriptor, automatics)
         end
 
         if (descriptor.actionSlot) then
-            _actionSlots[buttonname] = {
-                info = descriptor.actionSlot,
-                bar = BarClickButton(descriptor.barButton),
-                overrideBar = BarClickButton(descriptor.overrideButton),
-            };
+            _actionSlots[buttonname] = descriptor.actionSlot;
         end
 
         if (unit and unit ~= "" and not delegate) then
@@ -654,6 +648,10 @@ local function SetBindingAttributes(type, value, unit, automatics, pinnedSpell, 
 
     local clickframe, buttonname = StampBinding(descriptor, automatics);
 
+    if (descriptor.actionSlot and not descriptor.actionSlot.pet) then
+        _reachesSlot = true;
+    end
+
     if (descriptor.type == Constants.MACROTEXT) then
         addMacrotextBinding(buttonname, descriptor.value);
     end
@@ -674,8 +672,7 @@ local function EmitStampedButtons()
     end
 
     for _, buttonname in ipairs(sortedKeys(_actionSlots, _sortedA)) do
-        local entry = _actionSlots[buttonname];
-        local info = entry.info;
+        local info = _actionSlots[buttonname];
         -- `GetExtraBarIndex` is not in the restricted environment, so its page is asked here.
         local page = info.page or (info.extra and C_ActionBar.GetExtraBarIndex());
         appendLine("ActionSlots[%q]=newtable()", buttonname);
@@ -693,16 +690,21 @@ local function EmitStampedButtons()
         if (info.petBattle) then
             appendLine("ActionSlots[%q].petBattle=%d", buttonname, info.petBattle);
         end
-        if (entry.bar) then
-            appendLine("ActionSlots[%q].bar=%q", buttonname, entry.bar);
-        end
-        if (entry.overrideBar) then
-            appendLine("ActionSlots[%q].overrideBar=%q", buttonname, entry.overrideBar);
+    end
+
+    -- **Which flyout a slot holds is only known at the press, and an opener cannot be made then**,
+    -- so every flyout the spellbook holds gets one here, out of combat. Not where no action button
+    -- action of this rebuild reaches a slot: the frames would be made for nothing.
+    if (_reachesSlot) then
+        DebindPrivate.GetBookFlyoutOpeners(_flyoutOpeners);
+        for _, flyoutID in ipairs(sortedKeys(_flyoutOpeners, _sortedA)) do
+            appendLine("FlyoutOpeners[%d]=%q", flyoutID, ClickButtonFor(_flyoutOpeners[flyoutID]));
         end
     end
+    _reachesSlot = false;
 end
 
 Rebuild.BindingAttrsCache    = BindingAttrsCache;
 Rebuild.SetBindingAttributes = SetBindingAttributes;
 Rebuild.EmitStampedButtons   = EmitStampedButtons;
-Rebuild.BarClickButton       = BarClickButton;
+Rebuild.ClickButtonFor       = ClickButtonFor;

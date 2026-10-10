@@ -293,6 +293,9 @@ nil 호출이 난다. 맨몸 `SecureActionButtonTemplate`에는 그 메서드가
 주 바는 `OverrideActionBar:IsShown()`이면 `OverrideActionBarButtonN`(1~6), 아니면 `ActionButtonN`이고, 고정 페이지 바와
 기타 행동 버튼은 자기 버튼이다.
 
+**2026-10-10에 바뀌었다.** 블리자드 바를 숨기는 바 애드온에서는 숨은 버튼에 팝업이 붙어 아무것도 안 보였다. 그래서 플라이아웃
+칸은 이제 Debind의 플라이아웃을 커서에 연다. 까닭은 `SecureBindings.lua`의 `ACTION_SLOT_SNIPPET` 주석에 있다.
+
 ### 4-5. 잰 것 (2026-09-14, retail, `Probe_ActionBars.lua`)
 
 프로브는 Debind의 `DefaultClickFrame`과 같은 모양이다. 버튼을 두 엣지로 등록하고, `OnClick`을 헤더로 감싸고,
@@ -591,7 +594,7 @@ S2로 넘기는 것이 프로브가 한 방법이고, 결정은 아니다.
 ### 9-2. 코드가 틀리기 쉬운 자리
 
 - **플라이아웃 칸을 `type=action`으로 쏘지 않는다**(§4-4). 래퍼에서 `GetActionInfo(slot) == "flyout"`으로 먼저
-  가르고 바 버튼을 누른다.
+  가르고 바 버튼을 누른다. 2026-10-10부터는 바 버튼 대신 Debind 플라이아웃의 opener를 누른다(§4-4).
 - **기타 행동 버튼의 페이지는 리빌드가 굽는다**(§4-2). 판별은 `HasExtraActionBar()`로 하고, 걸리면 다음 액션으로 넘기지 않고 끊는다. `GetOverrideBarSkin()`은
   기타 행동 버튼만 떠도 0이 아니라서 판별로 못 쓴다(§8-3).
 - **페이지 순서는 `ActionBarController_UpdateAll` 그대로다**(§4-1). 보너스 바는 `GetActionBarPage() == 1`일 때만이다.
