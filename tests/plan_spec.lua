@@ -409,6 +409,29 @@ return function(DebindPrivate)
         end
     end);
 
+    -- **At 0 the plan registers nothing on the manager** (the same document, §5-2): an event there only zeroes a timer
+    -- that runs out on every frame, and the manager's events come off when 0 is written. The same
+    -- key on 0.1 still asks for what its columns read, which is the half saying the plan has any.
+    test("a plan on 0 asks for no event", function()
+        local function Mounted()
+            return {
+                spell({ key = "F1", conditions = { mounted = true } }),
+                spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+            };
+        end
+        local nonzero = PlanFor(Mounted(), nil, { stateDriverPeriod = 0.1 });
+        check(registers(nonzero, "PLAYER_MOUNT_DISPLAY_CHANGED") == true,
+            "on 0.1 mounted asked for nothing -- bad premise");
+
+        local zero = PlanFor(Mounted(), nil, { stateDriverPeriod = 0 });
+        check(zero.updatetime == 0, "the plan is not on 0: " .. tostring(zero.updatetime));
+        local names = {};
+        for i = 1, #zero.events do
+            names[#names + 1] = zero.events[i].name;
+        end
+        check(#zero.events == 0, "on 0 the plan lists " .. table.concat(names, ", "));
+    end);
+
     -- **A stored period under the old slider's name stays unread** (2026-09-19, owner). It is still
     -- in some profiles, and the period it set was not the one the reader is shown now.
     test("a stored throttle reaches nothing", function()

@@ -164,9 +164,24 @@ return function(DebindPrivate)
     -- **Once written, 0 stays for the session** (owner, 2026-10-11): nothing puts the manager back
     -- from it, so a reader moving off it is told to reload, and moving back to it needs none.
     test("0 is held for the session once written", function()
+        -- What 0 takes off (§5-2): an event of ours, from a column on 0.1, and one of somebody else's.
+        Rebuild({
+            spell({ key = "F1", conditions = { mounted = true } }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+        }, 0.1);
+        manager:RegisterEvent("UNIT_PET");
+        check(manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"),
+            "on 0.1 the mounted column registered nothing -- bad premise");
+
+        -- The same column on 0, so the plan's own walk would keep the event if nothing took it off.
         local mark = frames.mark();
-        Rebuild(Beating(), 0);
+        Rebuild({
+            spell({ key = "F1", conditions = { mounted = true } }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+        }, 0);
         check(manager:GetAttribute("updatetime") == 0, "0 was not written");
+        check(not manager:IsEventRegistered("PLAYER_MOUNT_DISPLAY_CHANGED"), "ours is still registered at 0");
+        check(not manager:IsEventRegistered("UNIT_PET"), "theirs is still registered at 0");
         check(not DebindPrivate.IsReloadRequired(), "0.2 to 0 asked for a reload");
 
         Rebuild(Still(), 0);
@@ -181,6 +196,29 @@ return function(DebindPrivate)
         check(DebindPrivate.IsReloadRequired(), "moving off a 0 written asked for no reload");
         DebindPrivate.Options.stateDriverPeriod = 0;
         check(not DebindPrivate.IsReloadRequired(), "moving back to 0 still asks for a reload");
+    end);
+
+    -- **An event registered on the manager after 0 is taken off as it lands**, whoever registers it
+    -- and through either method (§5-2). A rebuild on 0 registers none of its own.
+    test("an event registered under a held 0 is taken off at once", function()
+        check(Period.HeldAtZero(), "0 is not held -- bad premise");
+        manager:RegisterEvent("PLAYER_STARTED_MOVING");
+        check(not manager:IsEventRegistered("PLAYER_STARTED_MOVING"), "RegisterEvent stayed");
+        manager:RegisterUnitEvent("UNIT_HEALTH", "player");
+        check(not manager:IsEventRegistered("UNIT_HEALTH"), "RegisterUnitEvent stayed");
+        manager:RegisterAllEvents();
+        check(not manager:IsEventRegistered("__all"), "RegisterAllEvents stayed");
+
+        local mark = frames.mark();
+        Rebuild({
+            spell({ key = "F1", conditions = { mounted = true } }),
+            spell({ key = "F1", type = Constants.GIVEBACK, value = nil }),
+        }, 0);
+        for _, e in ipairs(frames.since(mark)) do
+            check(not ((e.kind == "RegisterEvent" or e.kind == "RegisterUnitEvent")
+                    and e.target == "SecureStateDriverManager"),
+                "a rebuild on 0 registered " .. tostring(e.name));
+        end
     end);
 
     -- **Somebody else's non-zero period is taken back to 0 and kept out with a wrap**, at once out

@@ -7236,7 +7236,7 @@ RegisterTest("Period: a chosen period is written and put back", {
 -- session holding 0 by then (a tester whose own period is 0) would skip the case and lose the
 -- report.
 RegisterTest("Period: 0 holds against a foreign period", {
-    description = "0 with a beat makes the manager tick every frame; a foreign 0.2 goes back to 0 at once and again after the wrap; a driver registered from addon code under the wrap still resolves",
+    description = "0 with a beat makes the manager tick every frame with no event on it, and one registered later comes off; a foreign 0.2 goes back to 0 at once and again after the wrap; a driver registered from addon code under the wrap still resolves",
     crossesReload = true,
     applies = function()
         if Scratch().periodZeroCrossing then
@@ -7252,18 +7252,29 @@ RegisterTest("Period: 0 holds against a foreign period", {
         local scratch = Scratch()
         if phase then
             local failure = scratch.periodZeroFailure
-            scratch.periodZeroCrossing, scratch.periodZeroFailure = nil, nil
+            local aspects = scratch.periodZeroAspects
+            scratch.periodZeroCrossing, scratch.periodZeroFailure, scratch.periodZeroAspects = nil, nil, nil
             if phase == "failed" then
                 return Fail(NAME, failure)
             end
-            return Pass(NAME, "the session that held 0 is gone")
+            return Pass(NAME, "the session that held 0 is gone; forbidden aspects " .. tostring(aspects))
         end
         if InCombatLockdown() then
             return Fail(NAME, "rebuilds are deferred in combat")
         end
 
+        -- **Which call, if any, puts a forbidden aspect on the manager**, asked at the three points
+        -- where one of ours could: once our events came off, once the wrap went on, and once our hook
+        -- took off an event registered after it. Every report carries the answers. The value can
+        -- be secret, so it is turned into text inside the pcall.
+        local aspects = {}
+        local function NoteAspects(where)
+            local ok, answer = pcall(function() return tostring(manager:HasAnyForbiddenAspects()) end)
+            aspects[#aspects + 1] = format("%s=%s", where, ok and answer or ("error: " .. tostring(answer)))
+        end
         local function Abort(message)
-            scratch.periodZeroFailure = message
+            scratch.periodZeroFailure = format("%s [forbidden aspects: %s]", message,
+                #aspects > 0 and table.concat(aspects, ", ") or "none asked yet")
             return RequestReload("failed")
         end
 
@@ -7282,22 +7293,88 @@ RegisterTest("Period: 0 holds against a foreign period", {
         if not DebindPrivate.StateDriverPeriod.HeldAtZero() then
             return Abort("0 was written and is not held")
         end
+        NoteAspects("events off")
+
+        -- **The manager's events come off at 0, and later ones as they land**
+        -- (`zeroing-the-beat-period-where-it-is-needed.md` §5-2). Blizzard's twelve are the ones
+        -- this can name (`SecureStateDriver.lua`). The hooks on its methods must leave them secure,
+        -- or Blizzard's own calls through them would carry our taint.
+        for _, event in ipairs({ "MODIFIER_STATE_CHANGED", "ACTIONBAR_PAGE_CHANGED",
+            "UPDATE_BONUS_ACTIONBAR", "PLAYER_ENTERING_WORLD", "UPDATE_SHAPESHIFT_FORM", "UPDATE_STEALTH",
+            "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_REGEN_DISABLED",
+            "PLAYER_REGEN_ENABLED", "UNIT_PET", "GROUP_ROSTER_UPDATE" }) do
+            if manager:IsEventRegistered(event) then
+                return Abort(format("%s is still on the manager at 0", event))
+            end
+        end
+        manager:RegisterEvent("PLAYER_STARTED_MOVING")
+        if manager:IsEventRegistered("PLAYER_STARTED_MOVING") then
+            return Abort("an event registered at 0 stayed on the manager")
+        end
+        manager:RegisterUnitEvent("UNIT_HEALTH", "player")
+        if manager:IsEventRegistered("UNIT_HEALTH") then
+            return Abort("a unit event registered at 0 stayed on the manager")
+        end
+        for _, method in ipairs({ "RegisterEvent", "RegisterUnitEvent", "RegisterAllEvents" }) do
+            local secure, taintedBy = issecurevariable(manager, method)
+            if not secure then
+                return Abort(format("the manager's %s is tainted by %s", method, tostring(taintedBy)))
+            end
+        end
+
         -- One frame of slack for where the witness's tick falls against the count.
         local rate = PeriodKit.TicksPerFrame(FRAMES)
         if rate < (FRAMES - 1) / FRAMES then
             return Abort(format("on 0 the manager ticked %.2f times a frame", rate))
         end
 
-        manager:SetAttribute("updatetime", 0.2)
+        -- **The wrap is asked for by itself.** The hook alone keeps the period at 0 too, so a wrap
+        -- the client refused would leave every check below green. Every method that registers or
+        -- unregisters an event is documented as adding the `EventRegistrations` forbidden aspect,
+        -- and `SecureHandlerWrapScript` refuses a frame with any (`SecureHandlers.lua`); whether
+        -- what TakeEventsOff called puts one on the manager is this line's to answer. pcall'd so a
+        -- refusal raised out of the hook crosses the reload like any failure.
+        local unwrapped = manager:GetScript("OnAttributeChanged")
+        local wrote, wrapErr = pcall(manager.SetAttribute, manager, "updatetime", 0.2)
+        if not wrote then
+            return Abort("the first foreign 0.2 raised: " .. tostring(wrapErr))
+        end
         if manager:GetAttribute("updatetime") ~= 0 then
             return Abort(format("a foreign 0.2 was left at %s", tostring(manager:GetAttribute("updatetime"))))
         end
+        if manager:GetScript("OnAttributeChanged") == unwrapped then
+            return Abort("a foreign 0.2 put no wrap on the manager")
+        end
+        NoteAspects("wrapped")
         -- The wrap keeps the handler from running, not the attribute from being stored, so only the
         -- ticks can say what period is running now.
-        manager:SetAttribute("updatetime", 0.2)
+        wrote, wrapErr = pcall(manager.SetAttribute, manager, "updatetime", 0.2)
+        if not wrote then
+            return Abort("the second foreign 0.2 raised: " .. tostring(wrapErr))
+        end
         rate = PeriodKit.TicksPerFrame(FRAMES)
         if rate < (FRAMES - 1) / FRAMES then
             return Abort(format("after a second foreign 0.2 the manager ticked %.2f times a frame", rate))
+        end
+
+        -- **Events registered after the wrap, then the gate.** This is the order a session meets:
+        -- an addon loading late or changing a setting registers an event on the wrapped manager, and
+        -- our hook takes it off from addon code. The wrap's body runs on every write to the manager
+        -- and `CallRestrictedClosure` refuses an owner carrying a forbidden aspect, so an aspect added
+        -- here would break every driver registered from then on, which is what the gate asks.
+        local registered, registerErr = pcall(function()
+            manager:RegisterEvent("PLAYER_STOPPED_MOVING")
+            manager:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
+        end)
+        if not registered then
+            return Abort("an event registered after the wrap raised: " .. tostring(registerErr))
+        end
+        NoteAspects("event after wrap")
+        if manager:IsEventRegistered("PLAYER_STOPPED_MOVING") then
+            return Abort("an event registered after the wrap stayed on the manager")
+        end
+        if manager:IsEventRegistered("UNIT_POWER_UPDATE") then
+            return Abort("a unit event registered after the wrap stayed on the manager")
         end
 
         local gate = CreateFrame("Frame")
@@ -7318,6 +7395,7 @@ RegisterTest("Period: 0 holds against a foreign period", {
                 tostring(gate:GetAttribute("state-gate"))))
         end
 
+        scratch.periodZeroAspects = table.concat(aspects, ", ")
         return RequestReload("after")
     end,
 })

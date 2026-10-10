@@ -63,7 +63,8 @@ Two things about it are worth knowing:
 * **Events on its own list reset the timer to zero**, so the next frame resolves everything. What
   Debind registers there is the bar and pet battle events behind Keys Given Back
   (`CollectDriverEvents`), and those are what make the `state-giveback` attribute driver resolve
-  promptly.
+  promptly. **At 0 there are none**, Blizzard's included: the timer runs out on every frame, so an
+  event would buy nothing, and every one is taken off when 0 is written (`StateDriverPeriod.lua`).
 * **The tail-key beat rides the poll itself.** It is a driver answering one constant on
   `BindingDriver` (`ApplyBindingPlan`), so a tail key's binding follows a state the manager is told
   nothing about at most one `updatetime` late.

@@ -99,13 +99,50 @@ local function OnManagerAttributeChanged(_, name, value)
     end
     if (Constants.DEBUG) then
         DebindPrivate.DisplayMessage(format("|cnRED_FONT_COLOR:updatetime set to %s by:|r %s",
-            tostring(value), debugstack(3, 2, 0)));
+            tostring(value), debugstack(2, 4, 0)));
     end
     if (InCombatLockdown()) then
         revertPending = true;
     else
         Revert();
     end
+end
+
+--- **An event on the manager does nothing at 0** but `timer = 0`, and the timer is spent on every
+--- frame anyway, so all that is left of one is the call (§5-2). Whoever registers one later --
+--- another addon loading, or one changing its settings -- has it taken off as it lands. The
+--- methods are not protected, so this works in a fight as well.
+---
+--- **Only through the frame's own methods.** A call through a method fetched off the metatable, or
+--- one cached before these hooks went on, is not seen; nothing was found doing either.
+---
+--- A foreign period that lands in a fight runs with no event on the manager until `Revert` can
+--- put 0 back, so every driver resolves on that period alone for the rest of the fight. Only a
+--- snippet holding the manager can write it then, and none was found (§4).
+local function TakeEventOff(_, event)
+    manager:UnregisterEvent(event);
+    if (Constants.DEBUG) then
+        DebindPrivate.DisplayMessage(format("|cnRED_FONT_COLOR:%s taken off the state driver, registered by:|r %s",
+            tostring(event), debugstack(2, 4, 0)));
+    end
+end
+
+local function TakeAllEventsOff()
+    manager:UnregisterAllEvents();
+    if (Constants.DEBUG) then
+        DebindPrivate.DisplayMessage(format("|cnRED_FONT_COLOR:every event taken off the state driver, registered by:|r %s",
+            debugstack(2, 4, 0)));
+    end
+end
+
+--- **All of them, Blizzard's and every addon's**, with no list kept: nothing in the session puts
+--- them back, and a reload registers each again. Which addon had registered which cannot be asked
+--- of the frame, so only the later ones are named in a DEBUG build.
+local function TakeEventsOff()
+    manager:UnregisterAllEvents();
+    hooksecurefunc(manager, "RegisterEvent", TakeEventOff);
+    hooksecurefunc(manager, "RegisterUnitEvent", TakeEventOff);
+    hooksecurefunc(manager, "RegisterAllEvents", TakeAllEventsOff);
 end
 
 --- Writes the plan's period (§4). Called by every rebuild, out of a lockdown.
@@ -122,6 +159,7 @@ function StateDriverPeriod.Apply(wanted)
         written, prior = nil, nil;
         manager:SetAttribute("updatetime", 0);
         manager:HookScript("OnAttributeChanged", OnManagerAttributeChanged);
+        TakeEventsOff();
     elseif (wanted) then
         local current = manager:GetAttribute("updatetime");
         if (written == nil or current ~= written) then

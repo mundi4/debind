@@ -406,7 +406,11 @@ local function BuildBindingPlan(ctx)
 
     plan.updatetime = DebindPrivate.StateDriverPeriod.Wanted(plan.beats);
 
-    CollectDriverEvents(plan.events);
+    --- **None at 0**: the manager's events come off when 0 is written, and one registered here would
+    --- be taken off again as it lands (`StateDriverPeriod.lua`).
+    if (plan.updatetime ~= 0) then
+        CollectDriverEvents(plan.events);
+    end
 
     return plan;
 end
@@ -577,6 +581,10 @@ local function ApplyBindingPlan(plan)
         end
     end
     DebindPrivate.StateDriverPeriod.Apply(plan.updatetime);
+    -- `Apply` took every event off on 0, ours included.
+    if (plan.updatetime == 0) then
+        wipe(_driverEventsOurs);
+    end
 
     -- The aliases this rebuild watches, resolved once so a press finds them standing.
     SecureHandlerExecute(driver, [[
