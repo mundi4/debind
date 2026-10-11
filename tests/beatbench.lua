@@ -940,50 +940,67 @@ return function(DebindPrivate)
             local total, _, lines = price(counts, instruction);
             return total / STEPS + tick * beats / STEPS, bytes / 1024 / STEPS, writes / STEPS, lines;
         end
-        -- **The deferred design over a gap is not here.** The beat reads the pointed frame only while
-        -- there is one (`prepare`), so a cursor off every frame changes nothing it reads; a leave that
-        -- only marked the slot would need the beat to learn of it, which no body does yet.
+        -- **Under a period of 0 the frame's beat comes with every move** (§5-1 of
+        -- `zeroing-the-beat-period-where-it-is-needed.md`): enter and leave only write the slot, and
+        -- the beat right after them is what judges, so it is part of the step.
         local SCENES = {
-            { "leave and enter, one frame (the wakes now)", function(i) return { LEAVE, token(i + 1), ENTER }; end },
+            { "leave and enter, one frame (the wakes)", function(i) return { LEAVE, token(i + 1), ENTER }; end },
             { "leave, a beat over the gap, enter", function(i) return { LEAVE, BEAT, token(i + 1), ENTER }; end },
-            { "the beat sees the new unit, no wake (zero period, deferred)", function(i)
+            { "the beat sees the new unit, no wake", function(i)
                 return { token(i + 1), BEAT };
             end },
             { "a beat on a frame, nothing moved", function() return { BEAT }; end },
         };
+        local ZERO_SCENES = {
+            { "leave and enter, one frame, the beat", function(i)
+                return { LEAVE, token(i + 1), ENTER, BEAT };
+            end },
+            { "leave, a beat over the gap, enter, the beat", function(i)
+                return { LEAVE, BEAT, token(i + 1), ENTER, BEAT };
+            end },
+            { "the beat sees the new unit", function(i) return { token(i + 1), BEAT }; end },
+            { "a beat on a frame, nothing moved", function() return { BEAT }; end },
+        };
         print("\nThe owner's shape reading the pointed frame instead, the cursor over 20 raid frames, a step in us:"
             .. "\nthe bodies + the strings' garbage at 3.89 us a KB = a step; KB; binding writes");
-        for _, helpOnly in ipairs({ 0, 1 }) do
-            largeWorld();
-            for r = 1, RAID do
-                shim.world.units["raid" .. r] = { id = "member" .. r, reaction = "help" };
-            end
-            bind(ownersProfile(helpOnly, false, "unitframe"), LARGE_SWITCHES);
-            local instruction = instructionCost(interp);
-            local tick = managerTick();
-            interp.state.combat = false;
-            interp:beat();
-            print(string.format("  help alone %3d%%:", helpOnly * 100));
-            for _, scene in ipairs(SCENES) do
-                groupFrame:SetAttribute("unit", token(1));
-                interp:hoverEnter(groupFrame);
+        for _, form in ipairs({
+            { label = "0.2", scenes = SCENES },
+            { label = "0", scenes = ZERO_SCENES, period = 0 },
+        }) do
+            for _, helpOnly in ipairs({ 0, 1 }) do
+                largeWorld();
+                for r = 1, RAID do
+                    shim.world.units["raid" .. r] = { id = "member" .. r, reaction = "help" };
+                end
+                -- A new options table each time: `bind` and the addon write into the one handed over.
+                bind(ownersProfile(helpOnly, false, "unitframe"), LARGE_SWITCHES,
+                    form.period and { stateDriverPeriod = form.period } or nil);
+                local instruction = instructionCost(interp);
+                local tick = managerTick();
+                interp.state.combat = false;
                 interp:beat();
-                local us, kb, writes, lines = walk(instruction, tick, scene[2]);
-                print(string.format("    %-66s %6.2f + %5.2f = %6.2f; %5.3f KB; %4.1f writes",
-                    scene[1], us, kb * GC_PER_KB, us + kb * GC_PER_KB, kb, writes));
-                if (helpOnly == 0 and scene == SCENES[1]) then
-                    for _, l in ipairs(lines) do
-                        if (l.us / STEPS >= 2) then
-                            print(string.format("        %-30s %9.1f a step %8.2f us%s", l.what, l.n / STEPS,
-                                l.us / STEPS, l.measured and "" or " *"));
+                print(string.format("  period %s, help alone %3d%%:", form.label, helpOnly * 100));
+                for _, scene in ipairs(form.scenes) do
+                    groupFrame:SetAttribute("unit", token(1));
+                    interp:hoverEnter(groupFrame);
+                    interp:beat();
+                    local us, kb, writes, lines = walk(instruction, tick, scene[2]);
+                    print(string.format("    %-66s %6.2f + %5.2f = %6.2f; %5.3f KB; %4.1f writes",
+                        scene[1], us, kb * GC_PER_KB, us + kb * GC_PER_KB, kb, writes));
+                    if (helpOnly == 0 and scene == form.scenes[1]) then
+                        for _, l in ipairs(lines) do
+                            if (l.us / STEPS >= 2) then
+                                print(string.format("        %-30s %9.1f a step %8.2f us%s", l.what, l.n / STEPS,
+                                    l.us / STEPS, l.measured and "" or " *"));
+                            end
                         end
                     end
+                    interp:hoverLeave(groupFrame);
                 end
-                interp:hoverLeave(groupFrame);
+                interp:beat();
+                local us = walk(instruction, tick, function() return { BEAT }; end);
+                print(string.format("    %-66s %6.2f", "a beat, no frame under the cursor", us));
             end
-            interp:beat();
-            local us = walk(instruction, tick, function() return { BEAT }; end);
-            print(string.format("    %-66s %6.2f", "a beat, no frame under the cursor", us));
         end
         groupFrame:SetAttribute("unit", "party1");
     end

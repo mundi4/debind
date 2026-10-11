@@ -41,13 +41,21 @@ return function(DebindPrivate, _, ctx)
     --- **Every case under both beats** (`BeatSignal.lua`): the rebuild in the case registers the
     --- driver the answer picks and writes the handler's branch for it, and `Interp:beat` writes what
     --- the driver standing would.
+    ---
+    --- **And under a period of 0**, where the cursor's enter and leave only write the slot and the
+    --- beat judges the pointed frame (`zeroing-the-beat-period-where-it-is-needed.md` §5-1). On one
+    --- beat only: the period changes the beat's body, and both beats run the same one.
     local RUNS = {
         { label = "attribute", signal = "attribute" },
         { label = "visibility", signal = "visibility" },
+        { label = "attribute, period 0", signal = "attribute", period = 0 },
     };
+    --- The run's period, which `Bind` writes into the options it is handed.
+    local runPeriod;
     local function test(name, fn)
         for _, run in ipairs(RUNS) do
             DebindPrivate.BeatSignal.comes = run.signal == "visibility" or nil;
+            runPeriod = run.period;
             local ok, err = pcall(fn);
             if (ok) then
                 T.passed = T.passed + 1;
@@ -56,6 +64,7 @@ return function(DebindPrivate, _, ctx)
             end
         end
         DebindPrivate.BeatSignal.comes = nil;
+        runPeriod = nil;
     end
 
     local function check(cond, msg)
@@ -96,6 +105,13 @@ return function(DebindPrivate, _, ctx)
         local defined = { ["$s1"] = { mode = Constants.SWITCH_MODES.MANUAL } };
         for name, definition in pairs(switches or {}) do
             defined[name] = definition;
+        end
+        if (runPeriod ~= nil) then
+            local copy = { stateDriverPeriod = runPeriod };
+            for name, value in pairs(options or {}) do
+                copy[name] = value;
+            end
+            options = copy;
         end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
@@ -176,11 +192,21 @@ return function(DebindPrivate, _, ctx)
         };
     end
 
+    --- The frame the last `Apply` put the cursor on, nil for none.
+    local pointedFrame;
+
     --- Puts the world on the point `cells` (column key -> cell). False where no world is that point:
     --- two columns that read one thing, or a cell this world has no frame for.
-    local function Apply(columns, cells)
+    ---
+    --- **`still` keeps the cursor where it is**, with no leave and no enter, so what moved reaches the
+    --- loop through the beat alone: a frame laid out again, or its unit gone (F3). False where the
+    --- point needs a frame other than the one under the cursor.
+    local function Apply(columns, cells, still)
         interp:resetState();
-        interp:clearHoverSlot();
+        if (not still) then
+            interp:clearHoverSlot();
+            pointedFrame = nil;
+        end
         interp.env.UnitRoles = false;
         shim.world.units = { player = { id = "me", reaction = "help" } };
 
@@ -260,11 +286,21 @@ return function(DebindPrivate, _, ctx)
                     ~= Constants.UNITGROUPCELL_NEITHER) then
                 return false;
             end
+            -- **The cursor leaves a frame and its unit stays.** In a world emptied of it, a loop still
+            -- reading the frame it left would measure that unit absent and agree with the item by
+            -- accident. Under a still cursor the frame's unit is what went, and stays out.
+            if (not still) then
+                shim.world.units.party1 = { id = "party1", reaction = "help" };
+                shim.world.units.boss1 = { id = "boss1", reaction = "harm" };
+            end
         else
             local frame, token = groupFrame, "party1";
             if (frameType == Constants.FRAMETYPE_BOSS) then
                 frame, token = bossFrame, "boss1";
             elseif (frameType ~= nil and frameType ~= Constants.FRAMETYPE_GROUP) then
+                return false;
+            end
+            if (still and frame ~= pointedFrame) then
                 return false;
             end
             if (role ~= nil and role ~= Judgment.ROLE_UNMEASURED) then
@@ -274,9 +310,25 @@ return function(DebindPrivate, _, ctx)
                 interp.env.UnitRoles = { party1 = ROLE_OF[role] };
             end
             shim.world.units[token] = UnitAt(cells, "unitframe");
-            interp:hoverEnter(frame);
+            if (not still) then
+                interp:hoverEnter(frame);
+                pointedFrame = frame;
+            end
         end
         return true;
+    end
+
+    --- Each pointed frame's column, at what it reads with the cursor on no frame.
+    local FRAME_AWAY = {
+        ["unit unitframe"] = Constants.UNITSTATE_NONE,
+        ["unitgroup unitframe"] = Constants.UNITGROUPCELL_NEITHER,
+        frameType = Judgment.FRAMETYPE_NOFRAME,
+        role = Judgment.ROLE_UNMEASURED,
+    };
+
+    local function Pointed(cells)
+        local pointed = cells["unit unitframe"];
+        return pointed ~= nil and pointed ~= Constants.UNITSTATE_NONE;
     end
 
     ---------------------------------------------------------------------------
@@ -447,24 +499,52 @@ return function(DebindPrivate, _, ctx)
         --- several columns at once, and a column whose watch fragment is wrong is covered by another
         --- that moved with it. Every third point is rebuilt on first, so the fragments the pass
         --- writes are held as well as the first point's.
+        ---
+        --- **On a frame, each move twice**: once with the cursor leaving and entering again, and once
+        --- with it still, where only the beat can see the move. **And the cursor gone, and back**: off
+        --- the frame, and under a still cursor with the frame's unit gone, each of which the beat
+        --- alone sees under a period of 0. A move of one column never reaches either: the frame's
+        --- columns leave together.
         local function Neighbours(cells, reached)
             if (reached % 3 == 0) then
                 Bind(lastBind[1], lastBind[2], lastBind[3]);
                 Apply(columns, cells);
                 Hold(cells, " after a rebuild");
             end
+            local ways = Pointed(cells) and { false, true } or { false };
             for _, column in ipairs(columns) do
                 local here = cells[column.key];
                 for _, cell in ipairs(Cells(column.all)) do
                     if (cell ~= here) then
-                        cells[column.key] = cell;
-                        if (Apply(columns, cells)) then
-                            Hold(cells, ", moved to from " .. column.key .. "=" .. here);
+                        for _, still in ipairs(ways) do
+                            local how = still and " under a still cursor" or "";
+                            if (still) then
+                                Apply(columns, cells);
+                            end
+                            cells[column.key] = cell;
+                            if (Apply(columns, cells, still)) then
+                                Hold(cells, ", moved to from " .. column.key .. "=" .. here .. how);
+                                cells[column.key] = here;
+                                Apply(columns, cells, still);
+                                Hold(cells, ", back from " .. column.key .. "=" .. cell .. how);
+                            end
                             cells[column.key] = here;
-                            Apply(columns, cells);
-                            Hold(cells, ", back from " .. column.key .. "=" .. cell);
                         end
-                        cells[column.key] = here;
+                    end
+                end
+            end
+            if (Pointed(cells)) then
+                local away = {};
+                for k, cell in pairs(cells) do
+                    away[k] = FRAME_AWAY[k] or cell;
+                end
+                for _, still in ipairs({ false, true }) do
+                    local how = still and ", its unit gone under a still cursor" or ", the cursor gone";
+                    Apply(columns, cells);
+                    if (Apply(columns, away, still)) then
+                        Hold(away, how);
+                        Apply(columns, cells, still);
+                        Hold(cells, how .. " and back");
                     end
                 end
             end
@@ -757,6 +837,16 @@ return function(DebindPrivate, _, ctx)
             action({ type = Constants.GIVEBACK }),
         });
         Saw(Sweep("F1"), Judgment.RELEASE, OutcomeName(Judgment.COMMAND, MAP));
+    end);
+
+    -- **The frame's reaction alone**, the shape a healing key takes. With no type or role column to
+    -- move beside it, the unit's own cell is all that tells the frame was left or its unit went.
+    test("a pointed frame's reaction alone, above an unused", function()
+        Bind({
+            action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
+            action({ type = Constants.GIVEBACK }),
+        });
+        Saw(Sweep("F1"), Judgment.OURS, Judgment.RELEASE);
     end);
 
     -- **The action above the tail takes the pointed press it answers.** With the tail's pointed

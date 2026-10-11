@@ -42,6 +42,9 @@ return function(DebindPrivate)
     local groupFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
     DebindPrivate.RegisterFrame(groupFrame, "group");
     groupFrame:SetAttribute("unit", "party1");
+    local otherFrame = frames.newFrame("Button", nil, nil, "SecureUnitButtonTemplate");
+    DebindPrivate.RegisterFrame(otherFrame, "group");
+    otherFrame:SetAttribute("unit", "party2");
 
     local seq = 0;
     local function action(t)
@@ -344,6 +347,100 @@ return function(DebindPrivate)
         check(Released("F1"), "leaving the frame did not let F1 go");
         check(interp.handlerRuns - before == 0,
             "the cursor's wake ran the handler " .. (interp.handlerRuns - before) .. " times");
+    end);
+
+    ---------------------------------------------------------------------------
+    -- Under a period of 0 (§5-1 of `zeroing-the-beat-period-where-it-is-needed.md`): enter and leave
+    -- only write the slot, and the frame's beat judges. A case under 0 first shows the cursor's move
+    -- bound nothing by itself, or the ordinary form, whose wakes judge, would pass it as well.
+    ---------------------------------------------------------------------------
+
+    --- **A new options table on every call**: the addon writes into the one it is handed.
+    local function BindPointed(period)
+        Bind({
+            action({ conditions = { units = { unitframe = { reaction = Constants.REACTION_HELP } } } }),
+            action({ type = Constants.GIVEBACK }),
+        }, period and { stateDriverPeriod = period } or nil);
+        shim.world.units.party1 = { id = "p1", reaction = "help" };
+        shim.world.units.party2 = { id = "p2", reaction = "harm" };
+    end
+
+    test("under 0 the cursor arriving and leaving is judged on the beat", function()
+        BindPointed(0);
+        interp:hoverEnter(groupFrame);
+        check(Released("F1"), "under 0 pointing at a frame bound F1 by itself");
+        interp:beat();
+        check(IsOurs("F1"), "a beat over a friendly frame did not take F1");
+        interp:hoverLeave(groupFrame);
+        check(IsOurs("F1"), "under 0 leaving the frame let F1 go by itself");
+        interp:beat();
+        check(Released("F1"), "a beat after the cursor left did not let F1 go");
+    end);
+
+    test("under 0 leaving and entering between two beats is judged on the frame reached", function()
+        BindPointed(0);
+        interp:hoverEnter(groupFrame);
+        interp:beat();
+        check(IsOurs("F1"), "a beat over a friendly frame did not take F1");
+        interp:hoverLeave(groupFrame);
+        interp:hoverEnter(groupFrame);
+        interp:beat();
+        check(IsOurs("F1"), "leaving and coming back to the same frame let F1 go");
+        interp:hoverLeave(groupFrame);
+        interp:hoverEnter(otherFrame);
+        check(IsOurs("F1"), "under 0 moving to a hostile frame let F1 go by itself");
+        interp:beat();
+        check(Released("F1"), "a beat over a hostile frame did not let F1 go");
+        interp:hoverLeave(otherFrame);
+        interp:hoverEnter(groupFrame);
+        interp:beat();
+        check(IsOurs("F1"), "a beat back over the friendly frame did not take F1");
+    end);
+
+    -- F3: the frame laid out again, the cursor never moving and nothing sent. **A unit gone is the
+    -- cursor leaving as far as the beat can tell**, under either period: the frame's token goes, and
+    -- its watch has to say the cell was left (`unitFragment`).
+    test("a unit changing or gone under a still cursor is judged on the beat", function()
+        for _, case in ipairs({ { what = "0.2" }, { what = "0", period = 0 } }) do
+            BindPointed(case.period);
+            interp:hoverEnter(groupFrame);
+            interp:beat();
+            check(IsOurs("F1"), case.what .. ": a beat over a friendly frame did not take F1");
+            local ok, err = pcall(function()
+                for _, step in ipairs({
+                    { unit = "party2", ours = false, what = "turned hostile" },
+                    { unit = "party1", ours = true, what = "turned friendly again" },
+                    { unit = "party9", ours = false, what = "lost its unit" },
+                    { unit = "party1", ours = true, what = "had its unit back" },
+                }) do
+                    groupFrame:SetAttribute("unit", step.unit);
+                    interp:beat();
+                    check(IsOurs("F1") == step.ours, string.format("%s: a beat after the frame %s left F1 %s",
+                        case.what, step.what, Bound("F1")));
+                end
+            end);
+            groupFrame:SetAttribute("unit", "party1");
+            interp:clearHoverSlot();
+            if (not ok) then
+                error(err, 0);
+            end
+        end
+    end);
+
+    -- **The form follows the period the rebuild writes** (§4): one taking 0 off bakes the ordinary
+    -- form again, and a period that is not 0 never gets the one that leaves judging to the beat.
+    test("a rebuild off 0 judges the cursor's moves where they happen again", function()
+        for _, case in ipairs({
+            { what = "0 taken off" },
+            { what = "a period of 0.1", period = 0.1 },
+        }) do
+            BindPointed(0);
+            BindPointed(case.period);
+            interp:hoverEnter(groupFrame);
+            check(IsOurs("F1"), case.what .. ": pointing at a friendly frame did not take F1");
+            interp:hoverLeave(groupFrame);
+            check(Released("F1"), case.what .. ": leaving the frame did not let F1 go");
+        end
     end);
 
     test("a switch set by hand wakes the loop with no beat", function()

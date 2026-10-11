@@ -45,6 +45,10 @@ local _judgeWatchCheckBody;
 local _judgeBeatBody;
 --- Does the beat measure any column of this rebuild (`JudgedOnBeat`)?
 local _judgeBeats = false;
+--- The manager's period this rebuild writes (`StateDriverPeriod.Wanted`), nil for none. **Asked here
+--- and nowhere else in a rebuild**, because the beat is baked for it and `ZeroedByUs`, which the
+--- hover bodies read, is written from it: one answer, or a beat baked for 0 under a period that is not.
+local _judgeUpdatetime;
 --- What carries the beat in this rebuild: `"visibility"` where the login's check found the manager
 --- writing `statehidden` on every tick (`BeatSignal.lua`), `"attribute"` otherwise. Decided once
 --- per rebuild, since the handler's branch and the driver `ApplyBindingPlan` registers have to
@@ -436,7 +440,8 @@ local _unitWatch = {};
 --- **What the watch asks for a unit column, by the cell its group writes**: alternatives that hold
 --- exactly once the unit has left the group (Q3 of
 --- `implementing-the-cuts-inside-the-beat-handler.md`). An empty list carries nothing: no present
---- cell is left to move to, and the absent one comes with the token, through its wake.
+--- cell is left to move to. The absent one comes with the token, through its wake or, for the
+--- pointed frame, through the beat's `prepare` (`unitFragment`).
 ---
 --- **Two exact ways, and the one with fewer words is written.** The cells outside the group, as
 --- `UnitAlternatives` writes them for the press, are always one. Where the group's own text is one
@@ -1110,9 +1115,15 @@ local function BuildJudgeSnippet()
 
     --- **An alias or frame unit's fragment, for the token in the local `token` and the cell `cellExpr`
     --- names**, written into its place. Only the fragment that place needs now is built, where it is
-    --- written; `""` with no token, since a fragment around an empty token would hold
-    --- unconditionally.
-    local function unitFragment(unit, token, cellExpr)
+    --- written.
+    ---
+    --- **`left` where the cell may predate the token** (`refreshUnitWatch`): with no token, a cell
+    --- other than `UNITSTATE_NONE` has already been left, since none is what a unit with no token
+    --- measures, so the place answers unconditionally and the next parse measures the column. Where
+    --- that comes with no wake is the beat's `prepare`: the pointed frame's unit gone under a still
+    --- cursor (F3) or, under 0, the cursor leaving (`SETUP_ONLEAVE_SNIPPET`). A `""` there left the
+    --- text with nothing to parse and the cell where the unit was. A cell just measured is never left.
+    local function unitFragment(unit, token, cellExpr, left)
         local watch = _unitWatch[unit];
         writesWatch = true;
         add([[local fragment = ""]]);
@@ -1137,6 +1148,14 @@ local function BuildJudgeSnippet()
                 add("fragment = %s", branch[2]);
             end
             add("end");
+            if (left) then
+                add("elseif (%s ~= %d) then", cellExpr, Constants.UNITSTATE_NONE);
+                add([[fragment = "%d; "]], watch.place);
+            end
+            add("end");
+        elseif (left) then
+            add("if (not %s and %s ~= %d) then", token, cellExpr, Constants.UNITSTATE_NONE);
+            add([[fragment = "%d; "]], watch.place);
             add("end");
         end
         add("frags[%d] = fragment", watch.place);
@@ -1477,7 +1496,7 @@ local function BuildJudgeSnippet()
         add("do");
         add("local token = %s", tokenOf(unit));
         add("local cell = columns[%d]", CellSlot(_judgmentColumnIndex["unit " .. unit]));
-        unitFragment(unit, "token", "cell");
+        unitFragment(unit, "token", "cell", true);
         add("end");
     end
 
@@ -1501,8 +1520,11 @@ local function BuildJudgeSnippet()
             add("do");
             add("local unitframe = States.unitframe");
             -- **Only while pointing**, on the beat: a frame laid out again under a cursor that never
-            -- moved sends neither enter nor leave (F3), and nothing else needs the read.
-            if (mode == "beat") then
+            -- moved sends neither enter nor leave (F3), and enter and leave judge the rest. **Under
+            -- 0 they do not** (`SETUP_ONENTER_SNIPPET`), so the beat reads the empty slot too, and
+            -- that is where it sees the cursor leave.
+            local guarded = mode == "beat" and _judgeUpdatetime ~= 0;
+            if (guarded) then
                 add("if (unitframe) then");
             end
             add("local unitframeUnit");
@@ -1522,7 +1544,7 @@ local function BuildJudgeSnippet()
                 clearReaders("unitframe");
             end
             add("end");
-            if (mode == "beat") then
+            if (guarded) then
                 add("end");
             end
             add("end");
@@ -1556,6 +1578,7 @@ local function BuildJudgeSnippet()
     end
     sort(wakeOrder);
     _judgeBeats = #beat > 0;
+    _judgeUpdatetime = DebindPrivate.StateDriverPeriod.Wanted(_judgeBeats);
 
     --- **Is the loop being built for a development build with probes on?** The question `BakeSnippet`
     --- asks to pick its probe forms. There the watch's units are parsed one at a time, each beside
@@ -1884,6 +1907,7 @@ local function FillJudgePlan(plan)
     --- Does the beat measure anything for the loop? A switch set by hand and a pet battle move only
     --- on a wake of ours, so a profile reading nothing else needs no beat.
     plan.beats = plan.judges and _judgeBeats;
+    plan.updatetime = _judgeUpdatetime;
     plan.beatSignal = _judgeBeatSignal;
     plan.judgePass = _judgePassBody;
     plan.judgeWakes = _judgeWakeBodies;
@@ -1896,6 +1920,8 @@ local function ClearJudgeBodies()
     _judgePassBody = nil;
     wipe(_judgeWakeBodies);
     _judgeBeats = false;
+    -- Asked rather than set to nil: what a rebuild with no beat writes is `Wanted`'s to say.
+    _judgeUpdatetime = DebindPrivate.StateDriverPeriod.Wanted(false);
     _judgeWatchCheckBody = nil;
     _judgeBeatBody = nil;
 end

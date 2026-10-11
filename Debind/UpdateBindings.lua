@@ -402,9 +402,8 @@ local function BuildBindingPlan(ctx)
 
     --- Does any key have a judgment item, and so need the loop (`JudgeKeys`) and its beat?
     plan.judges = next(DebindPrivate.JudgmentItems) ~= nil;
+    --- `plan.updatetime` comes with the rest: the beat was baked for it.
     FillJudgePlan(plan);
-
-    plan.updatetime = DebindPrivate.StateDriverPeriod.Wanted(plan.beats);
 
     --- **None at 0**: the manager's events come off when 0 is written, and one registered here would
     --- be taken off again as it lands (`StateDriverPeriod.lua`).

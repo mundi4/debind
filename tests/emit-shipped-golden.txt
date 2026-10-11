@@ -2435,6 +2435,8 @@ SetAttribute <Frame#2> judge-unitframe =
   | elseif (cell == 8) then
   | fragment = "[@" .. token .. ",help] 11; "
   | end
+  | elseif (cell ~= 1) then
+  | fragment = "11; "
   | end
   | frags[11] = fragment
   | dirty = true
@@ -2885,6 +2887,8 @@ SetAttribute <Frame#2> _onattributechanged =
   | elseif (cell == 8) then
   | fragment = "[@" .. token .. ",help] 11; "
   | end
+  | elseif (cell ~= 1) then
+  | fragment = "11; "
   | end
   | frags[11] = fragment
   | dirty = true

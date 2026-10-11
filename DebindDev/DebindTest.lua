@@ -8622,6 +8622,79 @@ RegisterTest("Tail: the beat takes the key and hands it back to the command", {
     end,
 })
 
+-- **Under a period of 0, the beat judges the pointed frame** (§5-1 of
+-- `zeroing-the-beat-period-where-it-is-needed.md`). Which way the key goes at each move is headless
+-- (`tests/judgmentloop_spec.lua`, and `tests/judgment_spec.lua`'s run at 0). What only the client
+-- shows is the hover bodies reading `ZeroedByUs` in the real restricted environment, and the
+-- manager's beat taking each move after them: a body that fails there raises nothing, and the key
+-- stays where the last wake left it. The frame's unit going under a still cursor is in it, since
+-- under 0 that and the cursor leaving reach the beat the same way.
+RegisterTest("Tail: under a period of 0 the beat follows the cursor on a unit frame", {
+    description = "With the period at 0, entering and leaving a unit frame bind nothing by themselves, and the beat takes the key over the friendly frame, lets it go when its unit goes and comes back, and lets it go when the cursor leaves",
+    run = function()
+        local NAME = "Tail pointed at 0"
+        local KEY = "CTRL-SHIFT-F12"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "a rebuild is refused in combat, so nothing would be bound")
+        end
+
+        CleanupActions()
+        AddTeardown(CleanupActions)
+        local choose = PeriodKit.Swap()
+        InsertAction({
+            type = Constants.SPELL, value = 585, key = KEY,
+            units = { unitframe = { reaction = Constants.REACTION_HELP } },
+        })
+        choose(0)
+        ApplyBindings()
+        if not DebindPrivate.StateDriverPeriod.ZeroedByUs() then
+            return Fail(NAME, "the rebuild did not write 0, so the case would measure the ordinary bodies")
+        end
+
+        local frame, err = CreateTestUnitFrame("player", "group")
+        if not frame then return Fail(NAME, err) end
+        local function Ours() return IsOurClick(GetBindingAction(KEY, true)) end
+        if Ours() then
+            return Fail(NAME, "with no frame under the cursor the key is held")
+        end
+
+        -- **Asked before any frame passes**: `HoverEnter` runs the body before it returns, and the
+        -- ordinary one would have judged by then.
+        HoverEnter(frame)
+        AddTeardown(function() HoverLeave(frame) end)
+        if Ours() then
+            return Fail(NAME, "entering the frame took the key by itself, so the body ran its ordinary form")
+        end
+        local moved, why = WaitOnBeat(Ours)
+        if not moved then
+            return Fail(NAME, why or "no beat took the key over the friendly frame")
+        end
+
+        SetFrameUnit(frame, UNIT_TOKEN_ABSENT)
+        moved, why = WaitOnBeat(function() return not Ours() end)
+        if not moved then
+            return Fail(NAME, why or "no beat let the key go when the frame's unit went")
+        end
+        SetFrameUnit(frame, "player")
+        moved, why = WaitOnBeat(Ours)
+        if not moved then
+            return Fail(NAME, why or "no beat took the key back when the frame's unit came back")
+        end
+
+        HoverLeave(frame)
+        if not Ours() then
+            return Fail(NAME, "leaving the frame let the key go by itself, so the body ran its ordinary form")
+        end
+        moved, why = WaitOnBeat(function() return not Ours() end)
+        if not moved then
+            return Fail(NAME, why or "no beat let the key go after the cursor left")
+        end
+
+        return Pass(NAME, "enter and leave wrote the slot alone, and the beat took, released, took back and released the key")
+    end,
+})
+
 -- **A key whose one action is conditional, with nothing under it** (`giving-keys-back-when-no-action-runs.md`).
 -- The same beat as the case above, with the giveback the rebuild puts at the key's end standing where
 -- the command stood. Which way the key goes in each state is headless (`tests/judgmentloop_spec.lua`

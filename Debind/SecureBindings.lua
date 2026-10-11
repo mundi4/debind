@@ -175,6 +175,10 @@ SecureHandlerExecute(BindingDriver, [[
 	JudgeStaged.frameRole = false
 	Judge = false
 
+	-- Whether the manager's period is a 0 of ours (`StateDriverPeriod.lua`), which the hover bodies
+	-- and the manager's wrap read. `false` until a rebuild writes 0.
+	ZeroedByUs = false
+
 	-- The keys the game has claimed for a binding context, written by `BakeContextKeys` on every
 	-- transition rather than by a rebuild -- a rebuild cannot cross a lockdown and the house editor
 	-- changes context per mode.
@@ -1072,14 +1076,32 @@ BindingDriver:SetAttribute("DeinitFrame", [==[
 --- **Neither fragment may end in a `return` that leaves the body.** What follows it is what answers
 --- Blizzard, so an early exit here would skip it. That is why the "no row" case below is an
 --- `if/else` rather than a return.
+---
+--- **While a 0 of ours stands, both only write the slot** (`zeroing-the-beat-period-where-it-is-needed.md`
+--- §5-1). The manager then runs the loop's beat on every frame, and the beat baked for 0 reads the
+--- slot whether or not a frame is in it, so it judges the move this frame; the press reads the frame
+--- itself (`evalFrame`). Judging here as well would judge every frame boundary twice. A foreign
+--- period landing in a fight stands until it ends (`StateDriverPeriod.lua`), and the pointed frame
+--- then waits that period for its beat like every other driver does.
+---
+--- `UnitAliasMap.unitframe` and the row's `unit`, `reaction` and `role` go stale meanwhile, and stay
+--- so after 0 comes off. Nothing that decides reads the alias. The row's fields only decide whether
+--- the compare below wakes the loop, and a frame a stale one lets pass was judged by the rebuild that
+--- took 0 off and is read by every beat while it holds the slot.
+---
+--- **A flag read in the body, not a body the rebuild swaps.** A wrapper keeps the text it was handed
+--- when it went on (`SecureHandlers.lua`, `CreateWrapClosure`), so a body written to the attribute
+--- later never reaches a frame wrapped before it. `ZeroedByUs` is written by the rebuild that bakes
+--- the beat for the same period (`StateDriverPeriod.Apply`).
 local SETUP_ONENTER_SNIPPET = [==[
-	local unit = self:GetEffectiveAttribute("unit")
-
 	local unitframe = ccframes[self]
-	if (not unitframe) then
+	if (ZeroedByUs) then
+		States.unitframe = unitframe
+	elseif (not unitframe) then
 		debind_driver:RunAttribute("setup_onleave")
 	else
 
+	local unit = self:GetEffectiveAttribute("unit")
 	local reaction
 	local role
 	if (unit and UnitExists(unit)) then
@@ -1121,8 +1143,9 @@ local SETUP_ONENTER_SNIPPET = [==[
 ]==];
 
 local SETUP_ONLEAVE_SNIPPET = [==[
-	local unitframe = States.unitframe
-	if (unitframe) then
+	if (ZeroedByUs) then
+		States.unitframe = nil
+	elseif (States.unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe

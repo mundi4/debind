@@ -197,6 +197,10 @@ DelegateFrameNames[frame] = frame:GetName()
 
 
 
+	ZeroedByUs = false
+
+
+
 
 	ContextKeys = newtable()
 
@@ -524,13 +528,14 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 ### SecureBindings.lua #13 SetAttribute
-	local unit = self:GetEffectiveAttribute("unit")
-
 	local unitframe = ccframes[self]
-	if (not unitframe) then
+	if (ZeroedByUs) then
+		States.unitframe = unitframe
+	elseif (not unitframe) then
 		debind_driver:RunAttribute("setup_onleave")
 	else
 
+	local unit = self:GetEffectiveAttribute("unit")
 	local reaction
 	local role
 	if (unit and UnitExists(unit)) then
@@ -572,8 +577,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 ### SecureBindings.lua #14 SetAttribute
-	local unitframe = States.unitframe
-	if (unitframe) then
+	if (ZeroedByUs) then
+		States.unitframe = nil
+	elseif (States.unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe
@@ -584,8 +590,9 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 
 
 ### SecureBindings.lua #15 SetAttribute
-	local unitframe = States.unitframe
-	if (unitframe) then
+	if (ZeroedByUs) then
+		States.unitframe = nil
+	elseif (States.unitframe) then
 		States.unitframe = nil
 		debind_driver:RunAttribute("SetUnit", "unitframe", nil)
 		local wake = JudgeWakes.unitframe
