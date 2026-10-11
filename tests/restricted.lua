@@ -1260,7 +1260,8 @@ end
 --- Transcribed from `SecureGroupHeader_Update` and the two functions under it
 --- (`SecureGroupHeaders.lua`, the same on both clients): which members it takes and **the name it
 --- compares each by** -- `GetRaidRosterInfo`'s in a raid, `UnitName`'s two returns joined by "-"
---- otherwise -- then a unit written on every child in index order, `nil` past the last one filled.
+--- otherwise -- sorted by that name under `sortMethod = "NAME"`, then a unit written on every child
+--- in index order, `nil` past the last one filled.
 --- Each write runs the child's wrapped `OnAttributeChanged`, as the client's does.
 ---
 --- A header filtered by group or role is left alone. Nothing headless asks one to lay out, and a
@@ -1292,6 +1293,7 @@ function Interp:layoutGroupHeader(frame)
         for entry in nameList:gmatch("[^,]+") do
             wanted[entry:match("^%s*(.-)%s*$")] = true;
         end
+        local compared = {};
         for i = start, stop do
             local unit, name;
             if (kind == "RAID") then
@@ -1306,7 +1308,11 @@ function Interp:layoutGroupHeader(frame)
             end
             if (name and wanted[name]) then
                 units[#units + 1] = unit;
+                compared[unit] = name;
             end
+        end
+        if (attrs.sortMethod == "NAME") then
+            table.sort(units, function(a, b) return compared[a] < compared[b]; end);
         end
     end
 

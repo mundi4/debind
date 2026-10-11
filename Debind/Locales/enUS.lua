@@ -365,6 +365,9 @@ L["SWITCH_ON"] = "On"
 L["SWITCHES_DESC"] = "On/off Switches you can use as a condition on an action, or as a macro conditional in a Custom Macro (for example |cnHIGHLIGHT_FONT_COLOR:[$fishing]|r). You turn one on and off yourself, or set it to follow a macro conditional you write. Turning it with a key works even in combat."
 L["SWITCHES"] = "Switches"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:Failed to set from '%2$s'|r"
+-- A press on a party or raid member whose name the game has not loaded yet. Nothing is set and the
+-- custom target keeps what it held: a name is what it follows them by, and there is none to keep.
+L["CUSTOM_TARGET_NAME_NOT_LOADED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Not set|r - their name has not loaded yet. Try again in a moment."
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:Cleared|r - it was held by group slot, not by name, and the group changed. Set it again."
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
 -- The three lines a Set Custom Target press can fail with. `UnitWatch.lua` says which is which.

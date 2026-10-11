@@ -7,8 +7,8 @@
 -- which unit `@custom1` ends up on.
 --
 -- Run on both clients. Camelot's `UnitName` answers a surname where retail answers a realm, and
--- the shim joins that surname with a separator of its own, so a list built from the displayed name
--- rather than the compared one shows there.
+-- the shim joins that surname with a separator of its own, so there the "-" name a party compares
+-- and the shown name are two spellings and a list holding only one of them finds nobody somewhere.
 
 return function(DebindPrivate)
     local Constants = DebindPrivate.Constants;
@@ -54,9 +54,10 @@ return function(DebindPrivate)
     --- Two people, each with a second name the header has to join: the reader, and one other.
     local ME = { id = "me", name = "Galstan", second = "Yulebraid", reaction = "help", isPlayer = true };
     local THEM = { id = "them", name = "Jathelbur", second = "Drillmaven", reaction = "help", isPlayer = true };
-    --- **Spelled unlike the "-" name on purpose.** Nothing says a raid roster spells a name the
-    --- way a party's `UnitName` join does, and a list that only works when the two agree would
-    --- pass here only by luck.
+    --- **Spelled unlike every name the unit gives, on purpose.** Camelot's roster does not spell a
+    --- name the way a party's `UnitName` join does (measured on 70338: "Jathelbur Drillmaven"), and
+    --- what has to hold is that the list carries whatever the roster answers, read rather than
+    --- assumed. `shownRaid` below is the spelling camelot actually has.
     local ME_ROSTER, THEM_ROSTER = "Galstan of the roster", "Jathelbur of the roster";
 
     local function party()
@@ -174,8 +175,10 @@ return function(DebindPrivate)
     end);
 
     --- **A name the client will not show is no name at all.** Kept with half of it, the pin would
-    --- be a first name alone, and on camelot a first name is not one person.
-    test("a member whose second name is secret is not pinned by the first", function()
+    --- be a first name alone, and on camelot a first name is not one person. The press still sets
+    --- them, by the token: a secret is not a name that is about to load, so turning it down with
+    --- "try again" would never come right, least of all in the fight where secrets turn up.
+    test("a member whose second name is secret is pinned by token, not by the first", function()
         unpin();
         local SECRET = {};
         local prior = _G.issecretvalue;
@@ -186,6 +189,7 @@ return function(DebindPrivate)
             interp:rosterChanged();
             interp:setCustomTarget("custom1", "party1");
             frames.drainTimers();
+            check(custom1() == "party1", "@custom1 is " .. tostring(custom1()));
             check(not header:IsShown(),
                 ("the header holds %q"):format(tostring(header:GetAttribute("nameList"))));
             local saved = DebindPrivate.GetSavedCustomTarget("custom1");
@@ -249,6 +253,176 @@ return function(DebindPrivate)
         check(custom1() == "raid2", ("in the raid @custom1 is %s; the header held %q"):format(
             tostring(custom1()), list));
         check((("," .. list .. ",")):find(",Somebody,", 1, true), "Somebody was dropped: " .. list);
+    end);
+
+    --- **"Unknown" is the client saying it has no name yet**, and it says it for everyone it has
+    --- not loaded. Kept as a name, the pin would gather every one of them when it is carried; kept
+    --- as a bare token, the roster watcher's next layout drops it -- and the name arriving is what
+    --- sets that layout off. So the press is turned down, and the pin before it stays.
+    test("a member the client has no name for yet is turned down, and the pin before stays", function()
+        unpin();
+        party();
+        shim.world.units.party1 = setmetatable({ inParty = true, name = UNKNOWNOBJECT, second = false },
+            { __index = THEM });
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", "player");
+        check(custom1() == "player", "premise: the pin on the player never took");
+        frames.drainTimers();
+
+        local said = {};
+        local display = DebindPrivate.DisplayMessage;
+        DebindPrivate.DisplayMessage = function(text) said[#said + 1] = text; end;
+        local ok, err = pcall(function()
+            interp:setCustomTarget("custom1", "party1");
+            frames.drainTimers();
+        end);
+        DebindPrivate.DisplayMessage = display;
+        assert(ok, err);
+
+        check(custom1() == "player", "the press moved @custom1 to " .. tostring(custom1()));
+        check(#said == 1 and said[1]:find("CUSTOM_TARGET_NAME_NOT_LOADED", 1, true),
+            "expected the not-loaded line, got: " .. table.concat(said, " | "));
+    end);
+
+    --- **The roster can know a name `UnitName` does not yet**, and in a raid the roster's is the one
+    --- the header compares. The pin takes it, and gains the "-" name once that loads.
+    test("in a raid, a member named only by the roster is pinned by it", function()
+        unpin();
+        raid();
+        shim.world.units.raid2 = setmetatable({ raidIndex = 2, inRaid = true, name = UNKNOWNOBJECT,
+            second = false, rosterName = THEM_ROSTER }, { __index = THEM });
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", "raid2");
+        check(custom1() == "raid2",
+            ("@custom1 is %s; the header held %q"):format(
+                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+
+        raid();
+        interp:rosterChanged();
+        party();
+        interp:rosterChanged();
+        check(custom1() == "party1",
+            ("once the name loaded and the raid became a party, @custom1 is %s; the header held %q")
+                :format(tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+    end);
+
+    --- **Carrying compares against the pin as it was**, not as it grows. A member who shares a
+    --- spelling only with a name the carry itself just added is not the pin's person, and whether
+    --- they got merged must not hang on the order `pairs` visits them in.
+    test("carrying a pin does not reach members through the names it just added", function()
+        unpin();
+        raid();
+        shim.world.units.raid2.rosterName = "Shared Name";
+        for i = 3, 10 do
+            shim.world.units["raid" .. i] = { id = "other" .. i, raidIndex = i, inRaid = true,
+                name = "Other" .. i, second = "Person", rosterName = "Shared Name",
+                reaction = "help", isPlayer = true };
+        end
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", ":Jathelbur-Drillmaven");
+        interp:rosterChanged();
+        local list = tostring(header:GetAttribute("nameList"));
+        check(not list:find("Other", 1, true), "the pin took in others: " .. list);
+    end);
+
+    --- The header trims each name it is handed (`SecureGroupHeaders.lua`, `fillTable`), so a list
+    --- typed with a space finds its person, and carrying it has to read the name the same way.
+    test("a hand-typed list with spaces is carried to a raid", function()
+        unpin();
+        party();
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", ": Jathelbur-Drillmaven");
+        check(custom1() == "party1", "premise: the header did not find them in the party");
+
+        raid();
+        interp:rosterChanged();
+        check(custom1() == "raid2",
+            ("in the raid @custom1 is %s; the header held %q"):format(
+                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+    end);
+
+    --- The roster can say "Unknown" for a member whose `UnitName` is already loaded, and that
+    --- spelling in the list would find every member the roster has not loaded yet.
+    test("a roster that answers Unknown adds nothing to the pin", function()
+        unpin();
+        raid();
+        shim.world.units.raid2.rosterName = UNKNOWNOBJECT;
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", "raid2");
+        interp:rosterChanged();
+        local list = tostring(header:GetAttribute("nameList"));
+        check(not (("," .. list .. ",")):find("," .. UNKNOWNOBJECT .. ",", 1, true),
+            "the pin holds " .. list);
+    end);
+
+    --- **Camelot only.** On retail the shown name is the "-" join, so these two would pass against a
+    --- list that never held the shown spelling at all.
+    if (DebindPrivate.GAME_TYPE == "camelot") then
+
+    --- **A raid spelled the way the client shows a name**, as camelot's is (measured on 70338:
+    --- `GetRaidRosterInfo` answered "Jathelbur Drillmaven", the same as `GetUnitFullName`, for every
+    --- member). The group converts in a fight, so no roster update comes to carry anything: the
+    --- list from the party has to find them as it is.
+    local function shownRaid()
+        raid();
+        shim.world.units.raid1.rosterName = DebindPrivate.JoinUnitName(ME.name, ME.second);
+        shim.world.units.raid2.rosterName = DebindPrivate.JoinUnitName(THEM.name, THEM.second);
+    end
+
+    test("a pin from a party is found when the group becomes a raid in a fight", function()
+        unpin();
+        party();
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", "party1");
+        check(custom1() == "party1", "premise: the pin never took in the party");
+
+        shownRaid();
+        shim.world.inCombat = true;
+        local ok, err = pcall(function() interp:rosterChanged(); end);
+        shim.world.inCombat = false;
+        assert(ok, err);
+        check(custom1() == "raid2",
+            ("in the fight @custom1 is %s; the header held %q"):format(
+                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+    end);
+
+    --- **What a released build saved on camelot.** It built the list with `FULL_PLAYER_NAME`, which
+    --- is "%s %s" there with a space for the surname separator (measured on 70338), so the saved
+    --- pin holds the shown spelling alone -- `JoinUnitName`'s, which is what this saves. A raid's
+    --- header compares that spelling and a party's does not.
+    test("a pin saved as the shown name is found in a party after a login", function()
+        unpin();
+        party();
+        interp:rosterChanged();
+        DebindPrivate.SaveCustomTarget("custom1", ":" .. DebindPrivate.JoinUnitName(THEM.name, THEM.second));
+
+        local unitWatch = DebindPrivate.UnitWatch;
+        local mark = frames.mark();
+        unitWatch:GetScript("OnEvent")(unitWatch, "PLAYER_LOGIN");
+        interp:replay(frames.since(mark));
+        check(custom1() == "party1",
+            ("after the login @custom1 is %s; the header held %q"):format(
+                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+    end);
+
+    end
+
+    --- **Any name in the list says who it is**, the roster's included, as far as a header can tell
+    --- (`CarryNamePins`). A list holding only the roster's spelling still has to be found again once
+    --- the raid becomes a party.
+    test("a list holding only the roster's spelling follows its person back to a party", function()
+        unpin();
+        raid();
+        interp:rosterChanged();
+        interp:setCustomTarget("custom1", ":" .. THEM_ROSTER);
+        check(custom1() == "raid2", "premise: the roster's spelling found nobody in the raid");
+        interp:rosterChanged();
+
+        party();
+        interp:rosterChanged();
+        check(custom1() == "party1",
+            ("back in the party @custom1 is %s; the header held %q"):format(
+                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
     end);
 
     --- **The person is named the way the client names them**, present or not.

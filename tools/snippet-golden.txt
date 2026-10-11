@@ -4494,6 +4494,14 @@ self:RunAttribute("ClearRoleUnits", %q)
                         if (UnitExists(unit)) then
                             if (self:GetAttribute("grouproster_uptodate")) then
                                 nameList = unitNames[unit]
+
+
+
+
+                                if (nameList == false) then
+                                    self:CallMethod("OnCustomTargetNameNotLoaded", alias)
+                                    return
+                                end
                             end
                         else
                             unit = nil

@@ -624,6 +624,8 @@ function M.install()
         end
         return nil;
     end
+    --- What `UnitName` answers for a unit whose name the client has not loaded yet.
+    _G.UNKNOWNOBJECT = "Unknown";
     _G.UnitRace = function() return "Human", "Human", 1; end
     _G.UnitSex = function() return 2; end
     _G.UnitFactionGroup = function() return "Alliance"; end

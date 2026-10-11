@@ -59,38 +59,66 @@ do
     SecureHandlerExecute(UnitWatch, table.concat(tmp, "\n"));
 end
 
---- The `nameList` a custom target's header has to hold to find this group member, or nil.
+--- The `nameList` a custom target's header has to hold to find this group member. `false` where
+--- the member exists and the client has loaded no name for them yet, so the press can be turned
+--- down rather than leave a bare token the next layout drops (`_onattributechanged`). nil where
+--- there is no name to be had for any other reason -- a secret, or no such member -- and the
+--- press keeps the bare token as it always did.
 ---
---- **Built the way the header builds the name it compares, not the way a name is shown**
---- (`GetGroupRosterInfo` in `SecureGroupHeaders.lua`): `UnitName`'s two returns joined by "-"
---- outside a raid, `GetRaidRosterInfo`'s name inside one. Not `GetUnitFullName`: on camelot that
---- joins the surname with the client's separator, a space, and a list in that form matches no
---- surnamed member (measured on 1.60.1.70338: "Jathelbur Drillmaven" filled no child,
---- "Jathelbur-Drillmaven" filled party1).
+--- **Every spelling a header compares this member by**, the "-" one first where `UnitName` has
+--- loaded (`GetGroupRosterInfo` in `SecureGroupHeaders.lua`). On retail the first two are one,
+--- `FULL_PLAYER_NAME` being "%s-%s" there; on camelot they differ, and each finds the member in only
+--- one kind of group (measured on 1.60.1.70338):
 ---
---- **The "-" name comes first, and it is the one that says who this is.** It can be built for any
---- token, so it is what a pin is kept by across a party becoming a raid and back
---- (`UpdateGroupRoster`). In a raid the roster's name rides after it, because that is the only
---- one the header reads there and nothing makes the two spelled alike. **The roster index comes
---- from `UnitInRaid`, not the token**: a member of the reader's subgroup is `partyN` as well, and
---- a list built for that token without the roster's name finds nobody in the raid.
+--- - `UnitName`'s two returns joined by "-": what a party's header compares. "Jathelbur-Drillmaven"
+---   filled party1 and, in a raid, nobody.
+--- - the name as the client shows it (`JoinUnitName`): what camelot's raid roster answers.
+---   `GetRaidRosterInfo` gave "Jathelbur Drillmaven" for every member, and that spelling filled
+---   raid2 and, in a party, nobody. Holding it from the start is what finds a party's pin in a
+---   raid that formed in a fight, when no roster update comes to carry anything. It is also what a
+---   released build saved there, through `FULL_PLAYER_NAME`, which camelot has as "%s %s".
+--- - in a raid, `GetRaidRosterInfo`'s own name, read rather than taken to equal either. **The
+---   index comes from `UnitInRaid`, not the token**: a member of the reader's subgroup is `partyN`
+---   as well (party1 answered 2 and was raid2).
 ---
---- Saved pins need no conversion to this: what every released build saved was
---- `FULL_PLAYER_NAME`'s "-" join, and the space-joined form never shipped.
+--- **Two members who share a spelling are two the header cannot tell apart either**: each one is
+--- the client's own name for the member wherever a header compares it. So taking a shared spelling
+--- to mean the same person loses nothing the header kept (`CarryNamePins`).
+---
+--- **`UNKNOWNOBJECT` is no name**, from `UnitName` or from the roster. The client answers it for
+--- every member it has not loaded yet, so in a list it would stand for all of them and
+--- `CarryNamePins` would gather each one's names. **Either side can know the name without the
+--- other**: in a raid the roster's alone is enough, since it is the one the header compares there,
+--- and the "-" name joins it once it loads.
 local function HeaderNameList(unit)
     local name, second = DebindPrivate.PlainUnitName(unit);
-    if (not name) then
-        return nil;
-    end
-    if (second and second ~= "") then
-        name = name .. "-" .. second;
+    local unloaded = name == UNKNOWNOBJECT;
+    local joined, shown;
+    if (name and not unloaded) then
+        joined = (second and second ~= "") and (name .. "-" .. second) or name;
+        shown = DebindPrivate.JoinUnitName(name, second);
     end
     local index = IsInRaid() and PlainOrNil(UnitInRaid(unit));
     local roster = index and PlainOrNil((GetRaidRosterInfo(index)));
-    if (roster and roster ~= name) then
-        return name .. "," .. roster;
+    if (roster == UNKNOWNOBJECT) then
+        unloaded = true;
+        roster = nil;
     end
-    return name;
+
+    local list = joined;
+    if (shown and shown ~= joined) then
+        list = list .. "," .. shown;
+    end
+    if (roster and roster ~= joined and roster ~= shown) then
+        list = list and (list .. "," .. roster) or roster;
+    end
+    if (list) then
+        return list;
+    end
+    if (unloaded and UnitExists(unit)) then
+        return false;
+    end
+    return nil;
 end
 
 --- The first name in a list, nil where it has none. **A list is not always ours**: `/deb
@@ -120,8 +148,13 @@ do
     local _prevUnitNameMap = {};
 
     --- **A pin held by name gains the names this roster writes for the same person.** The header
-    --- looks up a different name in a raid than in a party, so the list it was given in one finds
-    --- nobody once the group converts. Out of combat only, like everything here.
+    --- looks up a different name in a raid than in a party, so a list that lacks one finds nobody
+    --- once the group converts: one handed over by hand, or one a released build saved. Out of
+    --- combat only, like everything here.
+    ---
+    --- **Any spelling the two lists share says it is the same person**, as far as a header can tell:
+    --- two members who share one are two it could not tell apart either (`HeaderNameList`). So a
+    --- list holding only the raid's spelling is found again in a party.
     ---
     --- **Names are added and never taken away.** A roster that cannot answer a member's raid name
     --- yet (a login into a raid) writes a list without it, and replacing with that would lose the
@@ -136,16 +169,31 @@ do
             local header = DebindPrivate.UnitWatchHeaders["custom" .. i];
             local list = header and header:IsShown() and header:GetAttribute("nameList");
             if (list) then
+                -- Trimmed as the header trims each name it compares (`fillTable` in
+                -- `SecureGroupHeaders.lua`); a list typed by hand can carry spaces.
                 local held = {};
                 for entry in list:gmatch("[^,]+") do
-                    held[entry] = true;
+                    held[strtrim(entry)] = true;
                 end
+                -- **The same person is judged against the pin as it was**, and what this pass adds
+                -- goes to `added`. Judged against a list it is growing, a member sharing a spelling
+                -- only with one just added would be merged, or not, by the order `pairs` takes.
+                local added = {};
                 local carried = list;
                 for _, names in pairs(unitNameMap) do
-                    if (held[PinKey(names)]) then
+                    local same = false;
+                    if (names) then
                         for entry in names:gmatch("[^,]+") do
-                            if (not held[entry]) then
-                                held[entry] = true;
+                            if (held[entry]) then
+                                same = true;
+                                break;
+                            end
+                        end
+                    end
+                    if (same) then
+                        for entry in names:gmatch("[^,]+") do
+                            if (not held[entry] and not added[entry]) then
+                                added[entry] = true;
                                 carried = carried .. "," .. entry;
                             end
                         end
@@ -184,7 +232,11 @@ do
             local strArr = {};
             for k, v in pairs(unitNameMap) do
                 if (_prevUnitNameMap[k] ~= v) then
-                    strArr[#strArr + 1] = format("unitNames[%q]=%q", k, v);
+                    if (v == false) then
+                        strArr[#strArr + 1] = format("unitNames[%q]=false", k);
+                    else
+                        strArr[#strArr + 1] = format("unitNames[%q]=%q", k, v);
+                    end
                 end
             end
             for k in pairs(_prevUnitNameMap) do
@@ -407,6 +459,8 @@ UnitWatch:SetAttribute("OnGroupRosterChanged", [==[
     end
 ]==]);
 
+--- **The roster watcher: one child, and every layout of it reaches `UpdateGroupRoster`**, for the
+--- reason `CheckUnits` above leans on: each layout writes `unit` on the child, unchanged or not.
 do
     local header = CreateFrame("Frame", nil, nil, "SecureGroupHeaderTemplate");
     DebindPrivate.OwnGroupHeaders[header] = true;
@@ -747,6 +801,10 @@ do
             DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_FAILED"], LLL["UNIT_" .. strupper(alias)], value));
         end
     end
+
+    function UnitWatch:OnCustomTargetNameNotLoaded(alias)
+        DebindPrivate.DisplayMessage(format(LLL["CUSTOM_TARGET_NAME_NOT_LOADED"], LLL["UNIT_" .. strupper(alias)]));
+    end
 end
 
 UnitWatch:SetAttribute("_onattributechanged", [==[
@@ -786,6 +844,14 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
                         if (UnitExists(unit)) then
                             if (self:GetAttribute("grouproster_uptodate")) then
                                 nameList = unitNames[unit]
+                                -- false is a member the client has no name for yet (HeaderNameList).
+                                -- A bare token would be dropped by the roster watcher's next layout,
+                                -- which that name arriving sets off, so the press is turned down and
+                                -- the pin before it stays. nil keeps the bare token.
+                                if (nameList == false) then
+                                    self:CallMethod("OnCustomTargetNameNotLoaded", alias)
+                                    return
+                                end
                             end
                         else
                             unit = nil
