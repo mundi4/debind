@@ -111,5 +111,3 @@ Neither is visible from the game until someone opens the page.
 
 `docs/ingamehelp/index.md` decides the order and which pages exist; a page missing from it never
 opens, and adding one puts a new button on the settings tab.
-
-`.zzz/ingame-help.md` holds the topics that still need a page.

@@ -68,8 +68,9 @@
 // **Passives are not judged here.** The client is asked in step 2, which is the answer that counts
 // (owner: the release code is no place to ask it).
 //
-// **wowhead's pages are kept in .zzz/wowhead and read from there** (owner): a change to the rules
-// above needs no new download, and wowhead turns away a run of them. `--refresh` downloads again.
+// **wowhead's pages are kept in tools/cache/wowhead and read from there** (owner): a change to the
+// rules above needs no new download, and wowhead turns away a run of them. `--refresh` downloads
+// again.
 //   npm run camelot-class-spells:fetch [-- --refresh] [path to DebindCamelotProbe.lua]
 
 const fs = require("fs");
@@ -97,7 +98,7 @@ const RUNE_ABILITIES = {
 };
 
 const out = path.join(__dirname, "..", "DebindCamelotProbe", "ClassSpells.lua");
-const pageDir = path.join(__dirname, "..", ".zzz", "wowhead");
+const pageDir = path.join(__dirname, "cache", "wowhead");
 const args = process.argv.slice(2);
 const refresh = args.includes("--refresh");
 const recordArg = args.find((a) => a !== "--refresh");

@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Taking the easy road with the right one in plain sight.** If you cannot tell which is which,
   do not pick — ask.
-- **Closing something I raised as "no problem" without investigating it.** Comments and `.zzz`
-  documents are not evidence; follow the actual code path. Having followed it, saying there is no
-  problem is fine.
+- **Closing something I raised as "no problem" without investigating it.** Comments and
+  notes (`.zzz`, `debind-notes`) are not evidence; follow the actual code path. Having followed it,
+  saying there is no problem is fine.
 - **Reasoning from a stale memory.** `memory/` is **entirely yours to keep.** Before acting on what
   one says, check that the file, function or flag it names still exists, and fix or delete the
   entry on the spot when it does not.
@@ -280,12 +280,13 @@ fine where it is the efficient tool, such as one mechanical change across many f
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
     that ground still holds. An outcome with no reason shuts both doors.
-  - `devdocs/` is committed and `.zzz/` is not, so moving a document across publishes it.
-- `.zzz/` is gitignored and holds the design notes written before that, plus the living indexes.
-  `.zzz/refactor-candidates.md` holds things noticed but not done. When an **individual item**
-  closes, move it to `.zzz/resolved.md`; what stays in the original is what is still open. Hundreds
-  of code comments cite `.zzz/<name>.md` paths — do not relocate one of those files to `devdocs/`
-  as a side effect of anything else.
+  - `devdocs/` is committed and `debind-notes` is not, so bringing a note across publishes it.
+- `.zzz/` is gitignored and holds only small temporary items. A defect goes to `need-fixing.md`;
+  anything else noticed but not done is one; when it closes, it is deleted.
+- The older design notes are in `C:\Users\mundi4\source\repos\debind-notes`, outside the repo and
+  out of a cloud session's reach: an archive, read and never written to. A note moves into
+  `devdocs/` only when somebody needs it. A `.zzz/...` citation committed before 2026-10-12 means
+  `debind-notes/...`.
 - CI (`.github/workflows/test.yml`) runs luacheck + specs + bench only. Network-dependent checks
   (`check:templates`) are local-only on purpose.
 - Releasing is `devdocs/cutting-a-release.md`. Pushing a tag deploys — never push one as a side
