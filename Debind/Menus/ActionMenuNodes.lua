@@ -58,6 +58,8 @@ local FRAMETYPE_ITEMS                = ActionMenu.FRAMETYPE_ITEMS;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local range                          = ActionMenu.range;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
+local UsualIgnoresResolvedUnitIsOn   = ActionMenu.UsualIgnoresResolvedUnitIsOn;
+local ToggleUsualIgnoresResolvedUnit = ActionMenu.ToggleUsualIgnoresResolvedUnit;
 
 
 local UnitConditionIsOff             = ActionMenu.UnitConditionIsOff;
@@ -188,16 +190,23 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     if (unit == "@") then
         instruction = format(LLL["RESOLVED_TARGET_DESC"], LLL["TARGET_UNIT"], AUTO_SELF_CAST_KEY_TEXT,
             FOCUS_CAST_KEY_TEXT, LLL["CASTING_AS_USUAL"], LLL["POINTED_UNIT_CAST"],
-            LLL["CASTING_POINTED_CAST"], DebindPrivate.CastAutomaticLabel("autoSelfCast"));
+            LLL["CASTING_POINTED_CAST"], DebindPrivate.CastAutomaticLabel("autoSelfCast"),
+            LLL["RESOLVED_TARGET_USUAL"]);
     end
 
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
         label = label,
         instruction = instruction,
         skipTitle = true,
+        -- **The box below counts as this row's**, though it is stored in `casting`: two actions
+        -- apart only on it differ here and nowhere else.
         valueOf = function(action)
             local units = UnitConditionsOf(action);
-            return units and units[unit];
+            local row = units and units[unit];
+            if (unit == "@" and DebindPrivate.UsualIgnoresResolvedUnit(action)) then
+                return { row = row, usual = true };
+            end
+            return row;
         end,
         isActive = function()
             return UnitConditionIsOn(ctx, unit);
@@ -264,6 +273,24 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
             MenuKit.CreateTitle(optionsDescription, LLL[block.title]);
             block.append(optionsDescription, ctx, unit, axisIsEnabled);
         end
+    end
+
+    -- **Never locked** (`falling-back-when-the-resolved-unit-fails.md` 3-6): on an action where it
+    -- does nothing, locking it would make the reader clear Target before they could tick it.
+    if (unit == "@") then
+        optionsDescription:CreateDivider();
+        local usual = CreateCheckbox(optionsDescription, ctx, LLL["RESOLVED_TARGET_USUAL"],
+            function()
+                return UsualIgnoresResolvedUnitIsOn(ctx);
+            end,
+            function()
+                return ToggleUsualIgnoresResolvedUnit(ctx);
+            end);
+        SetInstructionTooltip(usual, format(LLL["RESOLVED_TARGET_USUAL_DESC"], LLL["TARGET_UNIT"],
+            LLL["CASTING_NORMAL"]));
+        -- The row that opens it too, which `BuildNode` has already taken off the open rows.
+        ActionMenus:MarkNew("RESOLVED_UNIT_USUAL", usual);
+        ActionMenus:MarkNew("RESOLVED_UNIT_USUAL", optionsDescription);
     end
 
     return optionsDescription;

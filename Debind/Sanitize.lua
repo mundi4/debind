@@ -287,6 +287,9 @@ function DebindPrivate.SanitizeAction(action)
         if (casting.normalCast ~= false) then
             casting.normalCast = nil;
         end
+        if (casting.usualIgnoresResolvedUnit ~= true) then
+            casting.usualIgnoresResolvedUnit = nil;
+        end
         DebindPrivate.PruneCasting(action);
     end
 

@@ -239,6 +239,33 @@ return function(DebindPrivate)
         check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
     end);
 
+    -- **With `usualIgnoresResolvedUnit` the Resolved Unit condition still counts in the order**
+    -- (`falling-back-when-the-resolved-unit-fails.md` 3-4). The plain press then always runs it,
+    -- so the unconditional action behind loses that press. Its held twins stay, because the twins
+    -- ahead of them still ask the player and the focus, so it reads as reachable.
+    test("the Resolved Unit fallback still sorts as conditional and covers the plain press", function()
+        local subject = { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
+            casting = { usualIgnoresResolvedUnit = true },
+            conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
+        local behind = { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 };
+        Bind({ behind, subject });
+        check(DebindPrivate.IsConditionalAction(subject), "the action reads as unconditional");
+        check(Values("DELETE") == "116", "the plain presses came out " .. Values("DELETE"));
+        check(DebindPrivate.IsUnreachableAction(behind) == false,
+            "the action behind reads as unreachable with its held twins left");
+    end);
+
+    -- With both cast keys off in the settings there are no held twins, and the plain press is all
+    -- the action behind had.
+    test("with no held twins the action behind the fallback never runs", function()
+        local subject = { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
+            casting = { usualIgnoresResolvedUnit = true },
+            conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
+        local behind = { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 };
+        Bind({ behind, subject }, nil, { selfCast = false, focusCast = false });
+        check(DebindPrivate.IsUnreachableAction(behind) == true, "the action behind reads as reachable");
+    end);
+
     -- **An ignored Switch still makes its action conditional in the order** (`MakeOrderRecord`).
     -- Ignoring drops the condition from the binding, so the action fires on every press; standing
     -- in front, it covers the one behind it and that one leaves the key. Read as unconditional it

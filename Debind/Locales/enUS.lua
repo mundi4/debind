@@ -73,6 +73,12 @@ L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 -- on those, so the action still runs over the rest, and this says which frames it loses.
 L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "No role is selected, so it does not run on party or raid frames."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
+-- The same two empty axes on Resolved Unit, with its box ticked. The action stays on the key and
+-- runs on the presses the box leaves unchecked, so the sentence says which ones, in the box's own
+-- tooltip's words (`RESOLVED_TARGET_USUAL_DESC`). **Not the box's label in a `%s`**: it is a clause of
+-- its own and reads broken inside another.
+L["BINDING_ERROR_REACTIONS_NONE_RUNS_AS_USUAL"] = "No reaction is selected, so this action runs only on a press that would ask it of your current target."
+L["BINDING_ERROR_UNITGROUPS_NONE_RUNS_AS_USUAL"] = "No group option is selected, so this action runs only on a press that would ask it of your current target."
 -- **The held keys are named because they are what the reader may still expect to work** (2026-10-04,
 -- owner): they send an action that runs to another unit, and with no press of its own left there is
 -- nothing to send. **It names the way out that is not changing a value back**, since the reader may
@@ -767,6 +773,9 @@ L["MARK_TOOLTIP_ISSUE_DESC"] = "Because of this, the action is sometimes or alwa
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
+-- Under it, on an action whose Resolved Unit box is ticked, where the line above is not true of
+-- every press (`falling-back-when-the-resolved-unit-fails.md` §7). Formatted with `RESOLVED_TARGET`.
+L["MARK_TOOLTIP_CONDITIONAL_USUAL"] = "%s is not checked on your current target."
 -- The same for the mark on a key's heading. **It says that actions under it have a problem and never
 -- which**: the heading cannot say which action each problem belongs to, and the row's own mark does.
 -- "Some actions", since it can be more than one (owner, 2026-10-07).
@@ -1540,7 +1549,22 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 --
 -- **Auto Self Cast is named** because it is what a reader expects to rescue a friendly spell on the
 -- current target (2026-09-13, owner), and when the conditions fail it never gets the chance.
-L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means %7$s does not get a turn."
+--
+-- **The eighth is the box below the conditions**, named in the second paragraph because the
+-- paragraph is false on an action that has it ticked (`falling-back-when-the-resolved-unit-fails.md`
+-- §7). It says only that the conditions are not asked: what the game then does with a press that
+-- carries no unit is not ours to say. **"With none picked" is repeated there** because the box does
+-- nothing on an action with `target` picked, whose conditions are asked of the current target too.
+L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pressed: the one picked under %1$s. With none picked, it is you while the %2$s is held, your focus while the %3$s is held, the unit you point at while this action's %5$s is set to %6$s and you point at one, and your current target on any other press or on one set to %4$s.|n|nWhen the conditions set here do not hold for that unit, this action sits the press out and the next action on the key takes it. On your current target, that also means %7$s does not get a turn. With none picked and %8$s ticked, a press that would ask them of your current target does not ask them."
+-- The box inside Resolved Unit (`usualIgnoresResolvedUnit`). **Says where the check is left out, never
+-- where the cast lands**: the press goes out with no unit, and what the game does with that is not
+-- ours to say (`falling-back-when-the-resolved-unit-fails.md` §0, §7).
+L["RESOLVED_TARGET_USUAL"] = "Not checked on your current target"
+-- **The same text in every state** (3-6): on an action with a unit picked under Target the box does
+-- nothing, and the first clause is what says so. **The last sentence is there for the pointed press**:
+-- read without it, "checked as before" on the unit you point at reads as the box doing nothing for
+-- a reader who points, which is the case the box was asked for.
+L["RESOLVED_TARGET_USUAL_DESC"] = "With nothing picked under %1$s, a press that would ask these conditions of your current target does not ask them, and uses this action as if none were set here. A press that asks them of you, your focus or the unit you point at is checked as before. When the unit you point at does not meet them, a press with %2$s ticked still uses this action that way."
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. No action under it on the same key runs, and neither does anything else bound to the key.|n|nPut conditions on it to stop the actions under it in those cases only."
 -- **Named for where the command is picked from**, WoW's Key Bindings list (owner, 2026-10-06).

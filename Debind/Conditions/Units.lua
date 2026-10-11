@@ -399,7 +399,11 @@ local function BuildUnitStates(binding)
     if (units) then
         for key, value in pairs(units) do
             if (key == "@") then
-                addAimed(value);
+                -- **The row alone, not `addAimed`**: a resurrection branch's `branchUnit` lands
+                -- through it as well, and that one stays.
+                if (not binding.ignoresResolvedUnit) then
+                    addAimed(value);
+                end
             else
                 add(key, value, key == binding.twinOwnUnit and SOURCE_TWIN or SOURCE_ROW);
             end

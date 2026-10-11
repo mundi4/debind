@@ -1554,5 +1554,104 @@ return function(DebindPrivate)
         end
     end);
 
+    ---------------------------------------------------------------------------
+    -- An empty Resolved Unit row beside `usualIgnoresResolvedUnit`
+    -- (`falling-back-when-the-resolved-unit-fails.md` 3-5)
+    --
+    -- **Kept and still reported where a binding goes out with no unit**, since that binding does not
+    -- ask the row. Everywhere else the row is what it was: every binding asks it and the action is
+    -- left out.
+    ---------------------------------------------------------------------------
+
+    local REACTIONS_USUAL = Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL;
+    local UNITGROUPS_USUAL = Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL;
+    local UNITGROUPS_NONE_SELECTED = Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
+
+    --- An action with the option on and `row` as its Resolved Unit row. `fields` overrides any field,
+    --- and `casting` is merged into the option.
+    local function UsualAction(row, fields, casting)
+        local action = { type = Constants.SPELL, value = 585, key = "F1",
+            casting = { usualIgnoresResolvedUnit = true },
+            conditions = { units = { ["@"] = row } } };
+        for k, v in pairs(casting or {}) do
+            action.casting[k] = v;
+        end
+        for k, v in pairs(fields or {}) do
+            action[k] = v;
+        end
+        return action;
+    end
+
+    local function Outcome(action)
+        return DebindPrivate.GetIssueOutcome(action);
+    end
+
+    test("an empty reaction on Resolved Unit is kept and reported where the option reaches", function()
+        local action = UsualAction({ reaction = 0 });
+        check(REACTIONS_USUAL ~= nil, "no such code");
+        check(GetBindingIssue(action) == REACTIONS_USUAL, "reported: " .. tostring(GetBindingIssue(action)));
+        check(GetBindingIssue(action, "units", nil, "@") == REACTIONS_USUAL,
+            "the Resolved Unit row says " .. tostring(GetBindingIssue(action, "units", nil, "@")));
+        check(GetBindingIssue(action, "unit") == nil,
+            "the Target menu says " .. tostring(GetBindingIssue(action, "unit")));
+        check(Outcome(action) == Constants.ISSUE_OUTCOME_KEEP, "outcome: " .. tostring(Outcome(action)));
+    end);
+
+    test("an empty group block on Resolved Unit is kept and reported where the option reaches", function()
+        local action = UsualAction({ group = 0 });
+        check(UNITGROUPS_USUAL ~= nil, "no such code");
+        check(GetBindingIssue(action) == UNITGROUPS_USUAL, "reported: " .. tostring(GetBindingIssue(action)));
+        check(Outcome(action) == Constants.ISSUE_OUTCOME_KEEP, "outcome: " .. tostring(Outcome(action)));
+    end);
+
+    --- The only binding with no unit is the hover twin of an action with Normal Cast off and Hover
+    --- Cast on the usual target, or a held twin on Cast as usual.
+    test("the option reaches a twin with no unit as well", function()
+        for _, casting in ipairs({ { normalCast = false }, { selfCastKey = "usual", normalCast = false,
+                hoverCast = "cast" } }) do
+            local action = UsualAction({ reaction = 0 }, nil, casting);
+            check(GetBindingIssue(action) == REACTIONS_USUAL,
+                "reported: " .. tostring(GetBindingIssue(action)));
+            check(Outcome(action) == Constants.ISSUE_OUTCOME_KEEP, "outcome: " .. tostring(Outcome(action)));
+        end
+    end);
+
+    --- **None of these makes a binding with no unit**, so every binding asks the row, as without the
+    --- option.
+    test("where the option reaches no binding the row is left out as before", function()
+        local cases = {
+            { label = "a picked unit", action = UsualAction({ reaction = 0 }, { unit = "focus" }) },
+            { label = "none", action = UsualAction({ reaction = 0 }, { unit = "none" }) },
+            { label = "pointed with Normal Cast off",
+                action = UsualAction({ reaction = 0 }, nil, { normalCast = false, hoverCast = "cast" }) },
+            { label = "the bare left click", action = UsualAction({ reaction = 0 }, { key = "BUTTON1" }) },
+            { label = "a group block, picked unit",
+                action = UsualAction({ group = 0 }, { unit = "target" }), code = UNITGROUPS_NONE_SELECTED },
+        };
+        for _, case in ipairs(cases) do
+            local want = case.code or REACTIONS_NONE;
+            check(GetBindingIssue(case.action) == want,
+                case.label .. ": reported " .. tostring(GetBindingIssue(case.action)));
+            check(Outcome(case.action) == Constants.ISSUE_OUTCOME_OMIT,
+                case.label .. ": outcome " .. tostring(Outcome(case.action)));
+        end
+    end);
+
+    --- The binding with no unit cannot stand for a reason of its own: solo only, and a role unit that
+    --- has to be there, which no binding meets.
+    test("a binding with no unit that cannot stand for another reason keeps nothing", function()
+        local action = UsualAction({ reaction = 0 }, { conditions = {
+            groups = Constants.GROUP_NONE,
+            units = { ["@"] = { reaction = 0 }, tank = { exists = true } } } });
+        check(GetBindingIssue(action, "units", nil, "@") == REACTIONS_NONE,
+            "the Resolved Unit row says " .. tostring(GetBindingIssue(action, "units", nil, "@")));
+        check(Outcome(action) == Constants.ISSUE_OUTCOME_OMIT, "outcome: " .. tostring(Outcome(action)));
+    end);
+
+    test("the option beside a Resolved Unit row that is not empty raises nothing", function()
+        local action = UsualAction({ reaction = Constants.REACTION_HELP });
+        check(GetBindingIssue(action) == nil, "reported: " .. tostring(GetBindingIssue(action)));
+    end);
+
     return T;
 end

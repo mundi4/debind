@@ -260,6 +260,24 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
+    -- **`usualIgnoresResolvedUnit` takes the reader's row away and leaves the branches' own**
+    -- (`falling-back-when-the-resolved-unit-fails.md` 3-3). [In my party] no longer stops a dead
+    -- friend outside it, and a living friend is still no branch's.
+    test("the Resolved Unit fallback leaves each branch's own target condition", function()
+        druidWorld();
+        Bind({
+            action({ type = Constants.RESURRECT, key = "F1",
+                casting = { usualIgnoresResolvedUnit = true },
+                conditions = { units = { ["@"] = { exists = true, group = Constants.UNITGROUP_PARTY } } } }),
+            action({ type = Constants.SPELL, key = "F1", value = REGROWTH }),
+        });
+        shim.world.units = { target = DEAD_FRIEND };
+        check(fired("F1") == "Revive", "a dead friend outside the party: " .. tostring(fired("F1")));
+        shim.world.units = { target = LIVE_FRIEND };
+        check(fired("F1") == false, "a living friend: " .. tostring(fired("F1")));
+        reset();
+    end);
+
     local RAISE_ALLY, SOULSTONE = 61999, 20707;
 
     test("a class with no resurrection uses its battle resurrection out of combat only when allowed",

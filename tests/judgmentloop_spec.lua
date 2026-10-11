@@ -241,6 +241,32 @@ return function(DebindPrivate)
         check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
     end);
 
+    -- **With `usualIgnoresResolvedUnit` the bare key always has a winner** and is never handed on
+    -- (`falling-back-when-the-resolved-unit-fails.md` §6). The focus chord still asks the focus, and
+    -- with none it follows the bare key, which is ours.
+    test("B10 to B13 with the Resolved Unit fallback: the bare key stays ours", function()
+        Bind({
+            action({ casting = { usualIgnoresResolvedUnit = true }, conditions = { units = { ["@"] = {} } } }),
+            action({ type = Constants.GIVEBACK }),
+        });
+        -- B13: no target, no focus.
+        check(IsOurs("F1"), "B13: F1 was let go");
+        check(IsOurs("ALT-F1"), "B13: ALT-F1 was let go while F1 is ours");
+
+        -- B11 and B12: the focus alone.
+        shim.world.units.focus = { id = "f", reaction = "help" };
+        interp:beat();
+        check(IsOurs("F1"), "B11: F1 was let go with no target");
+        check(IsOurs("ALT-F1"), "B11: ALT-F1 is not ours with a focus");
+
+        -- B10: the target alone.
+        shim.world.units.focus = nil;
+        shim.world.units.target = { id = "t", reaction = "help" };
+        interp:beat();
+        check(IsOurs("F1"), "B10: F1 is not ours with a target");
+        check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
+    end);
+
     -- **A chord goes on at priority false, its key at true** (2-4). Priority decides between two
     -- owners on one key whatever order they were set in (§6, measured), so another addon's override
     -- at true wins over a chord at false even when the loop sets the chord again after it. Asked after

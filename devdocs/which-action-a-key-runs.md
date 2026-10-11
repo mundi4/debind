@@ -220,6 +220,23 @@ Unit Frames, 계정의 두 조합키 켬이다. **이 표의 "기본"은 Hover C
 | 70 | 기본, 게임의 "뗄 때 시전" | 누른 뒤 Self Cast Key를 쥐고 뗌 | self 쌍둥이, `player` |
 | 71 | 기본, "뗄 때 시전" | Focus Cast Key를 쥐고 누르고, Self Cast Key를 더 쥐고 뗌 | self 쌍둥이, `player`. 뗄 때 둘 다 쥐고 있다 |
 | 72 | `selfCastKey = "skip"`, "뗄 때 시전" | 누른 뒤 Self Cast Key를 쥐고 뗌 | 다음. 쥔 Cast Key를 받을 층이 없다(S4의 3) |
+| 73 | `hoverCast` 없음, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 아무것도 안 가리킴, 현재 대상 적대 | 원본, 게임이 놓음. 유닛을 싣지 않고 나가는 바인딩이라 Resolved Unit 조건을 안 본다 |
+| 74 | 73 | 적대 개체창 가리킴, 현재 대상 적대 | 원본, 게임이 놓음. 그 누름을 받는 것이 원본이다(#5) |
+| 75 | 73에서 `usualIgnoresResolvedUnit` 없음 | 아무것도 안 가리킴, 현재 대상 적대 | 다음. 옵션이 없으면 지금과 같다 |
+| 76 | 73에 `selfCastKey = "usual"`, `focusCastKey = "usual"` | Self Cast Key 쥠, 그리고 Focus Cast Key 쥠, 현재 대상 적대 | 각각 self 쌍둥이와 focus 쌍둥이, 게임이 놓음 |
+| 77 | 73 | Focus Cast Key 쥠, 주시 대상 적대 | 다음. `focus`에 나가는 쌍둥이는 조건을 본다 |
+| 78 | 기본, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 적대 개체창 가리킴, 현재 대상 적대 | 원본, 게임이 놓음. 쌍둥이는 그 개체창의 유닛에 물어 안 맞고, 바로 다음이 원본이다 |
+| 79 | 78 | 우호 개체창 가리킴 | hover 쌍둥이, 그 개체창의 유닛 |
+| 80 | `hoverCast = "skip"`, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 우호 개체창 가리킴, 현재 대상 적대 | 다음. 얹힌 [`unitframe` 없음]은 그대로다 |
+| 81 | `hoverCast` 없음, `normalCast = false`, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 적대 개체창 가리킴, 현재 대상 적대 | [`unitframe` 있음]에 선 바인딩, 게임이 놓음 |
+| 82 | 81 | 아무것도 안 가리킴, 현재 대상 적대 | 다음 |
+| 83 | 기본, `normalCast = false`, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 적대 개체창 가리킴, 현재 대상 적대 | 다음. 남은 바인딩이 그 개체창의 유닛에 나가는 쌍둥이뿐이다 |
+| 84 | 73에서 대상 `target` | 아무것도 안 가리킴, 현재 대상 적대 | 다음. 대상을 고른 액션에는 적용되지 않는다 |
+| 85 | 73에서 대상 `none` | 아무것도 안 가리킴, 현재 대상 적대 | 다음. `none`도 고른 대상이다 |
+| 86 | 마우스 버튼, 73 | 적대 개체창 클릭, 현재 대상 적대 | 원본, 게임이 놓음. 원본이 개체창 경로에도 선다(#34) |
+| 87 | 수식키 없는 왼클릭, Resolved Unit [우호], `usualIgnoresResolvedUnit` | 적대 개체창 클릭 | 다음. 그 키에는 원본이 없다 |
+| 88 | 액션 A([전투 중]), 그 아래 `GIVEBACK`(73과 같은 설정) | 전투 밖, 아무것도 안 가리킴, 현재 대상 적대 | `GIVEBACK`가 이긴다 |
+| 89 | 73에서 Resolved Unit에 반응을 하나도 안 고름, `selfCastKey = "usual"` | 아무것도 안 가리킴. Self Cast Key 쥠. Focus Cast Key 쥠 | 원본. self 쌍둥이, 게임이 놓음. 다음. **이슈**가 Resolved Unit 줄에 있지만 액션은 키에 남는다 |
 
 옮기기(§8)의 정답도 각 줄이 테스트다. 옛 `units.hover = {}`인 키보드 액션은 가리키면 13, 안 가리키면 10과
 같고, 옛 조건 없는 키보드 액션은 가리키면 5, 안 가리키면 7과 같고, 옛 조건 없는 마우스 버튼 액션은 34와 35와

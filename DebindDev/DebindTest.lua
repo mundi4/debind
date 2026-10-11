@@ -2436,6 +2436,126 @@ RegisterTest("Resolved Unit: the row under Units writes the condition, and Targe
     end,
 })
 
+--- **Needs the game** for the menu half: the box's place under Resolved Unit, that it is never
+--- locked, and the setter a press on it reaches are the client's menu tree. The press half runs the
+--- real snippet on a target the reader cannot be asked to set up, so its life is injected
+--- (`player-dead`'s test below does the same). Which binding wins each press is headless
+--- (`tests/eval_spec.lua`, §S5 #73 to #89).
+RegisterTest("Resolved Unit: the box below the row stores the option, and the press stops asking the row", {
+    description = "Resolved Unit 메뉴의 체크박스가 casting.usualIgnoresResolvedUnit을 쓰고 지우며, 대상을 골라도 잠기지 않는다. 켜면 현재 대상이 조건에 안 맞아도 그냥 누름이 나가고, 끄면 다시 안 나간다",
+    run = function()
+        local NAME = "Resolved Unit box"
+        local KEY = "CTRL-ALT-F5"
+
+        if InCombatLockdown() then
+            return Fail(NAME, "nothing can be rebaked in combat")
+        end
+        AddTeardown(function() Menu.GetManager():CloseMenus() end)
+
+        local probesOk, probesErr = EnableProbes()
+        if not probesOk then
+            return Fail(NAME, "rebake failed: " .. tostring(probesErr))
+        end
+
+        local function ChildByText(description, text)
+            for _, child in description:EnumerateElementDescriptions() do
+                if MenuUtil.GetElementText(child) == text then
+                    return child
+                end
+            end
+        end
+
+        local function ChildTexts(description)
+            local names = {}
+            for _, child in description:EnumerateElementDescriptions() do
+                tinsert(names, tostring(MenuUtil.GetElementText(child)))
+            end
+            return table.concat(names, " | ")
+        end
+
+        --- The box, in the menu opened afresh on `action`.
+        local function Box(action)
+            Menu.GetManager():CloseMenus()
+            MenuUtil.CreateContextMenu(UIParent, DebindUI.SetupActionDropdownMenu, { actions = { action } })
+            local menu = Menu.GetManager():GetOpenMenu()
+            if not menu then
+                return nil, "the menu did not come up"
+            end
+            local units
+            menu:EnumerateElementDescriptions(function(_, description)
+                if MenuUtil.GetElementText(description) == LLL["CONDITION_UNITS"] then
+                    units = description
+                end
+            end)
+            if not units then
+                return nil, format("no [%s] group", LLL["CONDITION_UNITS"])
+            end
+            local row = ChildByText(units, LLL["RESOLVED_TARGET"])
+            if not row then
+                return nil, format("no [%s] row: %s", LLL["RESOLVED_TARGET"], ChildTexts(units))
+            end
+            local box = ChildByText(row, LLL["RESOLVED_TARGET_USUAL"])
+            if not box then
+                return nil, format("no [%s] box: %s", LLL["RESOLVED_TARGET_USUAL"], ChildTexts(row))
+            end
+            return box
+        end
+
+        -- Asked of the target, which the injection holds alive, so the row never holds.
+        local action = InsertAction({ type = Constants.SPELL, value = 585, key = KEY,
+            units = { ["@"] = { exists = true, dead = true } } })
+        ApplyBindings()
+        SetMockState("target-dead", false)
+
+        local ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("before the box, a press fired #%d against a row that cannot hold", LastWinner()))
+        end
+
+        local box, err = Box(action)
+        if not box then return Fail(NAME, err) end
+        box:Pick(MenuInputContext.MouseButton, "LeftButton")
+        if not (action.casting and action.casting.usualIgnoresResolvedUnit == true) then
+            return Fail(NAME, "ticking the box stored " .. tostring(action.casting and action.casting.usualIgnoresResolvedUnit))
+        end
+        ApplyBindings()
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        local ticked = WaitForWinner()
+        if ticked == nil then
+            return Fail(NAME, "with the box ticked the press still asked the row and fired nothing")
+        end
+
+        -- Unticked, the row is asked again. Without this half a key that fires whatever the box says
+        -- passes too.
+        box, err = Box(action)
+        if not box then return Fail(NAME, err) end
+        box:Pick(MenuInputContext.MouseButton, "LeftButton")
+        if action.casting and action.casting.usualIgnoresResolvedUnit ~= nil then
+            return Fail(NAME, "unticking the box left " .. tostring(action.casting.usualIgnoresResolvedUnit))
+        end
+        ApplyBindings()
+        ran, rerr = EvalClickTimeKey(KEY)
+        if not ran then return Fail(NAME, rerr) end
+        if LastWinner() ~= nil then
+            return Fail(NAME, format("unticked, the press fired #%d", LastWinner()))
+        end
+
+        -- **Not locked where it does nothing** (`falling-back-when-the-resolved-unit-fails.md` 3-6).
+        local picked = InsertAction({ type = Constants.SPELL, value = 585, key = "CTRL-ALT-F4", unit = "focus",
+            units = { ["@"] = { exists = true } } })
+        ApplyBindings()
+        box, err = Box(picked)
+        if not box then return Fail(NAME, err) end
+        if not box:IsEnabled() then
+            return Fail(NAME, "the box is locked on an action with a unit picked")
+        end
+
+        return Pass(NAME, format("stored and cleared from the menu; ticked, the press fired #%d", ticked))
+    end,
+})
+
 --- **The menu is the only writer of the field, and which setter a press on it reaches is the client's
 --- menu tree.** What the press stores, and the twin it turns into, is measured here; which record
 --- wins a press with the key held is `tests/eval_spec.lua`'s.

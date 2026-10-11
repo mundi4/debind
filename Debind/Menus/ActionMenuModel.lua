@@ -705,6 +705,23 @@ local function ToggleNormalCast(ctx)
     return OnActionsChanged(ctx.actions);
 end
 
+--- **Off is the absent value**, which is why the box is not one of the kit's either: cleared, those
+--- store `false`.
+local function UsualIgnoresResolvedUnitIsOn(ctx)
+    return AllActions(ctx, DebindPrivate.UsualIgnoresResolvedUnit);
+end
+
+local function ToggleUsualIgnoresResolvedUnit(ctx)
+    local value;
+    if (not UsualIgnoresResolvedUnitIsOn(ctx)) then
+        value = true;
+    end
+    for _, action in ipairs(ctx.actions) do
+        ActionValues.Set(action, "casting.usualIgnoresResolvedUnit", value);
+    end
+    return OnActionsChanged(ctx.actions);
+end
+
 --- The action menu's family (`MenuKit.NewRegistry`). Every condition group is a node on it;
 --- what is left off is the rest of the edit menu, which stage 3 takes
 --- (`putting-the-menus-on-a-kit.md`).
@@ -718,7 +735,7 @@ local ActionMenus = MenuKit.NewRegistry({
     end,
 
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
-    newFeatures = {},
+    newFeatures = { "RESOLVED_UNIT_USUAL" },
 
     -- **Not every group's key is an issue category.** Half the keys this menu writes have no check
     -- by that name (`combat`, `known`, `stealth`, `extrabar`, switch names, importance). Asking
@@ -1100,6 +1117,8 @@ ActionMenu.SetHoverCastChoice        = SetHoverCastChoice;
 ActionMenu.SetHoverCastMode          = SetHoverCastMode;
 ActionMenu.NormalCastIsOn            = NormalCastIsOn;
 ActionMenu.ToggleNormalCast          = ToggleNormalCast;
+ActionMenu.UsualIgnoresResolvedUnitIsOn   = UsualIgnoresResolvedUnitIsOn;
+ActionMenu.ToggleUsualIgnoresResolvedUnit = ToggleUsualIgnoresResolvedUnit;
 
 ActionMenu.UnitConditionAxisOf       = UnitConditionAxisOf;
 ActionMenu.UnitConditionModeOf       = UnitConditionModeOf;

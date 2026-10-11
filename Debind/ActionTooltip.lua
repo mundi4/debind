@@ -561,11 +561,19 @@ do
 				addLabelLine(tooltip, LLL["CONDITION_UNITS"]);
 				first = false;
 				local under, said = UnitRowIssues("@");
+				-- **On this line and not under Cast Options**, although it is a `casting` value: the
+				-- box sits in this row's menu and says something about this row alone. Only where it
+				-- reaches a binding, the way a Cast Options value that cannot reach draws nothing.
+				local usual = "";
+				if (DebindPrivate.ResolvedUnitIgnoredSomewhere(action)) then
+					usual = " (" .. LLL["RESOLVED_TARGET_USUAL"] .. ")";
+				end
 				if (resolved == false) then
-					addUnitLine(LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"], under);
+					addUnitLine(LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"] .. usual,
+						under);
 				else
 					addUnitLine(LLL["RESOLVED_TARGET"] .. " - "
-						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]), under);
+						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]) .. usual, under);
 					AddUnitFrameAxes(tooltip, resolved, said);
 				end
 			end

@@ -395,12 +395,12 @@ local EMPTY_UNIT_ROW_AXES = 5;
 
 --- Is one of the asked rows empty on `axis` (1 states, 2 groups, 3 frame types, 4 reactions,
 --- 5 roles with party and raid frames only, 6 roles beside other frame types)? `unit` nil asks every
---- row, and `"@"` asks the Resolved Unit row.
-local function HasEmptyUnitRow(action, unit, axis)
+--- row but `except`, and `"@"` asks the Resolved Unit row.
+local function HasEmptyUnitRow(action, unit, axis, except)
     local rows = StoredUnitRows(action);
     if (rows) then
         for key, value in pairs(rows) do
-            if ((unit == nil or key == unit)
+            if ((unit == nil or key == unit) and key ~= except
                     and (select(axis, EmptyUnitRow(action, key, value, rows)))) then
                 return true;
             end
@@ -416,6 +416,50 @@ local function HasAnyEmptyUnitRow(action, unit)
         end
     end
     return false;
+end
+
+--- Whether this binding runs on its key. **A binding that casts nothing is not one that stands**:
+--- `omitted` never reaches the key and `holdsOnly` only keeps it.
+local function BindingStands(binding)
+    return not binding.dead and binding.normalCast ~= false and not binding.omitted
+        and not binding.holdsOnly;
+end
+
+--- Whether a binding of this action that leaves the Resolved Unit row unasked stands
+--- (`ignoresResolvedUnit`). **Read off the list, since `FillBinding` is where that is decided**, and
+--- built only for an action with the option on.
+---
+--- **Public because the tooltip and the conditional mark ask it too**: the box ticked on an action
+--- it does nothing for is said nowhere but in its menu.
+local function ResolvedUnitIgnoredSomewhere(action)
+    if (not DebindPrivate.UsualIgnoresResolvedUnit(action)) then
+        return false;
+    end
+    local list = DebindPrivate.GetBindingsForAction(action);
+    for i = 1, #list do
+        if (list[i].ignoresResolvedUnit and BindingStands(list[i])) then
+            return true;
+        end
+    end
+    return false;
+end
+DebindPrivate.ResolvedUnitIgnoredSomewhere = ResolvedUnitIgnoredSomewhere;
+
+--- A row empty on `axis`, answered with `code`. **The Resolved Unit row is asked last and apart**:
+--- where a binding that does not ask it stands, it answers `keepCode` instead, and any other row
+--- empty on the same axis still answers `code`.
+local function EmptyUnitRowCheck(axis, code, keepCode)
+    return function(action, unit)
+        if (unit ~= "@" and HasEmptyUnitRow(action, unit, axis, "@")) then
+            return code;
+        end
+        if ((unit == nil or unit == "@") and HasEmptyUnitRow(action, "@", axis)) then
+            if (ResolvedUnitIgnoredSomewhere(action)) then
+                return keepCode;
+            end
+            return code;
+        end
+    end
 end
 
 local EMPTY_CONDITIONS = {};
@@ -581,11 +625,8 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_CONDITIONS_NEVER;
         end
     end },
-    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
-        if (HasEmptyUnitRow(action, unit, 4)) then
-            return Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED;
-        end
-    end },
+    { category = "units", label = "CONDITION_UNITS", check = EmptyUnitRowCheck(4,
+        Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED, Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL) },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 5)) then
             return Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
@@ -596,11 +637,8 @@ local ACTION_CHECKS = {
             return Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES;
         end
     end },
-    { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
-        if (HasEmptyUnitRow(action, unit, 2)) then
-            return Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
-        end
-    end },
+    { category = "units", label = "CONDITION_UNITS", check = EmptyUnitRowCheck(2,
+        Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL) },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 3)) then
             return Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;
@@ -823,15 +861,13 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             -- **Only an action none of whose bindings stands is in trouble** (2026-09-17, owner).
             -- One that cannot stand beside one that does is only left off the key.
             --
-            -- **A binding that casts nothing is not one that stands**: `omitted` never reaches the
-            -- key and `holdsOnly` only keeps it. A resurrection's branches carry conditions of their
-            -- own, so they can all die under the reader's while the original lives.
+            -- A resurrection's branches carry conditions of their own, so they can all die under the
+            -- reader's while the original lives.
             local standing, dead = false, false;
             for i = 1, #list do
                 if (list[i].dead) then
                     dead = true;
-                elseif (list[i].normalCast ~= false and not list[i].omitted
-                        and not list[i].holdsOnly) then
+                elseif (BindingStands(list[i])) then
                     standing = true;
                     break;
                 end

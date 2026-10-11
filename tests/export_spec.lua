@@ -716,6 +716,19 @@ return function(DebindPrivate, DebindStorage, harness)
         check(Definitions(payload)["$state3"].resetValue == false, "매니페스트");
     end
 
+    test("usualIgnoresResolvedUnit goes out in casting and comes back", function()
+        ResetProfile({ general = { { type = Constants.SPELL, value = 1, key = "F",
+            casting = { usualIgnoresResolvedUnit = true },
+            conditions = { units = { ["@"] = { exists = true, reaction = Constants.REACTION_HELP } } } } } });
+
+        local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
+        local payload, err = DebindStorage.DecodeExportString(str);
+        check(payload, "decode failed: " .. tostring(err));
+        local action = OneOn(payload, "F");
+        check(action.casting and action.casting.usualIgnoresResolvedUnit == true,
+            "the option did not survive: " .. tostring(action.casting and action.casting.usualIgnoresResolvedUnit));
+    end);
+
     test("봉투 모양", function()
         local str = DebindStorage.EncodeExportPayload(DebindStorage.BuildExportPayload());
         check(type(str) == "string", "문자열이 아니다: " .. tostring(str));

@@ -151,8 +151,17 @@ function DebindRowMarkMixin:OnLeave()
 end
 
 --- The conditional mark: that conditions exist. Which ones is the row's own tooltip.
-local function ConditionalMarkTooltip(tooltip)
+---
+--- **The Resolved Unit box qualifies it**: with the box ticked, the presses on your current target
+--- run the action whatever that row says (`falling-back-when-the-resolved-unit-fails.md` §7).
+local function ConditionalMarkTooltip(tooltip, mark)
 	GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_CONDITIONAL"], true);
+	local action = mark and mark.action;
+	local units = action and action.conditions and action.conditions.units;
+	if (units and DebindPrivate.UnitConditionForBinding(units["@"]) ~= nil
+			and DebindPrivate.ResolvedUnitIgnoredSomewhere(action)) then
+		GameTooltip_AddNormalLine(tooltip, format(LLL["MARK_TOOLTIP_CONDITIONAL_USUAL"], LLL["RESOLVED_TARGET"]), true);
+	end
 end
 
 local function HoverCastMarkTooltip(tooltip, mark)
@@ -1121,6 +1130,7 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	-- **The conditional mark says only that conditions exist.** Whether one of them is wrong is the
 	-- issue mark's: painted on this one, one picture answered two questions and the reader had to
 	-- know which first.
+	self.Marks.Conditional.action = action;
 	self.Marks.Conditional:SetKind(DebindPrivate.IsConditionalAction(action) and "conditional" or nil,
 		ConditionalMarkTooltip);
 

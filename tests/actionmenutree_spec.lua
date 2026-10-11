@@ -313,6 +313,58 @@ return function(DebindPrivate, _, harness)
         return said;
     end
 
+    -- **The Resolved Unit box is that row's, though it is stored in `casting`**
+    -- (`falling-back-when-the-resolved-unit-fails.md` 3-6, §4). It writes `true` and clears to
+    -- nothing, is open where it does nothing, and two actions apart only on it are counted under
+    -- Resolved Unit and not under Cast Options.
+    test("the Resolved Unit box writes its value and is counted under Resolved Unit alone", function()
+        local function Row()
+            return { units = { ["@"] = { exists = true, reaction = Constants.REACTION_HELP } } };
+        end
+        local plain = Spell(1, Row());
+        local ticked = Spell(2, Row());
+        local picked = Spell(3, { units = Row().units, unit = "target" });
+        ResetProfile({ plain, ticked, picked });
+
+        local box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_USUAL"]);
+        check(box, "no box in the menu");
+        box.setSelected(box.data);
+        check(ticked.casting and ticked.casting.usualIgnoresResolvedUnit == true,
+            "ticking stored " .. tostring(ticked.casting and ticked.casting.usualIgnoresResolvedUnit));
+
+        local pickedBox = FindChoice(Build({ picked }), LLL["RESOLVED_TARGET_USUAL"]);
+        check(pickedBox and pickedBox.enabled ~= false, "the box is locked on an action with a unit picked");
+
+        -- The new-feature dot on the box and on the row that opens it, which `Drawn` takes off.
+        local function Dotted(element)
+            local text = element.text;
+            local frame = { fontString = {
+                GetText = function() return text; end,
+                SetTextToFit = function(_, value) text = value; end,
+                SetTextColor = function() end,
+            } };
+            for _, fn in ipairs(element.initializers or {}) do
+                fn(frame, element);
+            end
+            return text:find("|A:", 1, true) ~= nil;
+        end
+        local dotted = Build({ plain });
+        check(Dotted(FindChoice(dotted, LLL["RESOLVED_TARGET_USUAL"])), "the box wears no new-feature dot");
+        check(Dotted(FindRow(dotted, LLL["RESOLVED_TARGET"])), "the Resolved Unit row wears no new-feature dot");
+
+        local root = Build({ plain, ticked });
+        local casting = FindRow(root, LLL["CASTING"]);
+        check(casting and Drawn(casting) == LLL["CASTING"],
+            "Cast Options counted the box: " .. tostring(casting and Drawn(casting)));
+        local resolved = FindRow(root, LLL["RESOLVED_TARGET"]);
+        check(resolved and Drawn(resolved) ~= LLL["RESOLVED_TARGET"],
+            "Resolved Unit did not count the box: " .. tostring(resolved and Drawn(resolved)));
+
+        box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_USUAL"]);
+        box.setSelected(box.data);
+        check(ticked.casting == nil, "unticking left " .. tostring(ticked.casting and ticked.casting.usualIgnoresResolvedUnit));
+    end);
+
     -- **A row a mixed pick shows is written to the actions it applies to alone** (2026-09-23,
     -- owner). The spell beside them has nothing either value could mean.
     test("the spec-resolved rows write only to the actions they apply to", function()

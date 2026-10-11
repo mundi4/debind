@@ -424,6 +424,14 @@ do
             binding.unit = nil;
         end
 
+        -- **A field beside `conditions`, not the row taken out of it**: the order (`MakeOrderRecord`)
+        -- and the conditional mark read `conditions.units`, and an action that loses its `"@"`
+        -- there sorts as unconditional (`falling-back-when-the-resolved-unit-fails.md` 3-4).
+        -- **`CastUnitOf` and not `unit`**: `none` empties `unit` and still goes out at a unit.
+        local castUnit = DebindPrivate.CastUnitOf(binding);
+        binding.ignoresResolvedUnit = (DebindPrivate.UsualIgnoresResolvedUnit(action)
+            and (castUnit == nil or castUnit == "")) or nil;
+
         -- **Every original stands on [none held]**, whatever its type or target: every action has
         -- the self and focus twins, so a held modifier is answered among those and never by an
         -- original placed ahead of them (`implementing-focus-and-self-cast.md` §3-4).
@@ -622,6 +630,12 @@ do
     function DebindPrivate.NormalCastEnabled(action)
         local casting = action and action.casting;
         return not (casting and casting.normalCast == false);
+    end
+
+    --- Whether the bindings of this action that go out with no unit leave the Resolved Unit
+    --- condition unasked (`FillBinding`'s `ignoresResolvedUnit`).
+    function DebindPrivate.UsualIgnoresResolvedUnit(action)
+        return CastingValue(action, "usualIgnoresResolvedUnit") == true;
     end
 
     --- 누르는 동안 클라이언트의 자동 동작을 액션이 정하는 네 줄. **이름이 CVar 이름 그대로이고,

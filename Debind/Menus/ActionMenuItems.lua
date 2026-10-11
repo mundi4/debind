@@ -493,9 +493,31 @@ local function CreateCastingMenu(parentDescription, ctx)
         return text .. " " .. format(LLL["CAST_KEY_UNIT_UNUSED"], LLL["TYPE_SETCUSTOM"]);
     end
 
+    --- `casting` less the Resolved Unit box, which is drawn in that row's menu and counted there.
+    local function CastOptionsOf(action)
+        local casting = action.casting;
+        if (casting == nil or casting.usualIgnoresResolvedUnit == nil) then
+            return casting;
+        end
+        local rest;
+        for name, value in pairs(casting) do
+            if (name ~= "usualIgnoresResolvedUnit") then
+                rest = rest or {};
+                rest[name] = value;
+            end
+        end
+        return rest;
+    end
+
     local description = ActionMenus:BuildNode(parentDescription, {
         label = "CASTING",
         key = "casting",
+        valueOf = CastOptionsOf,
+        isActive = function()
+            return AnyAction(ctx, function(action)
+                return CastOptionsOf(action) ~= nil;
+            end);
+        end,
     }, ctx);
 
     for _, row in ipairs({
