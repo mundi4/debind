@@ -221,9 +221,10 @@ fine where it is the efficient tool, such as one mechanical change across many f
 
 ## Repo conventions
 
-- `reference/` is gitignored and read-only: Blizzard's interface code and the client's own strings,
-  fetched by a script. None of it is ours — **never commit or push inside it.** What is in there,
-  which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
+- `wow-reference` sits outside the repo, at `C:\Users\mundi4\source\repos\wow-reference`, and is
+  read-only: Blizzard's interface code and the client's own strings, fetched by a script. Cloud
+  sessions cannot reach it. None of it is ours — **never commit or push inside it.** What is in
+  there, which build it is, and how to refresh it are in `devdocs/dev-setup.md`.
 - `devdocs/` holds three kinds of file, and **the folder says which kind.** No list here names them,
   because a list is a second answer that has to be kept current and the folder already answers.
   The file name still says which task it is for — never just the topic (`testing.md` read as the

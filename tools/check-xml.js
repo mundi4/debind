@@ -8,6 +8,7 @@ const root = path.join(__dirname, "..");
 const files = [];
 (function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        // `reference/` moved out to `wow-reference`, but a worktree made before that still holds one.
         if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "reference") continue;
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) walk(full);

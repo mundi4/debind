@@ -37,12 +37,8 @@ const EXTERNAL_MIXINS = {
 
 function walk(dir, out, ext) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        // `reference/` is Blizzard's code and the client's strings, not ours. The name it had here
-        // was `BlizzardInterfaceCode`, and when that moved this line went on naming a directory
-        // that no longer exists - so the walk started descending into `reference/globalstrings`,
-        // which is a real directory full of `.lua`. Nothing broke, because those files declare no
-        // mixins, which is exactly why nobody would have noticed. `wow-ui-source` escaped only
-        // because it is a junction and `isDirectory()` is false for one.
+        // `reference/` moved out to `wow-reference`, but a worktree made before that still holds
+        // one, and its `globalstrings` is a real directory full of Blizzard's `.lua`.
         if (entry.name.startsWith(".") || entry.name === "node_modules"
             || entry.name === "reference") continue;
         const full = path.join(dir, entry.name);

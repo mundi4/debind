@@ -7,6 +7,7 @@ tools/cache
 .claude/settings.local.json
 .claude/worktrees
 Debind/DevStamp.lua
+# Moved out to wow-reference; a worktree made before that still holds one.
 reference
 # No trailing slash: in a worktree .zzz is a symlink, which git sees as a file, and `.zzz/` matches
 # only a directory.

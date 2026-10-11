@@ -11,9 +11,9 @@
 // one (2026-09-10).
 //
 // The list of real names is not written here. It is **read off Blizzard's own XML** in
-// `reference/`, so a name the client added is a name this check already knows.
+// `wow-reference`, so a name the client added is a name this check already knows.
 //
-// **Local only**, like `check:templates`: `reference/` is fetched, not committed, and CI has none.
+// **Local only**, like `check:templates`: `wow-reference` lives outside the repo, and CI has none.
 // With it missing the check says so and passes -- a check that cannot run must not read as one
 // that ran.
 
@@ -23,7 +23,7 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 // Mainline only: what we ship goes there, and a name that exists in one client and not the other
 // is still a name we must not write.
-const reference = path.join(root, "reference", "wow-ui-source", "mainline");
+const reference = path.join(require("./lib/reference"), "wow-ui-source", "mainline");
 
 // `<Tag a="1" b='2'/>`의 속성 이름만. 값 안의 `=`는 따옴표가 막는다.
 const ATTR = /([A-Za-z][\w.]*)\s*=\s*("[^"]*"|'[^']*')/g;
@@ -56,7 +56,7 @@ function attrsIn(text, each) {
 }
 
 if (!fs.existsSync(reference)) {
-    console.log("reference/wow-ui-source/mainline이 없어 XML 속성 이름을 대조하지 못했다 (npm run ui-source).");
+    console.log(`${reference}이 없어 XML 속성 이름을 대조하지 못했다 (npm run ui-source).`);
     process.exit(0);
 }
 

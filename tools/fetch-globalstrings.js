@@ -23,7 +23,7 @@ const RAW = `https://raw.githubusercontent.com/${REPO}/master`;
 
 const root = path.join(__dirname, "..");
 const localesDir = path.join(root, "Debind", "Locales");
-const outDir = path.join(root, "reference", "globalstrings");
+const outDir = path.join(require("./lib/reference"), "globalstrings");
 
 async function get(url) {
     const res = await fetch(url);

@@ -25,7 +25,7 @@ they already knew.
 
 A word is cut because it is **wrong for the thing**, never because it feels advanced. "Would a
 beginner follow this" is not the test and was never the test. Neither is how often the word appears
-in `reference/globalstrings/`: that count answers "is there already a word for this", and reading a
+in `wow-reference/globalstrings/`: that count answers "is there already a word for this", and reading a
 zero as "they will not know it" throws away a word they knew and buys a limp phrase with it.
 
 **The floor is someone who plays WoW and installs addons** (owner, 2026-10-11). Nobody below it
@@ -74,7 +74,7 @@ turns a zero into a verdict it cannot carry, and the usual result is a correct w
 longer one that says less. Pick the plainest word that is true of the thing and move on.
 
 Check the client's own strings before inventing a word. They are on disk, one file per locale:
-`reference/globalstrings/{enUS,koKR,ruRU}.lua`, refreshed by `npm run globalstrings`, with
+`wow-reference/globalstrings/{enUS,koKR,ruRU}.lua`, refreshed by `npm run globalstrings`, with
 `SOURCE.txt` beside them naming the build. If the addon coins its own word instead, the game and the
 addon end up calling one thing two things, in front of a user who has no way to know they are the
 same.
@@ -82,7 +82,7 @@ same.
 **Look up the key, not the word — in that order.**
 
 1. Find the **key** whose English value carries the concept you mean, in `enUS.lua` or in
-   `reference/wow-ui-source/mainline/`. Confirm it by where the interface code uses it. An English word does
+   `wow-reference/wow-ui-source/mainline/`. Confirm it by where the interface code uses it. An English word does
    not pin a concept down either: two keys can hold the same word for different things, and a word
    the client used for one thing years ago can belong to another now.
 2. Read **that key** in `koKR.lua` and `ruRU.lua`.

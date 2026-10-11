@@ -1,4 +1,4 @@
-// Updates the Blizzard interface code under `reference/wow-ui-source`.
+// Updates the Blizzard interface code under `wow-reference/wow-ui-source`.
 //   npm run ui-source              # move every client to its newest build
 //   npm run ui-source -- forever   # move just that one
 //   npm run ui-source -- 12.0.7    # pin mainline to one specific build
@@ -19,8 +19,8 @@
 // copy leaves out: one export writes every file in one pass, so a file older than the newest by
 // more than `EXPORT_PASS_MS` was written by an earlier export and is not this build's.
 //
-// Each folder under `reference/wow-ui-source` is a junction to a place outside the project. Every
-// worktree can point at the one copy, and `git clean -xfd` here cannot reach it.
+// Each folder under `wow-reference/wow-ui-source` is a junction to the clone or the export copy,
+// which sit next to it under the same parent.
 
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -38,7 +38,9 @@ const CHECKOUTS = [
 const MAINLINE = CHECKOUTS[0];
 const GIT_CHECKOUTS = CHECKOUTS.filter((c) => c.branch);
 
-const root = path.join(__dirname, "..", "reference", "wow-ui-source");
+const reference = require("./lib/reference");
+const repos = path.dirname(reference);
+const root = path.join(reference, "wow-ui-source");
 const WOW_ROOT = process.env.WOW_ROOT || "C:\\Games\\World of Warcraft";
 const EXPORT_PASS_MS = 60 * 60 * 1000;
 // What marks a folder as one this script filled, and so one it may empty.
@@ -58,20 +60,23 @@ function version(dir) {
     return fs.existsSync(f) ? fs.readFileSync(f, "utf8").trim() : "unknown";
 }
 
+// Absolute paths, so the commands work from whichever worktree they were printed in.
 function setupHelp() {
-    const lines = [`  git clone --depth 1 --branch ${MAINLINE.branch} ${REPO} ..\\wow-ui-source`];
+    const q = (p) => `"${p}"`;
+    const clone = path.join(repos, "wow-ui-source");
+    const lines = [`  git clone --depth 1 --branch ${MAINLINE.branch} ${REPO} ${q(clone)}`];
     for (const c of GIT_CHECKOUTS.slice(1)) {
-        lines.push(`  git -C ..\\wow-ui-source fetch --depth 1 origin ${c.branch}:${c.branch}`,
-            `  git -C ..\\wow-ui-source worktree add ..\\wow-ui-source-${c.name} ${c.branch}`);
+        lines.push(`  git -C ${q(clone)} fetch --depth 1 origin ${c.branch}:${c.branch}`,
+            `  git -C ${q(clone)} worktree add ${q(`${clone}-${c.name}`)} ${c.branch}`);
     }
     for (const c of CHECKOUTS.filter((c) => c.client)) {
-        lines.push(`  mkdir ..\\wow-ui-source-${c.name}-export`);
+        lines.push(`  mkdir ${q(`${clone}-${c.name}-export`)}`);
     }
-    lines.push(`  mkdir reference\\wow-ui-source`,
-        `  cmd /c mklink /J reference\\wow-ui-source\\${MAINLINE.name} ..\\wow-ui-source`);
+    lines.push(`  mkdir ${q(root)}`,
+        `  cmd /c mklink /J ${q(path.join(root, MAINLINE.name))} ${q(clone)}`);
     for (const c of CHECKOUTS.slice(1)) {
         const dir = c.client ? `${c.name}-export` : c.name;
-        lines.push(`  cmd /c mklink /J reference\\wow-ui-source\\${c.name} ..\\wow-ui-source-${dir}`);
+        lines.push(`  cmd /c mklink /J ${q(path.join(root, c.name))} ${q(`${clone}-${dir}`)}`);
     }
     return lines.join("\n");
 }
@@ -113,7 +118,7 @@ function copyExport(checkout, target) {
         die(`Nothing at ${source}. Run /exportInterfaceFiles code in the ${checkout.client} client first.`);
     }
     if (fs.existsSync(path.join(target, ".git"))) {
-        die(`reference/wow-ui-source/${checkout.name} resolves to ${target}, a git checkout.\n`
+        die(`${path.join(root, checkout.name)} resolves to ${target}, a git checkout.\n`
             + `${checkout.name} is copied from the client's export now; repoint it:\n\n${setupHelp()}\n`);
     }
     const existing = fs.readdirSync(target);
@@ -159,7 +164,7 @@ for (const checkout of targets) {
     try {
         target = fs.realpathSync(link);
     } catch {
-        die(`Nothing at reference/wow-ui-source/${checkout.name}. One clone outside the project holds`
+        die(`Nothing at ${path.join(root, checkout.name)}. One clone outside the project holds`
             + ` every client, each as its own checkout:\n\n${setupHelp()}\n`);
     }
 
@@ -170,7 +175,7 @@ for (const checkout of targets) {
 
     // A linked worktree has `.git` as a file rather than a directory.
     if (!fs.existsSync(path.join(target, ".git"))) {
-        die(`reference/wow-ui-source/${checkout.name} resolves to ${target}, which is not a git checkout.\n`
+        die(`${path.join(root, checkout.name)} resolves to ${target}, which is not a git checkout.\n`
             + `Repoint it at a checkout of ${REPO} - see the header of this file for why.`);
     }
 

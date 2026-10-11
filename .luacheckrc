@@ -3,6 +3,8 @@ max_line_length = false
 codes = true
 exclude_files = {
 	"**/Libs",
+	-- `reference/` moved out to `wow-reference`, but a worktree made before that still holds one,
+	-- and what is in it is Blizzard's Lua.
 	"reference/**",
 	-- The test kit only. `DebindDev/DevSeed.lua` sits in the same folder and stays linted: it
 	-- was linted while it lived in `Debind/`, and moving an addon is no reason to stop.

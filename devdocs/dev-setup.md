@@ -23,9 +23,12 @@ Windows has no installer for it. Take the `Tools Executables` zip for 5.1.5 from
 `%LOCALAPPDATA%\Programs`, and put that folder on the user PATH. The executable is named `lua5.1.exe`
 already, which is the name everything here calls. A `lua` 5.4 next to it is harmless.
 
-## `reference/` — the client's own code and strings
+## `wow-reference` — the client's own code and strings
 
-Gitignored, read-only, and none of it ours. Two things live there, both fetched by a script.
+A folder beside the main worktree, outside the repo, so every worktree reaches the same one and a
+cloud session reaches none. The tools find it through
+`tools/lib/reference.js`. Read-only, and none of it ours. Two things live there, both fetched by a
+script.
 
 ```
 npm run ui-source             # move every client to its newest build
@@ -34,20 +37,19 @@ npm run ui-source -- 12.0.7   # pin mainline to one build
 npm run globalstrings         # refresh the client strings
 ```
 
-`reference/wow-ui-source/` is Blizzard's interface code, one folder per client: `mainline/` and
-`forever/`. Each is a junction to a folder kept outside the project, so every worktree shares one
-copy. The mirror calls retail `live`, and these folders are named after the client instead, because
+`wow-reference/wow-ui-source/` is Blizzard's interface code, one folder per client: `mainline/` and
+`forever/`. Each is a junction to the clone or the copy that sits beside `wow-reference`. The mirror calls retail `live`, and these folders are named after the client instead, because
 no client is called that.
 
 - **`mainline/` is a shallow clone of `Gethe/wow-ui-source`**, with its push URL deliberately
   broken. Every tag in the mirror is a retail build, so a build number pins it.
 - **`forever/` is copied out of the beta client's own export** (`_classic_beta_\BlizzardInterfaceCode`),
-  into `..\wow-ui-source-forever-export`. The mirror's `forever` branch trailed the client: it sat at
+  into `wow-ui-source-forever-export` beside `wow-reference`. The mirror's `forever` branch trailed the client: it sat at
   69913 while 70009 was the build that fixed what blocked us. Run `/exportInterfaceFiles code` in that
   client after a patch, then `npm run ui-source -- forever`. `version.txt` is the build the client
   had installed at copy time, and `SOURCE.txt` says when the export was written.
 
-`reference/globalstrings/` is the client's own strings, one file per locale. `writing-user-facing-
+`wow-reference/globalstrings/` is the client's own strings, one file per locale. `writing-user-facing-
 text.md` is what they are for: the game's word for a thing beats one the addon invents.
 
 **Which build you are reading varies, and retail is not always behind PTR.** `version.txt` and
@@ -112,17 +114,7 @@ skipped without a word.
 deletes a symlink and leaves what it points at. Through a junction, `git worktree remove --force`
 deleted the files on the far side.
 
-**`reference/` needs a junction, and it is three rather than one.** It is gitignored, so a new
-worktree has nothing there: `reference/globalstrings` (what `npm run globalstrings` fetched) and
-`reference/wow-ui-source/mainline` and `reference/wow-ui-source/forever` (each itself a junction to
-a folder kept outside the project) all have to be pointed at the same places the main worktree
-points at. `reference/wow-ui-source` itself is a real folder, not a junction, so it has to be
-created before the two inside it. `npm run check` passes without any of them, which is exactly why
-this is easy to miss — what breaks is
-reading Blizzard's own code and strings, and that failure looks like "the file is not there" rather
-than like a setup step nobody did.
-
-**Before removing a worktree, break those junctions first.** `git worktree remove`, and anything
-else that deletes the directory recursively, walks through a junction and takes what it points at
-with it. That is the clone of Blizzard's interface code and the `forever` copy, both shared by
-every worktree here.
+**A worktree made before `reference/` moved out to `wow-reference` may still hold one**, with
+`reference/wow-ui-source/mainline` and `forever` as junctions into the clone of Blizzard's interface
+code and the `forever` copy. Break those junctions before removing that worktree, or the removal
+takes the clone and the copy with it.

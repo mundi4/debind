@@ -25,7 +25,7 @@
 
 ## 1. 코드에서 확인한 것
 
-**매니저** (`reference/`의 `SecureStateDriver.lua`).
+**매니저** (`wow-reference/`의 `SecureStateDriver.lua`).
 
 - `updatetime` 속성은 지역 변수 `STATE_DRIVER_UPDATE_THROTTLE`만 바꾼다. 돌고 있던 `timer`는 안 건드린다. 그래서 새 값은 지금
   타이머가 다 돈 뒤부터 먹는다. 그 변수는 upvalue라, 바꾸는 길은 `SetAttribute("updatetime", …)` 하나뿐이다.
