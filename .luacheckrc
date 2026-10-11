@@ -6,7 +6,9 @@ exclude_files = {
 	"reference/**",
 	-- The test kit only. `DebindDev/DevSeed.lua` sits in the same folder and stays linted: it
 	-- was linted while it lived in `Debind/`, and moving an addon is no reason to stop.
-	"DebindDev/DebindTest.lua",
+	"DebindDev/TestHarness.lua",
+	"DebindDev/Tests/**",
+	"DebindDev/TestRunner.lua",
 	"DebindDev/Probe_*.lua",
 	"DebindCamelotProbe/**",
 	"tests/**",

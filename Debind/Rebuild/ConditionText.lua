@@ -141,7 +141,7 @@ local function StateAlternatives(axis, value)
 end
 
 --- Every token a `StateExpression` has written since load. The kit reads it to hold a state at the
---- press, since a parsed word can only be held by rewriting the token (`DebindTest.lua`, `MockBody`).
+--- press, since a parsed word can only be held by rewriting the token (`TestHarness.lua`, `MockBody`).
 local _stateTokens = {};
 function DebindPrivate.StateExpressionTokens()
     return _stateTokens;

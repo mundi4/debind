@@ -3203,7 +3203,7 @@ end
 --- makes safe. `EnumerateAllProfileLayers` draws exactly that line (`CollectActionsWhere` says why),
 --- and **the reach is why it is used rather than walking `LayerArray`** - the two answer the same
 --- set, and only the enumeration is a seam the in-game kit can stand a test layer behind
---- (`DebindTest.lua`, `SetIsolated`). Walked directly, this function answered "nothing is waiting"
+--- (`TestHarness.lua`, `SetIsolated`). Walked directly, this function answered "nothing is waiting"
 --- for every test that put a badge in front of it.
 ---
 --- There is no order worth relying on. Neither caller needs one - the strip counts the list and

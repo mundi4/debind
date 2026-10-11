@@ -420,7 +420,7 @@ payload = {
 
 - 헤드리스: `tests/`의 `export_spec`, `import_spec`, `entry_spec`, `clique_spec`, `migration_spec`,
   `keygroup_spec`, `switch_spec`, `automatics_spec`.
-- 인게임 킷: `DebindDev/DebindTest.lua`가 페이로드의 `shared`, `char`를 직접 짚는 자리가 있고,
+- 인게임 킷: `DebindDev/`의 테스트가 페이로드의 `shared`, `char`를 직접 짚는 자리가 있고,
   `db.char.switches`를 직접 짚는 자리가 열한 군데다.
 
 ## 4. 순서
@@ -438,7 +438,7 @@ payload = {
      전에는 창이 안 열리므로 덮일 사용자 설정이 없다. 캐릭터 몫은 각 표의 `[guid]` 칸만 옮긴다. 계정 몫이
      먼저 넘어온 뒤 다른 캐릭터로 접속해서 돌기 때문이다.
    - 기억한 스위치 값과 `CustomTargets`를 `Profile.lua`의 함수로 돌리는 것도 이 단계다. `UnitWatch.lua`와
-     `DebindTest.lua`가 모양을 모르게 된다.
+     인게임 킷이 모양을 모르게 된다.
    - **같은 단계에서 치운다** (소유자, 리팩터링은 dbver를 올릴 때 같이). 아래는 읽는 코드가 없거나
      로그인마다 다시 계산되는 값이라 지워도 동작이 안 바뀐다. 2026-09-27에 SavedVariables 세 벌
      (`_retail_` 하나, `_xptr_` 둘)을 열어 확인했다.

@@ -14,7 +14,39 @@
 # from `ADDON_LOADED`.
 DevSeed.lua
 
-DebindTest.lua
+# The in-game kit: the harness first, the runner last. **The cases run in the order they load here,
+# and none of them may lean on it.** The runner empties the test layer before each case and runs its
+# teardowns after, so a case that passes only behind another is a wrong case, not an order to keep.
+TestHarness.lua
+Tests/KeyGroups.lua
+Tests/Menus.lua
+Tests/OrderArrows.lua
+Tests/HelpWindow.lua
+Tests/LeftColumn.lua
+Tests/MacroEditor.lua
+Tests/SpellPicker.lua
+Tests/HelpTip.lua
+Tests/Storage.lua
+Tests/Panels.lua
+Tests/Switches.lua
+Tests/Escape.lua
+Tests/Conditions.lua
+Tests/Beat.lua
+Tests/HoverSlot.lua
+Tests/ForeignWrappers.lua
+Tests/ClickCast.lua
+Tests/StateInjection.lua
+Tests/Press.lua
+Tests/Packs.lua
+Tests/ClickTimeKeys.lua
+Tests/MultiAxis.lua
+Tests/MacroStore.lua
+Tests/StandDown.lua
+Tests/Reload.lua
+Tests/RoleMap.lua
+Tests/GameTypeFiles.lua
+Tests/Settings.lua
+TestRunner.lua
 # Probe_BindingContext.lua
 # Probe_BindingList.lua
 # Probe_ForbiddenFrames.lua

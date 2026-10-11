@@ -194,6 +194,28 @@ you** (2026-09-08).
 
 ### Writing one
 
+A case goes in the file under `DebindDev/Tests/` whose topic it shares; a new topic is a new file,
+listed in `DebindDev.toc` between `TestHarness.lua` and `TestRunner.lua`. The files share one
+private table, so a file opens by taking what it uses off it, and takes Debind's own tables in a
+handler because the kit loads before Debind does:
+
+```lua
+local _, Dev = ...
+
+local DebindPrivate, Constants
+Dev.OnDebindLoaded(function(private)
+    DebindPrivate, Constants = private, private.Constants
+end)
+
+local RegisterTest = Dev.RegisterTest
+local Pass = Dev.Pass
+local Fail = Dev.Fail
+```
+
+A helper one file uses stays in that file; one a second file needs moves to `TestHarness.lua`
+and is put on `Dev` at its end. `npm run check:kit` fails on a file the TOC does not list and on
+a name taken off `Dev` that nothing put there.
+
 ```lua
 RegisterTest("what it checks", {
     description = "한 줄 설명",
@@ -236,8 +258,8 @@ RegisterTest("what it checks", {
 `applies` exists for the tests about another addon's frames. Those can assert nothing on a board
 that does not have it, and a test written to go green anyway is a test that goes green on the day
 it should not — so they skip, and the skip says which addon was missing. **It is asked at run time
-and not at load time**, because what it depends on is whether that addon's frames are up, and this
-file loads before the login that builds them.
+and not at load time**, because what it depends on is whether that addon's frames are up, and the
+kit loads before the login that builds them.
 
 
 A test that legitimately takes a while — sweeping a cross product drives a rebuild at every point
@@ -296,7 +318,7 @@ run `OnTextChanged`, which is where the window does the work. The macro editor l
 and the search box sets the search term there, so two tests that typed with `SetText` measured
 nothing and reported a bug the addon did not have. Set the text, then run that widget's own script.
 Fail when there is no script to run: skipping it quietly means the day the XML wiring goes missing,
-those tests pass (`TypeInto` in `DebindTest.lua`).
+those tests pass (`TypeInto` in `TestHarness.lua`).
 
 **A `Click()` from the kit never runs a secure handler's body.** The kit is addon code, so the
 click is tainted, and `CallRestrictedClosure` refuses it ("Cannot call restricted closure from
