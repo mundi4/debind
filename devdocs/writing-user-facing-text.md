@@ -165,6 +165,13 @@ old ones unless asked — the owner intends to go through them.
 written as an ordinary sentence: `Assign a key`, `Unbind key`, `Turn this action off`,
 `While in combat`, `Cast on your focus`.
 
+**A button or menu item whose label opens on a verb is a sentence too**, though the client
+title-cases its own: `Run sooner`, `Add to my bindings`, `Merge into...` (2026-09-18 for
+`Unbind key`, across the window 2026-10-11, owner). A name inside it keeps its capitals
+(`Convert to a Custom Macro`), and the name of an action type stays a name (`Set Target`,
+`Give Key Back`). A one-word label has no capitals to disagree over, which is why [Cancel] below
+can be the client's.
+
 The tempting rule is length, and it is wrong. The client's own labels do flip from title case to
 sentence case somewhere around four or five words, but hold the length fixed and the split is still
 there: among three-to-five word strings, 98% of the ones that name a control are title case while
