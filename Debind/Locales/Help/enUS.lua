@@ -28,9 +28,17 @@ L["HELP_CHANGELOG_BODY"] = [==[
 
 On World of Warcraft: Forever, setting a party member as a custom target said in chat that it was set, but it did not take. This is fixed.
 
+# Dispel on Forever is now two actions
+
+On World of Warcraft: Forever, a Dispel action now shows as |cnBLUE_FONT_COLOR:Dispel: Curse, Disease|r, and |cnBLUE_FONT_COLOR:Dispel: Magic, Poison|r is new. Both work on a Druid, Priest, Shaman or Paladin; a Mage has only |cnBLUE_FONT_COLOR:Dispel: Curse, Disease|r. Where a class has two spells for one dispel, the higher-level one is cast once you know it.
+
 # A key where no action runs can go back to WoW, if you want it to
 
 When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Key is given back|r. It starts on |cnBLUE_FONT_COLOR:Press does nothing|r, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
+
+# Keys given back can follow a change sooner
+
+A key that is given back, or runs a |cnBLUE_FONT_COLOR:WoW Binding|r, only in some situations can still do what it did before a change for up to 0.2 seconds after it. This can happen with |cnBLUE_FONT_COLOR:When no action runs|r set to |cnBLUE_FONT_COLOR:Key is given back|r, or on a key with a |cnBLUE_FONT_COLOR:Give Key Back|r or |cnBLUE_FONT_COLOR:WoW Binding|r action. Lowering |cnBLUE_FONT_COLOR:State Driver Interval|r, under |cnBLUE_FONT_COLOR:Miscellaneous|r in Debind's settings, shortens that delay, down to one frame at 0. The value belongs to Blizzard's state driver, which other addons use too, so a lower value makes theirs update more often as well and costs more CPU. With no such key, the slider changes nothing. More is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 

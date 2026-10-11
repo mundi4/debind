@@ -1,3 +1,27 @@
+# 4.2
+
+**On World of Warcraft: Forever, a party member set as a custom target now takes.** Until now chat said it was set, but it was not.
+
+**On World of Warcraft: Forever, Dispel is now two actions.** A Dispel action now shows as Dispel: Curse, Disease, and Dispel: Magic, Poison is new. Both work on a Druid, Priest, Shaman or Paladin; a Mage has only Dispel: Curse, Disease. Where a class has two spells for one dispel, the higher-level one is cast once you know it.
+
+**A key where no action runs can go back to WoW, if you want it to.** Set When no action runs under Keys Given Back in Debind's settings to Key is given back, and the key then does what WoW or another addon has on it, as it did before 4.0. It starts on Press does nothing, which is what every key has done since 4.0.
+
+**Keys given back can follow a change sooner.** A key that is given back, or runs a WoW Binding, only in some situations can still do what it did before a change for up to 0.2 seconds after it. This can happen with When no action runs set to Key is given back, or on a key with a Give Key Back or WoW Binding action. Lowering State Driver Interval, under Miscellaneous in Debind's settings, shortens that delay, down to one frame at 0. The value belongs to Blizzard's state driver, which other addons use too, so a lower value makes theirs update more often as well and costs more CPU. With no such key, the slider changes nothing.
+
+**Hover Cast has no Off, and a press while you point at a unit follows the order on screen.** It tries a key's actions in the order the Overview tab shows. An action that was on Off is now on Cast on the usual target, so one standing above an action set to Cast on the unit you point at now takes that press; set it to Skip this action to pass it on. One that was on Off with Normal Cast unticked is now on Skip this action. As set it never runs, so it is marked Needs checking.
+
+**Mouse buttons other than left and right click run on unit frames.** An action on one of them now runs when you click a unit frame with that button, and goes where its Hover Cast row sends it. To leave that click to the frame as before, set it to Skip this action.
+
+**During a pet battle, an Action Button action does what WoW's own keybinding for that button does.** Action Button 1 to 5 press the battle's buttons, and 6 to 12 do nothing. Until now it pressed that slot of your main action bar.
+
+**An Action Button action whose slot holds a flyout opens it at the cursor**, as a Flyout action does. It used to open on that slot's button on WoW's action bar, so with a bar addon that hides WoW's bars it showed nothing and left that addon's button raising an error.
+
+**Two new actions: Give Key Back and WoW Binding.** Give Key Back, in the Special tab of Add an action, gives the key back when it runs. WoW Binding, in the WoW Bindings tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a Nothing action, which is what it has done since 4.0.
+
+**The Commands tab of Add an action is now WoW Bindings**, and holds only WoW's own keybindings. Targeting, focus, the unit menu, world markers and the Action Button rows moved to the Special tab.
+
+**A share code made by 4.2 cannot be pasted into 4.1.2 or earlier**, which answer that it was made by a newer version of Debind. Share codes made by earlier versions still paste into 4.2.
+
 # 4.1.2
 
 **On World of Warcraft: Forever, spells you have not learned yet can be given a key now.** Talking to a class trainer adds the spells that trainer can teach to an Unlearned group in the spell list. With Unavailable checked in the trainer window's filters, the spells you cannot learn yet are added as well. The group's tooltip says the same.

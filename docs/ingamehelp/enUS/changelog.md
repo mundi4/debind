@@ -33,7 +33,11 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 **Custom targets on party members failed in 4.1.2** (2026-10-11, owner). Camelot's `FULL_PLAYER_NAME` is "%s %s", and a party's header compares the "-" join (`HeaderNameList` in `UnitWatch.lua`); a raid's roster answers the space one, so raids were not affected.
 
+**The Forever dispel split is an entry because shared keys move** (2026-10-11, owner). 4.1.2's table gave only the Mage a dispel, so a `dispel` action on a shared layer took the key and cast nothing on the other four classes; with `SpecSpells_Camelot.lua`'s 4.2 table it casts there.
+
 **The give-back setting is for the 4.0 reader whose key stopped doing anything**: they have no reason to look for a setting, and this is where they learn there is one. It starts on *Press does nothing* (2026-10-11, owner), so no key moves on its own and nothing is migrated.
+
+**The interval slider is in, although it is something a reader would go and find** (2026-10-11, owner). The body names the keys it reaches because the period is written only from a rebuild whose judgment items need the beat, and never at the default (`StateDriverPeriod.Wanted`, `FillJudgePlan`).
 
 **The Hover Cast section is written for the reader whose keys moved.** The dbver 7 step stores Off as nothing, the usual target, so an action that was Off now keeps its place on a pointed press where it used to yield; Off with *Normal Cast* unticked becomes *Skip this action* and an issue (`Migration.lua`, `taking-off-out-of-hover-cast.md` §2-9).
 
@@ -52,9 +56,17 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 On World of Warcraft: Forever, setting a party member as a custom target said in chat that it was set, but it did not take. This is fixed.
 
+# Dispel on Forever is now two actions
+
+On World of Warcraft: Forever, a Dispel action now shows as *Dispel: Curse, Disease*, and *Dispel: Magic, Poison* is new. Both work on a Druid, Priest, Shaman or Paladin; a Mage has only *Dispel: Curse, Disease*. Where a class has two spells for one dispel, the higher-level one is cast once you know it.
+
 # A key where no action runs can go back to WoW, if you want it to
 
 When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set *When no action runs* under *Keys Given Back* in Debind's settings to *Key is given back*. It starts on *Press does nothing*, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in [](keys-given-back.md).
+
+# Keys given back can follow a change sooner
+
+A key that is given back, or runs a *WoW Binding*, only in some situations can still do what it did before a change for up to 0.2 seconds after it. This can happen with *When no action runs* set to *Key is given back*, or on a key with a *Give Key Back* or *WoW Binding* action. Lowering *State Driver Interval*, under *Miscellaneous* in Debind's settings, shortens that delay, down to one frame at 0. The value belongs to Blizzard's state driver, which other addons use too, so a lower value makes theirs update more often as well and costs more CPU. With no such key, the slider changes nothing. More is in [](keys-given-back.md).
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 
