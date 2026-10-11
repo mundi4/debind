@@ -169,16 +169,20 @@ return function(DebindPrivate)
         for name, definition in pairs(switches or {}) do
             defined[name] = definition;
         end
+        -- **`giveBackWhenNoActionRuns` on unless a line asks for off**, whatever the default is:
+        -- the profiles here were sized with every key whose actions can all fail in the loop, and
+        -- off would price a smaller loop under the same labels.
+        options = options or {};
+        if (options.giveBackWhenNoActionRuns == nil) then
+            options.giveBackWhenNoActionRuns = true;
+        end
         _G.DebindVars = {
             dbver = Constants.DB_VERSION,
             layers = { account = { GENERAL = { [0] = actions } } },
             characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = defined } } },
-            -- **`giveBackWhenNoActionRuns` on unless a line asks for off**, whatever the default is:
-            -- the profiles here were sized with every key whose actions can all fail in the loop,
-            -- and off would price a smaller loop under the same labels.
-            options = options or { giveBackWhenNoActionRuns = true },
+            options = options,
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();

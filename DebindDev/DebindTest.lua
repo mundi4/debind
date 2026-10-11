@@ -446,9 +446,9 @@ local function SetIsolated(isolated)
             -- **On, whatever the tester runs with and whatever the shipped default is**, and swapped
             -- like the layer walk rather than written: `Options` is the saved table, and a run that
             -- crosses a reload would save a value written here over the tester's own. A key whose
-            -- actions all fail is given back or held by this option, and the cases here were built on
-            -- given back; a run that followed the tester or the default would turn every one of them
-            -- red on held (`HoldUnmatchedKeys` asks for held).
+            -- actions all fail is given back or held by this option, and a case that reaches such a
+            -- key expects it given back unless it asks for held (`HoldUnmatchedKeys`). A run that
+            -- followed the tester or the default would turn the rest of those cases red.
             realGiveBackWhenNoActionRuns = DebindPrivate.GiveBackWhenNoActionRuns
             DebindPrivate.GiveBackWhenNoActionRuns = function()
                 return not holdUnmatchedKeys
