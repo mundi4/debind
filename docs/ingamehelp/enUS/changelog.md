@@ -31,7 +31,7 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 <!--
 **4.2, not 4.1.3** (2026-10-10, owner). Every 4.1.x before it was one fix; this one changes what existing keys do.
 
-**The give-back default comes first.** It reverses what the 4.0 section below announced, and it reaches every key whose actions can all fail, with nothing the reader did. No migration: an existing profile takes the new default (`GiveBackWhenNoActionRuns`). The press-and-release trap rides in the same section, since it is the cost of that default.
+**The give-back setting comes first**, for the 4.0 reader whose key stopped doing anything: they have no reason to look for a setting, and this is where they learn there is one. It starts on *Press does nothing* (2026-10-11, owner), so no key moves on its own and nothing is migrated.
 
 **The Hover Cast section is written for the reader whose keys moved.** The dbver 7 step stores Off as nothing, the usual target, so an action that was Off now keeps its place on a pointed press where it used to yield; Off with *Normal Cast* unticked becomes *Skip this action* and an issue (`Migration.lua`, `taking-off-out-of-hover-cast.md` §2-9).
 
@@ -40,13 +40,15 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 **A 4.0 leftover becomes *Nothing*, not *Give Key Back*** (`Migration.lua`, the dbver 7 step): it has held the key and done nothing since 4.0, and turning it into a give-back would change the key with nothing the reader did. Its old names are plain text, since they are no longer on screen.
 
 **Left out: *Filled buttons only*** (2026-10-10, owner). It sat under the replaced-bar setting, both off by default, so the only reader it reaches ticked two boxes on purpose.
+
+**Left out: *Bar Takeover*** (2026-10-11, owner). It replaces the Replaced Action Bar and Pet Battle conditions, but a reader who opens the condition sees it as it is, and the dbver 7 step carries what was stored. The one pair that moves, Replaced Action Bar with not in a pet battle, was marked and ran nowhere before; it now runs where it says.
 -->
 
 # What's New in 4.2
 
-# A key where no action runs goes back to WoW again
+# A key where no action runs can go back to WoW
 
-When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set *When no action runs* under *Keys Given Back* in Debind's settings to *Press does nothing*. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in [](keys-given-back.md).
+When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set *When no action runs* under *Keys Given Back* in Debind's settings to *Key is given back*. It starts on *Press does nothing*, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in [](keys-given-back.md).
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 
@@ -56,9 +58,21 @@ A press while you point at a unit now tries a key's actions in the order the *Ov
 
 An action on a mouse button other than a plain left or right click now runs when you click a unit frame with it, and goes where its *Hover Cast* row sends it. To leave that click to the frame as before, set it to *Skip this action*; the frame then gets the click if nothing else on that button runs. More is in [](clicking-a-unit-frame.md).
 
+# Action Button actions press the pet battle's buttons
+
+During a pet battle, an *Action Button* action now does what WoW's own keybinding for that button does there: Action Button 1 to 5 press the battle's buttons, and 6 to 12 do nothing. Until now it pressed that slot of your main action bar.
+
+# A flyout on an action bar slot opens at the cursor
+
+An *Action Button* action whose slot holds a flyout now opens it at the cursor, as a *Flyout* action does. It used to open on that slot's button on WoW's action bar, so with a bar addon that hides WoW's bars it showed nothing and left that addon's button raising an error.
+
 # New actions: Give Key Back and WoW Binding
 
-*Give Key Back*, in the *Special* tab of *Add an action*, gives the key back when it runs. *WoW Binding*, in the *Commands* tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a *Nothing* action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+*Give Key Back*, in the *Special* tab of *Add an action*, gives the key back when it runs. *WoW Binding*, in the *WoW Bindings* tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a *Nothing* action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+
+# The Commands tab is now WoW Bindings
+
+In *Add an action*, the tab once called Commands holds only WoW's own keybindings now. Targeting, focus, the unit menu, world markers and the *Action Button* rows moved to the *Special* tab.
 
 # What's New in 4.1
 

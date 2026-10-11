@@ -24,9 +24,9 @@ Good to know:
 
 L["HELP_CHANGELOG_TITLE"] = "What's New in 4.2"
 L["HELP_CHANGELOG_BODY"] = [==[
-# A key where no action runs goes back to WoW again
+# A key where no action runs can go back to WoW
 
-When none of a key's actions runs, the key now does what WoW or another addon has on it, as it did before 4.0. To have such presses do nothing, set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Press does nothing|r. A WoW movement or ping keybinding on such a key can keep going after you let go. Why, and how to keep one key out of this, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
+When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Key is given back|r. It starts on |cnBLUE_FONT_COLOR:Press does nothing|r, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
 
 # Hover Cast has no Off, and pointing at a unit follows the order on screen
 
@@ -36,9 +36,21 @@ A press while you point at a unit now tries a key's actions in the order the |cn
 
 An action on a mouse button other than a plain left or right click now runs when you click a unit frame with it, and goes where its |cnBLUE_FONT_COLOR:Hover Cast|r row sends it. To leave that click to the frame as before, set it to |cnBLUE_FONT_COLOR:Skip this action|r; the frame then gets the click if nothing else on that button runs. More is in |cnGREEN_FONT_COLOR:|Hdebind:help:clicking-a-unit-frame|h[What happens when you click a unit frame?]|h|r.
 
+# Action Button actions press the pet battle's buttons
+
+During a pet battle, an |cnBLUE_FONT_COLOR:Action Button|r action now does what WoW's own keybinding for that button does there: Action Button 1 to 5 press the battle's buttons, and 6 to 12 do nothing. Until now it pressed that slot of your main action bar.
+
+# A flyout on an action bar slot opens at the cursor
+
+An |cnBLUE_FONT_COLOR:Action Button|r action whose slot holds a flyout now opens it at the cursor, as a |cnBLUE_FONT_COLOR:Flyout|r action does. It used to open on that slot's button on WoW's action bar, so with a bar addon that hides WoW's bars it showed nothing and left that addon's button raising an error.
+
 # New actions: Give Key Back and WoW Binding
 
-|cnBLUE_FONT_COLOR:Give Key Back|r, in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r, gives the key back when it runs. |cnBLUE_FONT_COLOR:WoW Binding|r, in the |cnBLUE_FONT_COLOR:Commands|r tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a |cnBLUE_FONT_COLOR:Nothing|r action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+|cnBLUE_FONT_COLOR:Give Key Back|r, in the |cnBLUE_FONT_COLOR:Special|r tab of |cnBLUE_FONT_COLOR:Add an action|r, gives the key back when it runs. |cnBLUE_FONT_COLOR:WoW Binding|r, in the |cnBLUE_FONT_COLOR:WoW Bindings|r tab, runs one of WoW's own keybindings. A Use WoW's Own Binding or Binding Command left over from before 4.0 is now a |cnBLUE_FONT_COLOR:Nothing|r action, which is what it has done since 4.0; replace it with one of these if you want the key to do something.
+
+# The Commands tab is now WoW Bindings
+
+In |cnBLUE_FONT_COLOR:Add an action|r, the tab once called Commands holds only WoW's own keybindings now. Targeting, focus, the unit menu, world markers and the |cnBLUE_FONT_COLOR:Action Button|r rows moved to the |cnBLUE_FONT_COLOR:Special|r tab.
 
 # What's New in 4.1
 
