@@ -31,7 +31,9 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 <!--
 **4.2, not 4.1.3** (2026-10-10, owner). Every 4.1.x before it was one fix; this one changes what existing keys do.
 
-**The give-back setting comes first**, for the 4.0 reader whose key stopped doing anything: they have no reason to look for a setting, and this is where they learn there is one. It starts on *Press does nothing* (2026-10-11, owner), so no key moves on its own and nothing is migrated.
+**Custom targets on party members failed in 4.1.2** (2026-10-11, owner). Camelot's `FULL_PLAYER_NAME` is "%s %s", and a party's header compares the "-" join (`HeaderNameList` in `UnitWatch.lua`); a raid's roster answers the space one, so raids were not affected.
+
+**The give-back setting is for the 4.0 reader whose key stopped doing anything**: they have no reason to look for a setting, and this is where they learn there is one. It starts on *Press does nothing* (2026-10-11, owner), so no key moves on its own and nothing is migrated.
 
 **The Hover Cast section is written for the reader whose keys moved.** The dbver 7 step stores Off as nothing, the usual target, so an action that was Off now keeps its place on a pointed press where it used to yield; Off with *Normal Cast* unticked becomes *Skip this action* and an issue (`Migration.lua`, `taking-off-out-of-hover-cast.md` §2-9).
 
@@ -45,6 +47,10 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 -->
 
 # What's New in 4.2
+
+# Fixed: custom targets on party members on Forever
+
+On World of Warcraft: Forever, setting a party member as a custom target said in chat that it was set, but it did not take. This is fixed.
 
 # A key where no action runs can go back to WoW
 
