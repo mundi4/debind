@@ -27,17 +27,6 @@
     ]
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.js\"",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
