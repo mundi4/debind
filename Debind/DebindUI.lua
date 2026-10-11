@@ -59,10 +59,9 @@ local MARK_SIZE                      = 15;
 --- `atlas` and `file` part because that is how the art exists. Setting one has to clear what the
 --- other left: these frames come back from a pool carrying what the previous row put on them.
 local MARK_KINDS = {
-	--- Hover Cast sends the action to the unit pointed at (`HoverCastChoiceOf`). **The casting
-	--- cursor**, the gauntlet with the blue glow the client shows while a spell waits for a target
-	--- (2026-10-05, owner; seen in the game that day).
-	hover       = { file = "Interface\\Cursor\\Cast", offsetY = -1, scale = 1.1 },
+	--- Hover Cast sends the action to the unit pointed at (`HoverCastChoiceOf`). **The plain
+	--- pointer**, the gauntlet with no glow (owner, 2026-10-11).
+	hover       = { file = "Interface\\Cursor\\Point", offsetY = -1, scale = 1.1 },
 	--- Hover Cast keeps the action out of the pointed press (2026-10-05, owner): unmarked, the row
 	--- would look like one at the default while it does the opposite over a unit. The casting
 	--- cursor's own off half, with the ping wheel's close mark over it. **Told apart from the one
@@ -1115,13 +1114,8 @@ function DebindUI.FillTwoLineActionRow(self, action, layerID)
 	end
 
 	self.Marks.Hover.action = action;
-	local hoverChoice = DebindPrivate.HoverCastChoiceOf(action);
-	local hoverKind;
-	if (hoverChoice == "cast") then
-		hoverKind = "hover";
-	elseif (hoverChoice == "skip") then
-		hoverKind = "hoverSkip";
-	end
+	-- `"skip"` goes unmarked and `hoverSkip` stays in `MARK_KINDS` unused (owner, 2026-10-11).
+	local hoverKind = DebindPrivate.HoverCastChoiceOf(action) == "cast" and "hover" or nil;
 	self.Marks.Hover:SetKind(hoverKind, HoverCastMarkTooltip);
 
 	-- **The conditional mark says only that conditions exist.** Whether one of them is wrong is the
