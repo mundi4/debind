@@ -171,11 +171,12 @@ The rest:
 **Unless told otherwise, a review covers only what this session changed.** Other sessions'
 uncommitted work can sit in the same working tree, and it is not yours to review.
 
-**When a finished change looks like it needs a review, hand me `/code-review high main...HEAD`.**
-Run in the session's own worktree, it covers exactly that session's work: its commits since it
-branched, plus its uncommitted and untracked files. A PR number as the target is ignored. From the
-main worktree it also takes in every uncommitted file there, other sessions' included; say so when
-handing it over.
+**When a finished change looks like it needs a review, hand me `/code-review high <base>...HEAD`**,
+`<base>` being the branch the session's worktree was made from: `main` unless it was told
+otherwise. Run in the session's own worktree, it covers exactly that session's work: its commits
+since it branched, plus its uncommitted and untracked files. A PR number as the target is ignored.
+From the main worktree it also takes in every uncommitted file there, other sessions' included; say
+so when handing it over.
 
 ## Commits
 
@@ -205,12 +206,41 @@ maintaining it.
 ## Other sessions share this tree
 
 **Work in a worktree of your own by default.** `EnterWorktree` makes one; where it lands and what
-comes with it are in `dev-setup.md`.
+comes with it are in `dev-setup.md`. Unless told otherwise it branches from the local `main`, so
+call it from the main worktree: `worktree.baseRef` is `"head"`, the HEAD it is called from.
 
 **Other sessions may be working on the same branch, in the same worktree, at the same time as
 you.** An uncommitted change you did not make is someone else's work in progress, not leftover
 noise. Anything you do to the working tree, the index or the checked-out branch happens to theirs
 as well. Undo only your own edits, and leave the rest exactly as you found it.
+
+**A handover names the session that wrote it.** A work document or a prompt written for another
+session carries the writer's session name as `ListAgents` shows it (`debind-21`) and its session
+ID, so the receiver can put a missing piece to that session with `SendMessage` instead of guessing.
+The name reaches nobody once that session has ended, and from then on the document is all there
+is, so it is written as though it already has. If an ended session really has to be asked, ask the
+owner to resume it; the ID is what they resume it by.
+
+**A prompt that hands work to another session carries four items, each on its own line.**
+
+- **Where it starts**: the base branch and commit the receiver's worktree is made from, `main`
+  unless the work builds on another branch.
+- **Who takes its questions**: the writer named above, or, when the writer's context is too full to
+  answer, the one session that will, by name and ID. One session, never two.
+- **What every commit goes through first**: the receiver hands the owner the review command as
+  **Code review** gives it, with that base, and fixes what comes back.
+- **Where it reports**: to the session that takes its questions, naming its branch, its worktree
+  path and its base along with what the review fixed. It commits only after that session approves,
+  and that approval is the instruction to commit that **Commits** asks for; a report after the
+  commit is too late. The approving session reads the diff (`git diff <base>...<branch>`) first: an
+  approval given without reading it is no review.
+
+**A prompt or message sent to another agent or session is written in English**: a review prompt, a
+copy brief, a handover prompt. A document keeps its own rules, so a work document still opens with
+its `> 상태:` header. The prompt's reader is the agent, not the owner, and a Korean prompt about an
+English page leaves the reviewer matching the writer's translation against the text, unable to tell
+whether a mistake sits in the page or in the translation. Showing the prompt to the owner before
+sending it does not make the owner its reader.
 
 ## Changing files
 
@@ -271,12 +301,6 @@ fine where it is the efficient tool, such as one mechanical change across many f
     that is actually followed. **That is what forbids two files under `devdocs/` sharing a name**:
     the name is the address, and two of them leave a citation with no answer.
   - A work document is a proposal, not an order — read its status header first.
-  - **A handover names the session that wrote it.** A work document or a prompt written for another
-    session carries the writer's session name as `ListAgents` shows it (`debind-21`) and its session
-    ID, so the receiver can put a missing piece to that session with `SendMessage` instead of
-    guessing. The name reaches nobody once that session has ended, and from then on the document is
-    all there is, so it is written as though it already has. If an ended session really has to be
-    asked, ask the owner to resume it; the ID is what they resume it by.
   - **Each idea in one records why it was taken or dropped**, not only which. The reason is the door
     back: a decision can be reopened once the ground under it moves, and nobody re-proposes it while
     that ground still holds. An outcome with no reason shuts both doors.
