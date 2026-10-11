@@ -31,6 +31,7 @@
 | **4.0에 같이** | 전문화가 주문을 정하는 타입들. ~~4.0에 같이~~ ~~**4.0에는 안 나간다 (2026-09-22, 소유자)**~~ **4.0에 나간다 (2026-09-23, 소유자)**: ~~코드는 있고 픽커에 세우는 줄이 주석 처리되어 있어 추가할 길이 없다~~ **그 줄은 켰다 (2026-09-23, 소유자)**. `Resurrect`도 같이 나간다. `External`은 뺐고 `Resurrect`가 들어올 자리다 | `adding-spec-resolved-actions.md` |
 | **4.1** | 나갔다 (2026-09-25). 포에버(카멜롯) 클라이언트에서도 돈다. Clique 설정 가져오기가 같이 나갔다 | `legacy/shipping-on-the-camelot-client.md`<br>`legacy/preparing-the-code-for-camelot.md`<br>`legacy/importing-clique-profiles.md` |
 | **4.1.1 · 4.1.2** | 나갔다 (2026-09-28, 09-30). 투기장 Lua 에러 핫픽스, 포에버에서 아직 안 배운 주문 | `CHANGELOG.md` |
+| **4.2** | 나갔다 (2026-10-11). 키를 게임에 돌려주기(기본은 끔), Hover Cast에서 Off 빼기, 포에버 디스펠 둘로 가르기, 저장 레이어 모양 바꾸기 중 들어간 것(`dbver` 8, 공유 코드 봉투 2라 4.1.x가 4.2 코드를 못 읽는다). **4.1.3이 아니라 4.2인 것은 기존 키가 하는 일이 바뀌어서다 (2026-10-10, 소유자)** | `CHANGELOG.md`<br>`handing-the-rest-of-a-key-to-the-game.md`<br>`turning-the-give-back-default-off.md`<br>`taking-off-out-of-hover-cast.md`<br>`splitting-the-camelot-dispel.md`<br>`reshaping-stored-layers.md` |
 | **그 뒤** | ~~스위치 바~~ **보류 (2026-09-02, 소유자)**, ~~보관함의 남은 넷~~ **보류 (2026-09-19, 소유자)**. 둘 다 `0-ON-HOLD.md`가 든다 | `legacy/switch-bar.md`<br>`building-export-import.md` |
 | **그 뒤** | `DebindUI.lua`를 가른다 (C안) | `breaking-up-debindui.md` |
 | ~~**다음 `dbver` 범프에**~~ **4.0에 들어갔다 (2026-09-06)** | `equipslot`이 `useslot`이 됐다, `dbver` 7 | `legacy/adding-a-hover-unit-option.md` |
