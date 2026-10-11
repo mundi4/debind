@@ -162,6 +162,8 @@ end
 --- A row that opens a help page. **Green, the way every other way into a page is** (`build-help.js`,
 --- `ActionMenuItems.lua`), and pressed on the row itself rather than on a button of its own: a
 --- button here would read as a setting being changed, which is what every other row does.
+--- **Under the section it explains**: a reader who has not met a setting's name yet cannot know
+--- to look for its page among the help window's titles.
 local function HelpLink(title, page)
     local row = AddRow("DebindSettingsLinkRowTemplate");
     row.Text:SetText(DebindPrivate.MenuKit.HelpLinkText(title));
@@ -240,9 +242,6 @@ local function Build()
             DebindPrivate.QueueUpdateBindings();
         end);
     end, hoverCastChoices);
-    -- **The one help link that is not in the list further down.** What Hover Cast is has to be
-    -- within reach of the row that asks a reader to pick a mode for it, and a reader who has not met
-    -- the name yet cannot know to scroll to a list of page titles.
     HelpLink(L["HELP_HOVER_CAST_TITLE"], "hover-cast");
     HelpLink(L["HELP_TARGETING_TITLE"], "targeting");
 
@@ -310,6 +309,7 @@ local function Build()
             end
             DebindPrivate.QueueUpdateBindings();
         end);
+    HelpLink(L["HELP_KEYS_GIVEN_BACK_TITLE"], "keys-given-back");
 
     Header(L["SPECIAL_UNITS"], L["EXCLUDE_PLAYER_DESC"]);
     local UNIT_INFO = DebindPrivate.DebindUI.UNIT_INFO;
