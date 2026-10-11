@@ -41,7 +41,7 @@ Probe_CombatPush.lua
 Probe_UnitCell.lua
 # Probe_PetBattleButtons.lua
 Probe_StateDriverPass.lua
-Probe_UpdateOrder.lua
+# Probe_UpdateOrder.lua
 Probe_PeriodEquivalence.lua
 Probe_CooldownBeat.lua
 Probe_RaidRoster.lua
