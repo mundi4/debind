@@ -27,7 +27,7 @@
 전부 그 조건이 거짓인 동안 게임으로 갔다. 이번에는 사용자가 `COMMAND`나 `UNUSED`를 키에 직접 넣어야만
 넘긴다. 넣지 않은 키는 지금과 똑같다.
 
-> **2026-10-07에 뒤집었다** (소유자). 아무 액션도 안 도는 누름에서는 전역 옵션(기본 켬)에 따라 키를 돌려준다. 근거와
+> **2026-10-07에 뒤집었다** (소유자). 아무 액션도 안 도는 누름에서는 전역 옵션에 따라 키를 돌려준다. 근거와
 > 순서는 `giving-keys-back-when-no-action-runs.md`.
 
 ## 2. 정한 것
@@ -75,7 +75,7 @@ B
 | 우리 것 | `SetBindingClick` |
 | 꼬리 `COMMAND` | `SetBinding(true, key, 명령)` |
 | 꼬리 `UNUSED` | `ClearBinding` |
-| 아무것도 안 맞음 | `giveBackWhenNoActionRuns`가 켜져 있으면(기본) `ClearBinding`. 끄면 우리 것이고 아무 일도 안 한다 |
+| 아무것도 안 맞음 | `giveBackWhenNoActionRuns`가 켜져 있으면 `ClearBinding`. 꺼져 있으면 우리 것이고 아무 일도 안 한다 |
 
 > 마지막 줄은 처음에 "우리 것. 지금처럼 아무 일도 안 한다"였다. 2026-10-07에 뒤집혔다(1절 끝의 인용). 켜져 있으면 키의
 > 끝에 조건 없는 `GIVEBACK`이 선 것과 같다.
@@ -489,7 +489,7 @@ MMO 마우스 여분 버튼에 `CTRL-K`를 걸고 누른 것과 손으로 누른
 
 ### 8-1. 꼬리 없음
 
-N2와 N4의 "켬/끔"은 `giveBackWhenNoActionRuns`(기본 켬)다(`giving-keys-back-when-no-action-runs.md`). 나머지 줄은
+N2와 N4의 "켬/끔"은 `giveBackWhenNoActionRuns`다(`giving-keys-back-when-no-action-runs.md`). 나머지 줄은
 그 옵션과 상관없고, 줄 안의 "옵션"은 2-4의 옵션이다. 2-4의 옵션은 2026-10-10에 걷었다. 옵션을 끈 줄(N8, N20, B18)은 줄을 긋고
 끝에 그렇게 적었고, 시험이 있던 줄은 그 시험도 지웠다. N21a는 동작이 그대로라 줄을 긋지 않았다. 그 시험을 지운 까닭은
 그 줄에 있다.
