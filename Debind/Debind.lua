@@ -44,9 +44,11 @@ DefaultClickFrame:SetAttribute("checkfocuscast", false);
 DefaultClickFrame:SetAttribute("checkmouseovercast", false);
 DebindPrivate.DefaultClickFrame = DefaultClickFrame;
 
--- **Where a cast with a chosen target goes out.** A binding whose target the reader picked is
--- fired through a macro body that turns `autoSelfCast` off around it, and that body clicks this
--- frame rather than the one above (`matching-the-clients-cast-targeting.md` §2-2).
+-- **Where a wrapped cast goes out.** A spell, item, equipment slot or spell mount whose action sets
+-- any of the cast automatics (`CastAutomaticsKeyOf`) is fired through a macro body that sets those
+-- CVars around it (`ButtonAttributes.lua`'s `AutomaticsBody`, gated on `castsAtUnit`), and that body
+-- clicks this frame rather than the one above (`setting-the-clients-cast-automatics-per-action.md`
+-- §4). A macro body of ours takes the lines inline instead (`AutomaticsWrap`).
 --
 -- **The click wrapper is on `DefaultClickFrame`, and its prologue wipes the bare `unit`.** Sending
 -- the inner click back to that frame would clear the target the wrapper had just settled, which is
