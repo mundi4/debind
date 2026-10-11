@@ -52,7 +52,7 @@ What that costs is a number that goes stale on its own, so raising it is on the 
 
 On World of Warcraft: Forever, setting a party member as a custom target said in chat that it was set, but it did not take. This is fixed.
 
-# A key where no action runs can go back to WoW
+# A key where no action runs can go back to WoW, if you want it to
 
 When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set *When no action runs* under *Keys Given Back* in Debind's settings to *Key is given back*. It starts on *Press does nothing*, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in [](keys-given-back.md).
 

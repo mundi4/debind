@@ -28,7 +28,7 @@ L["HELP_CHANGELOG_BODY"] = [==[
 
 On World of Warcraft: Forever, setting a party member as a custom target said in chat that it was set, but it did not take. This is fixed.
 
-# A key where no action runs can go back to WoW
+# A key where no action runs can go back to WoW, if you want it to
 
 When none of a key's actions runs, the key can now do what WoW or another addon has on it, as it did before 4.0. Set |cnBLUE_FONT_COLOR:When no action runs|r under |cnBLUE_FONT_COLOR:Keys Given Back|r in Debind's settings to |cnBLUE_FONT_COLOR:Key is given back|r. It starts on |cnBLUE_FONT_COLOR:Press does nothing|r, which is what every key has done since 4.0. What it does, and how to keep one key out of it, is in |cnGREEN_FONT_COLOR:|Hdebind:help:keys-given-back|h[When is a key given back?]|h|r.
 
