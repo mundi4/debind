@@ -1157,7 +1157,8 @@ return function(DebindPrivate, DebindStorage, harness)
         check(not DebindStorage.IsForeignPayload({}), "우리 것");
     end);
 
-    -- 4.1 wrote the Clique mark as `source`, and a 4.1 string or a 4.1 drawer row still carries it.
+    -- 4.1 wrote the Clique mark as `source`, and a 4.1 string or an entry 4.1 stored still carries
+    -- it.
     test("v2의 source는 fromAddon으로 올라간다", function()
         local out = DebindStorage.BringPayloadForward({ v = 2, dbver = Constants.DB_VERSION,
             shared = { GENERAL = {} }, source = "clique" });
@@ -1350,7 +1351,7 @@ return function(DebindPrivate, DebindStorage, harness)
 
     -- **An unknown payload version goes two ways, and what can be done about each is opposite.**
     -- While they were one, the reason was one and its sentence was "made by a newer version,
-    -- update" - the first time `PAYLOAD_VERSION` went up, every entry already in the drawer would
+    -- update" - the first time `PAYLOAD_VERSION` went up, every entry already stored would
     -- fail with that sentence, for a reader who had just updated.
     test("옛 판과 새 판을 갈라서 답한다", function()
         local function DecodeWithVersion(v)
@@ -1460,7 +1461,7 @@ return function(DebindPrivate, DebindStorage, harness)
         check(General(payload)[1].value == 1, "나머지가 빠졌다");
     end);
 
-    -- A refused payload is left as it came. The drawer raises every entry in place on open, so one
+    -- A refused payload is left as it came. Stored entries are raised in place on open, so one
     -- refused after its shape moved would be stored in a shape no version wrote.
     test("거절되는 v2는 모양이 안 바뀐다", function()
         for _, dbver in ipairs({ 99, 0 / 0, 4 }) do

@@ -161,10 +161,10 @@ function Events.PLAYER_LOGIN()
     -- separator that was meant to make the version legible renders as a box instead.
     DebindPrivate.DisplayMessage(format("%s |cffa0a0a0-|r %s",
         DebindPrivate.GetVersionLabel(), L["LOGIN_MESSAGE"]));
-    -- **The rename says nothing here.** Warnings used to be printed for a disabled companion addon
-    -- and for the old one still being installed, and both were the wrong surface: a line that
-    -- scrolls past while the user is reading loot and quest text is not where you put something
-    -- that needs answering. The window puts an overlay up instead, and it cannot be scrolled away.
+    -- **A disabled companion addon gets no line here.** It needs answering, and a line that scrolls
+    -- past while the user is reading loot and quest text is not where you put that: the migration
+    -- dialog below asks instead, and it cannot be scrolled away. **An old copy still installed is
+    -- the one thing the rename still prints**, since no dialog covers it.
     if (DebindPrivate.CheckLegacyAddonConflict()) then
         DebindPrivate.DisplayMessage(L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"],
             WARNING_FONT_COLOR:GetRGBA());

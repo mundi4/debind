@@ -252,9 +252,9 @@ L["OVERVIEW_HELP_LAYER"] = "한 번에 레이어 하나와 그 안에 든 것입
 -- 모든 and not 전체: 전체 is the client's `ALL` and reads as an item of the filter beside it.
 -- 단축키 is what `COMPARTMENT_TOOLTIP_LEFT_CLICK` calls this column.
 L["OVERVIEW_RESULT_TITLE"] = "모든 단축키"
--- 순서 이동 버튼. 근거는 enUS 쪽 주석에.
 L["ORDER_ACCEPT"] = "받기"
 L["ORDER_ACCEPT_DESC"] = "이것만 내 것으로 받습니다. 이 키는 바로 동작하고, 같이 온 나머지는 꺼진 채로 남습니다."
+-- 순서 이동 버튼. 근거는 enUS 쪽 주석에.
 L["ORDER_MOVE_UP"] = "먼저 실행"
 L["ORDER_MOVE_UP_DESC"] = "이 행동을 이 키에서 한 칸 앞으로 옮깁니다. 다른 것은 바뀌지 않습니다."
 L["ORDER_MOVE_DOWN"] = "나중에 실행"
@@ -493,7 +493,6 @@ L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "이 캐릭터는 지정 없�
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "|cnHIGHLIGHT_FONT_COLOR:이 계정의 모든 캐릭터|r에게 Debind가 예전 설정을 더 이상 권하지 않습니다. 아직 접속하지 않은 캐릭터와 앞으로 만들 캐릭터까지 해당됩니다.|n|n|cnRED_FONT_COLOR:애드온 안에서는 되돌릴 수 없습니다.|r 어느 쪽을 고르든 예전 파일은 디스크에 그대로 둡니다."
 L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "이 애드온의 예전 전체 사본이 아직 설치되어 있어서 Debind와 나란히 단축키를 지정하고 있습니다. 둘이 키를 두고 다투는 중입니다. Debind를 다시 설치하거나 업데이트하면 그 폴더가 작은 |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r으로 바뀝니다. 폴더를 그냥 지우지는 마십시오 - 업데이트 뒤 아직 접속하지 않은 캐릭터의 설정이 그 안에 남아 있습니다."
 
--- The window's own tabs. The reasoning is in enUS.
 -- 근거는 enUS 쪽 주석에.
 L["APPROVE_IMPORT"] = "내 것으로 받기"
 -- The overview's import strip. The reasoning is in enUS.

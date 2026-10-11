@@ -13,9 +13,6 @@ L["ADDON_NAME"] = "Debind"
 L["BULK_MENU_TITLE"] = "%d selected"
 -- 목록 위 스트립. 고른 것이 둘 이상일 때만 뜬다 - 하나일 때는 행 강조가 이미 말했다.
 L["BULK_SELECTED_COUNT"] = "%1$d selected (%2$d in this layer)"
--- 조건 툴팁에서 조건 이름(CONDITION_BONUSBAR / CONDITION_GROUP) **바로 아래** 붙는 줄이다.
--- 둘 다 "No option is selected."였는데, 그러면 같은 툴팁에 두 번 떠도 어느 쪽 이야기인지
--- 줄만 봐서는 모른다. FORMS/HOVER처럼 무엇이 안 골렸는지를 말한다.
 -- The toggle in the portrait row. With it on, pointing at a row and pressing a key is the whole
 -- act. The reasoning is in the `BindModePortrait` comment in DebindUI.xml.
 --
@@ -52,6 +49,8 @@ L["BIND_MODE_UNBIND_HINT"] = "If you are pointing at an action, Escape clears it
 L["BIND_MODE_CANCEL"] = "Cancel"
 L["BIND_MODE_OVERLAY"] = "Point at an action on the right and press the key you want."
 L["BIND_MODE_DESC"] = "Turns on a mode where whatever you press becomes the key for the action under your cursor. Selecting and the right-click menu pause while it is on."
+-- **Each `_NONE_SELECTED` line names its own axis.** Two of them can stand in one tooltip, under
+-- their conditions, and "No option is selected" twice does not say which is which.
 L["BINDING_ERROR_BONUSBARS_NONE_SELECTED"] = "No action bar is selected."
 L["BINDING_ERROR_BARTAKEOVER_NONE_SELECTED"] = "No action bar state is selected."
 L["BINDING_ERROR_CONDITIONS_NEVER"] = "The conditions are impossible to meet."
@@ -67,8 +66,6 @@ L["BINDING_ERROR_KEY_RULED_OUT"] = "This key runs only when you click a unit fra
 L["BINDING_ERROR_CONDITION_NEVER_ON_KEY"] = "%s never holds on this key: a left or right click with no modifier runs only when you click a unit frame."
 L["BINDING_ERROR_FORMS_NONE_SELECTED"] = "No shapeshift form is selected."
 L["BINDING_ERROR_GROUPS_NONE_SELECTED"] = "No group type is selected."
--- One axis each, named by the axis. The frame type one said "reaction or frame type" while it was
--- raised for frame types alone, and a reaction left empty said the conditions contradict.
 L["BINDING_ERROR_HOVER_NONE_SELECTED"] = "No kind is selected."
 L["BINDING_ERROR_REACTIONS_NONE_SELECTED"] = "No reaction is selected."
 L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
@@ -372,8 +369,10 @@ L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COL
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - Set to %2$s - held by group slot rather than by name, because the group changed during this fight. Set it again after combat and it will follow them."
 -- The three lines a Set Custom Target press can fail with. `UnitWatch.lua` says which is which.
 --
--- **None of them names a unit token.** `hover` and `mouseover` are values the addon writes for
--- itself; the reader chose neither and has never seen either.
+-- **None of them names a unit token.** A press carries `unitframe`, a value the addon writes for
+-- itself, or falls back to the game's `mouseover`: the reader pointed at something and typed
+-- neither. `CUSTOM_TARGET_FAILED` above does name it, because it is also reached from
+-- `/deb custom1 <unit>`, where the value is the one the reader typed (2026-10-11, owner).
 --
 -- **Two of them are one cause split by combat**, because the limit is not the same one. In combat
 -- the answer is bounded by which frames Debind is wired to; out of combat any frame resolves, and
@@ -430,12 +429,6 @@ L["FRAMETYPE_PLAYER"] = HUD_EDIT_MODE_PLAYER_FRAME_LABEL
 L["FRAMETYPE_TARGET"] = HUD_EDIT_MODE_TARGET_AND_FOCUS
 L["FRAMETYPE_UNKNOWN"] = "Others"
 L["GENERAL"] = "General"
--- 목록 위의 체크박스. 묶어도 줄 순서는 이름순이라는 것과, 진짜 발동 순서는 어디서
--- 보는지를 툴팁이 대신 말한다 - 그걸 말할 자리가 여기밖에 없다(InitializeButtons 참고).
--- 축은 비교자와 **같은 수, 같은 차례**로 적는다(Ordering.lua의 CompareActionOrder).
--- 한때 hover가 빠져 있었는데, 그건 중요도 바로 다음에 오는 축이고 이 애드온에서 제일
--- 자주 순서를 가르는 것이기도 하다. 어디서 보는지는 **화면에 있는 그대로** 적는다 -
--- 한때 "Key & Order 탭"이었고 그 탭이 없어졌다. 없는 것을 부르면 찾다가 못 찾는다.
 L["GROUP_NONE"] = "When not in a group";
 L["GROUP_PARTY"] = "When in a party";
 L["GROUP_RAID"] = "When in a raid";
@@ -643,19 +636,6 @@ L["KEY_GROUP_CONFLICT_UNBIND"] = "Unbind them"
 --- half-sentence this used to be read as "you can undo this", which is false for the part that
 --- matters. Saying it here rather than in the label keeps the button one act long.
 L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can see - the count above is every layer this character has. Nothing is deleted: each one ends up with no key at the bottom of the list, where you can give it one again. They stop being one set, though, and nothing records which ones went together."
---- The heading's item. **The words are `ACTION_SET_KEY`'s** - the act is the same and the same
---- dialog opens - and how much of the column it reaches is left to the tooltip.
----
---- **The scope is not in the label, and the reason is width.** "Everything under this" was tried
---- here and the menu came out wider than the bar it hangs off: a context menu takes the width of its
---- longest line, and this menu has two lines and no third to hide behind. What pays for the short
---- label is **the position and the title above it** - the reader right-clicked the set's own bar,
---- and the title names that set by what is in it.
----
---- **The act is named the way the window it opens names itself** (`KEY_CAPTURE_TITLE`). The press
---- lands in that dialog, so a reader who takes the item and a reader who reads the title are being
---- told the same thing. Separate keys on purpose - if that dialog is ever renamed, whether this
---- follows is a decision, not a rename that happens to it.
 --- The heading's tooltip, the second of its two gesture lines. **It exists because the gesture it
 --- names is the one thing on this bar that nothing points at**, and since the row menu stopped
 --- offering the set's own items there is no other way in to them.
@@ -665,8 +645,8 @@ L["KEY_GROUP_CONFLICT_UNBIND_DESC"] = "All of them, not just the ones you can se
 --- and every operation reachable. Not knowing the right-click costs them the whole menu. The bar's
 --- end cap is Blizzard's own collapse art besides, so the visible half teaches itself.
 ---
---- "under this heading" rather than "on this key", because a set can be sitting on no key at all and
---- the heading still stands over it - and because that is the phrase the item's own tooltip uses
+--- "under this heading" rather than "on this key", because the heading over the actions with no key
+--- stands over no key - and because that is the phrase the item's own tooltip uses
 --- (`KEY_HEADER_SET_KEY_DESC`). One set, one way of naming it per screen.
 L["KEY_HEADER_TOOLTIP_INSTRUCTION"] = "Right-click for what can be done to everything under this heading."
 --- The heading's other gesture line. **"select" and "under this heading" are both already on this
@@ -694,6 +674,19 @@ L["KEY_HEADER_TOOLTIP_KEY_LEFT_TO_GAME"] = "Nothing here is running, so this key
 --- already uses reaches no key while that key is very much still theirs, and a sentence about where
 --- the key goes would be answering about somebody else's group.
 L["KEY_HEADER_TOOLTIP_NOT_ACCEPTED"] = "Nothing here has been accepted yet, so it reaches no key."
+--- The heading's item. **The words are `ACTION_SET_KEY`'s** - the act is the same and the same
+--- dialog opens - and how much of the column it reaches is left to the tooltip.
+---
+--- **The scope is not in the label, and the reason is width.** "Everything under this" was tried
+--- here and the menu came out wider than the bar it hangs off: a context menu takes the width of its
+--- longest line, and this menu has two lines and no third to hide behind. What pays for the short
+--- label is **the position and the title above it** - the reader right-clicked the set's own bar,
+--- and the title names that set by what is in it.
+---
+--- **The act is named the way the window it opens names itself** (`KEY_CAPTURE_TITLE`). The press
+--- lands in that dialog, so a reader who takes the item and a reader who reads the title are being
+--- told the same thing. Separate keys on purpose - if that dialog is ever renamed, whether this
+--- follows is a decision, not a rename that happens to it.
 L["KEY_HEADER_SET_KEY"] = "Assign a key"
 --- The heading's import items.
 ---
@@ -867,10 +860,8 @@ L["NO_ACTIONS_IN_THIS_LAYER"] = "Click |TInterface\\PaperDollInfoFrame\\Characte
 L["NO_SEARCH_RESULTS"] = "Nothing here matches your search."
 L["NO_SHAPESHIFT"] = "No Shapeshift"
 L["NO_SPECIALIZATION"] = "None chosen"
-
 --- The main window's title bar, and **only while the fight is on**. Being on screen is what says
---- "in combat", so the sentence does not say it again -- unlike the line above, which is a standing
---- rule shown whatever the state.
+--- "in combat", so the sentence does not say it again.
 L["CHANGES_APPLY_AFTER_COMBAT"] = "Changes take effect when combat ends."
 -- What the overview's reason column says instead of an ordering sentence when the row has something
 -- wrong with it, and the issue mark's title. **Two words for the whole set of problems** (owner,
@@ -961,18 +952,13 @@ L["OVERVIEW_HELP_LAYER"] = "One layer at a time, and what is in it. The tabs und
 -- beside the filter's "Active Layers" reads as that filter's setting and promises a list of layers;
 -- "Combined", an adjective with nothing to attach to that reads as the search box's label.
 L["OVERVIEW_RESULT_TITLE"] = "All Bindings"
--- 결과 목록에서 한 행이 **바로 아래 행을 이긴 이유**. 비교자가 위에서부터 훑으므로 처음 갈린
--- 축 하나가 곧 답이다 - 그래서 언제나 하나만 나온다.
--- 칸 끝에 붙는 회색 한 줄이라 짧아야 한다. 주어는 그 행 자신이다.
--- 순서 이동 버튼. 3.0에서 그대로 돌아온 문자열이다 - 규칙이 안 바뀌었으므로 말도 안 바꾼다.
--- ORDER_BLOCKED_*는 `ComputeOrderSwap`이 돌려주는 사유 코드와 이름이 맞물려 있다.
 -- The button that stands in the arrows' place on a row that came in. **Its being there is the row's
 -- way of saying it has not been accepted**, which is why no label says that as well.
 --
 -- **Not the client's `ACCEPT`**, even though the word matches and taking a client global is usually
 -- the right move. That one is for invitations and quests; the rule here is different, and borrowing
--- it would put a third word (수락) beside the two this feature already uses on the same screen -
--- "Accept as mine" in the menu, "Accept all %d" in the strip. One thing, one name per screen.
+-- it would put the client's word (수락 in koKR) beside the one this feature uses on the same screen,
+-- in `APPROVE_IMPORT` and `APPROVE_ALL_IMPORT`. One thing, one name per screen.
 L["ORDER_ACCEPT"] = "Accept"
 -- **The one thing the label cannot say** (2026-08-23, 소유자): the press is the moment the key goes
 -- live. It also said "take this one as yours", which is the label again in other words, and that the
@@ -987,10 +973,12 @@ L["ORDER_ACCEPT_DESC"] = "This one starts working on the key it came in on."
 -- The item under it does both halves in one press (`ACTION_SET_KEY_ACCEPT`), which is what a reader
 -- who wanted this working wants instead.
 L["ORDER_ACCEPT_NO_KEY_DESC"] = "This one came in with no key. Accepting takes it, but it does nothing until you give it one."
+-- The order buttons. **The words are 3.0's**: the rule they move an action along has not changed.
 L["ORDER_MOVE_UP"] = "Run sooner"
 L["ORDER_MOVE_UP_DESC"] = "Move this action one place earlier on this key."
 L["ORDER_MOVE_DOWN"] = "Run later"
 L["ORDER_MOVE_DOWN_DESC"] = "Move this action one place later on this key."
+-- `ORDER_BLOCKED_*` are named after the reason codes `ComputeOrderSwap` returns, and read by them.
 L["ORDER_BLOCKED_ALREADY_FIRST"] = "This action already runs first on this key."
 L["ORDER_BLOCKED_ALREADY_LAST"] = "This action already runs last on this key."
 -- The ones below are **shaped differently from the two ALREADY_* above.** Those are a reason in
@@ -1210,6 +1198,12 @@ L["GIVE_BACK_NO_ACTION_RUNS_NOTHING_DESC"] = "The press does nothing, whatever e
 --
 -- **The tooltips name no kind of bar** (override, vehicle), which a reader does not know. Forms,
 -- stealth and skyriding are said to be out because "or the like" read as covering them.
+--
+-- **There is no "only the first key" value, and there cannot be one** (2026-09-18, measured). The
+-- client does not keep the two slots of a command in the order the keybinding screen showed: bind
+-- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
+-- the second key. "The first key" would name a different key from one login to the next, which is
+-- not something a setting can promise.
 L["GIVE_BACK_ACTION_BUTTON_KEYS"] = "Action Button keys"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_DESC"] = "When the keys bound to WoW's action buttons are given back."
 -- The first value is `CONDITION_BARTAKEOVER_REPLACED`, the box the condition menu gives a replaced
@@ -1228,11 +1222,6 @@ L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER"] = "Never"
 L["GIVE_BACK_ACTION_BUTTON_KEYS_NEVER_DESC"] = "Debind keeps these keys, and the actions on them run as usual."
 L["GIVE_BACK_HOUSE_EDITOR_KEYS"] = "House Editor keys"
 L["GIVE_BACK_HOUSE_EDITOR_KEYS_DESC"] = "While the House Editor is open, the keys it uses are given back."
--- **There is no "only the first key" row, and there cannot be one** (2026-09-18, measured). The
--- client does not keep the two slots of a command in the order the keybinding screen showed: bind
--- a key in the first slot, reload, bind another in the second, reload, and the first slot is now
--- the second key. "The first key" would name a different key from one login to the next, which is
--- not something a checkbox can promise.
 -- What one switch is set to, on the right of the Switches tab.
 --
 -- ⚠ **Not "tab".** These answer *when does this apply*, the Switches tab has no side tabs to point
@@ -1816,13 +1805,6 @@ L["MIGRATION_DIALOG_ENABLE"] = "Turn it on and reload"
 -- 캐릭터 단위가 따로 있는 이유는 애드온 활성 상태가 캐릭터별이기 때문이다(XML의 근거).
 L["MIGRATION_DIALOG_DECLINE_CHARACTER"] = "Start fresh on this character"
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT"] = "Start fresh on every character"
--- 툴팁이 버는 것은 **버튼 글자에 못 넣는 것**이다 - 되돌릴 수 없다는 사실, 옛 파일이 남는다는
--- 사실, 아직 로그인하지 않은 캐릭터까지 걸린다는 사실. 글자를 다시 풀어 쓰는 툴팁은 없느니만
--- 못하다. 셋 다 다는 이유는 하나만 비면 그 버튼에 마우스를 올린 사람이 "툴팁 없는 창"으로
--- 판단하고 나머지도 안 보기 때문이다.
--- 계정 몫이 이미 넘어온 뒤에 이 캐릭터만 남은 경우. **공유 바인딩은 지금 멀쩡히 동작 중이고**
--- 그 사람은 그걸 보면서 이 창을 읽는다. "네 설정을 못 읽는다"고 뭉뚱그리면 눈앞의 사실과
--- 어긋나서, 창이 무엇을 말하는지가 아니라 창을 믿을지가 문제가 된다.
 -- 폴더가 아예 없는 경우. **켜기 버튼이 할 수 있는 게 없어서 숨긴다** - `EnableAddOn`은 없는
 -- 애드온에 아무 일도 안 하고, 리로드하면 같은 창으로 돌아온다. 그러면 남는 선택지가 되돌릴 수
 -- 없는 둘뿐이므로, 다시 받는 길을 먼저 알려주고 창을 닫아도 된다고 말해준다.
@@ -1834,32 +1816,21 @@ L["MIGRATION_DIALOG_BODY_MISSING"] = "|cnHIGHLIGHT_FONT_COLOR:Debind Migration|r
 -- and what can change the outcome is another version, so that is what the body says.
 L["MIGRATION_DIALOG_TITLE_FAILED"] = "Your old settings could not be brought over."
 L["MIGRATION_DIALOG_BODY_FAILED"] = "This version of Debind read the settings saved by 3.0 and earlier, but could not bring them over. None of them were added, and the old file is left as it was.|n|nIf this looks like a bug in Debind, put back the last version that worked, or try a newer one. Every login tries again. You can close this window in the meantime.|n|nOnly answer below if you would rather start over without those settings."
+-- The account's share has already come across and only this character's own is missing. **The
+-- shared bindings are working right now**, and the reader reads this while watching them, so a
+-- sentence lumping it into "your settings cannot be read" would contradict what is in front of them
+-- and turn the question into whether to trust the dialog at all.
 L["MIGRATION_DIALOG_TITLE_CHARACTER_ONLY"] ="This character's own bindings have not come across yet."
 L["MIGRATION_DIALOG_BODY_CHARACTER_ONLY"] = "Your account bindings are already here - they moved when you logged in on another character, which is why most of your keys work.|n|nWhat is still missing is anything you set up for |cnHIGHLIGHT_FONT_COLOR:this character alone|r: its own layers and its custom targets. Those live in a separate file, and the companion addon |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r is the only thing that can read it. Right now it is switched off.|n|n|cnGREEN_FONT_COLOR:Turning it on is still the right answer.|r If it turns out you never made character-specific bindings here, nothing happens and you are done. If you did, you get them back. Either way it stops asking.|n|nUntil you answer, Debind will not open. Closing this window asks again next time you log in."
+-- **The three tooltips carry what a button label cannot**: that the answer cannot be undone, that
+-- the old file stays, and that characters not logged in yet are reached too. One that only
+-- restated its label would be worse than none. **All three have one**: with one missing, a reader
+-- who hovers it takes the dialog for one without tooltips and stops looking at the others.
 L["MIGRATION_DIALOG_ENABLE_TOOLTIP"] ="Enables |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r for every character and reloads your interface.|n|nThis character's settings are back as soon as the reload finishes. Your other characters keep theirs until you next log in on them - each one brings its own across on its own first login, whenever that is. Nothing else to do."
 L["MIGRATION_DIALOG_DECLINE_CHARACTER_TOOLTIP"] = "This character starts with no bindings, and is never asked again.|n|nOther characters are unaffected - they will still be offered their settings.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["MIGRATION_DIALOG_DECLINE_ACCOUNT_TOOLTIP"] = "Debind stops offering old settings to |cnHIGHLIGHT_FONT_COLOR:every character on this account|r, including ones you have not logged in on and ones you make later.|n|n|cnRED_FONT_COLOR:This cannot be undone from inside the addon.|r Your old file is left untouched on disk either way."
 L["WARNING_MESSAGE_LEGACY_ADDON_STILL_INSTALLED"] = "An older full copy of this addon is still installed and sets keybinds too, so it and Debind act on the same keys. Reinstalling or updating Debind replaces that folder with the small |cnHIGHLIGHT_FONT_COLOR:Debind Migration|r companion. Do not just delete the folder - characters you have not logged in on since updating still have their settings in it."
 
--- The sharing window. The tooltips are long because both choices it offers - what to send, and
--- whether the keys ride along - leave for somewhere you cannot reach: a string handed to someone
--- else is not recallable. A tooltip is read on purpose, so length is not the cost it looks like.
---
--- These live here rather than in `DebindStorage` because they are eleven strings against that
--- addon's reason for existing, and a second locale tree would need its own parity check.
--- The window's own tabs (`PANELS` in `DebindUI.lua`). The label is one word, so the tooltip is
--- where the tab says what it opens - and Import and Export both open something that leaves for
--- somewhere you cannot reach, so the same "read it on purpose" rule as above applies.
---
--- The two panels themselves live in `DebindStorage`, which is load-on-demand and may not be there.
--- **One failure, so one message.** That addon cannot load and then not have built its panel, so
--- "loaded but empty" is not a second case to describe - if it ever happened the install would be
--- broken, and the second line below is already the fix for that.
---
--- **It says what failed and what to do, not where our code lives.** Which addon holds which panel
--- is our filing, not the reader's problem; what they can act on is the switch in the AddOns list
--- and, failing that, installing again. No `%s` either, unlike the chat line further down - the
--- reason string the client hands back is for the log, not the middle of a window.
 -- Taking the badge off imported actions. **The verb is about the reader, not the action** -
 -- nothing is being changed or repaired, they are saying they will have it.
 --
@@ -1991,6 +1962,14 @@ L["REJECT_ALL_IMPORT"] = "Reject all"
 -- promise the snapshot is still there, since the reader may have deleted it from Storage, so it
 -- says only that rejecting leaves Storage alone (2026-10-11, owner). `%s` is `STORAGE_TITLE`.
 L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, wherever it went. The %s tab is left as it is: if the snapshots are still there, you can add them again."
+-- The third scope [Assign a key] is offered at, after a row (`ACTION_SET_KEY_DESC`) and a heading
+-- (`KEY_HEADER_SET_KEY_DESC`). **The label is the same three words in all three**, since the act is
+-- one act and the same window opens; the scope is what the three tooltips are for.
+--
+-- **The second half is the row's warning, and it is needed more here than there.** A selection can
+-- hold part of a key group, so the rows left behind are ones the reader chose not to pick rather
+-- than ones they never saw - and a key coming apart shows nothing at all until both halves fire.
+L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nAnything you did not pick stays on the key it is on, even where it shares that key with something you picked. Both keys still work; they just stop working as one."
 -- **Why [Move to] and [Copy to] are dead on the multi-selection menu.** Neither names the act, since
 -- one string stands on both - and a sentence naming it would have to be two, saying the same thing
 -- about the same rows.
@@ -2002,14 +1981,6 @@ L["REJECT_ALL_IMPORT_DESC"] = "Removes everything that is still waiting, whereve
 -- Neither says why moving is refused. The reason is that what arrived is ordered the way its sender
 -- ordered it, which is a sentence about machinery the reader has no reason to hold - and the answer
 -- to "why not" is the same in both cases anyway: it has not been accepted yet.
--- The third scope [Assign a key] is offered at, after a row (`ACTION_SET_KEY_DESC`) and a heading
--- (`KEY_HEADER_SET_KEY_DESC`). **The label is the same three words in all three**, since the act is
--- one act and the same window opens; the scope is what the three tooltips are for.
---
--- **The second half is the row's warning, and it is needed more here than there.** A selection can
--- hold part of a key group, so the rows left behind are ones the reader chose not to pick rather
--- than ones they never saw - and a key coming apart shows nothing at all until both halves fire.
-L["BULK_SET_KEY_DESC"] = "Sets one key for everything you picked, in one go.|n|nAnything you did not pick stays on the key it is on, even where it shares that key with something you picked. Both keys still work; they just stop working as one."
 L["BULK_BLOCKED_ALL_IMPORTED"] = "None of what you picked has been accepted yet. That has to come first."
 L["BULK_BLOCKED_SOME_IMPORTED"] = "Some of what you picked has not been accepted yet. Take those rows out of the selection."
 -- A single row's [Move to] and [Copy to] on something not accepted yet. `BULK_BLOCKED_ALL_IMPORTED`
@@ -2058,8 +2029,6 @@ L["REMOVE_DUPLICATES"] = "Remove duplicate actions"
 --- specialization layer is the stack this addon is for, not a mistake.
 --- **What it keeps**: the one that runs first, so nothing about what a key does moves.
 L["REMOVE_DUPLICATES_DESC"] = "Looks for actions that are exactly the same - same key and all - sitting in the same layer, and removes the extra copies. The one that runs first stays. The same action on two different layers is left alone: that is how a specialization overrides the general list."
---- Pressed on a profile with nothing to find. **A line rather than a box** - there is nothing to
---- confirm and nothing to look at, and a dialog saying "no" is a dialog to dismiss.
 -- **말줄임표는 창이 뜬다는 뜻이 아니라 더 물어본다는 뜻이다.** 이 줄은 무엇으로 바꿀지를
 -- 골라야 끝나므로 옆의 MOVE_TO / COPY_TO와 같은 꼴이다. EDIT_MACRO와 CONVERT_TO_MACRO_TEXT는
 -- 창이 뜨지만 더 묻는 것이 없어서 안 단다.
@@ -2090,6 +2059,8 @@ L["REPLACE_CONFIRM_LOSES"] = "The following settings are removed:"
 --- **목록 밖에 따로 선다.** 설정이 아니라 액션의 몸통이고, 다시 치는 것 말고는 돌아올 길이
 --- 없는 유일한 것이라 무게가 다르다.
 L["REPLACE_CONFIRM_MACROTEXT"] = "A Custom Macro's body is not kept."
+--- Pressed on a profile with nothing to find. **A line rather than a box** - there is nothing to
+--- confirm and nothing to look at, and a dialog saying "no" is a dialog to dismiss.
 L["REMOVE_DUPLICATES_NONE"] = "No duplicate actions to remove."
 --- **The count is the whole question.** Naming them would be the same name repeated, which is what
 --- a duplicate is.
@@ -2443,9 +2414,6 @@ L["IMPORT_PASTE_NAME"] = "Name (optional)"
 -- into, an optional name beside it, one button to finish - and that button is this global. So the
 -- word is the game's in every locale and stays the game's if it ever changes it; enUS assigns it
 -- and no other locale file carries the key.
---
--- It read "Add to drawer", which named a place nothing on screen is called and made the press
--- sound like filing rather than importing. The tab is Import and this is the button that does it.
 L["IMPORT_PASTE_ACCEPT"] = HUD_CLASS_TALENTS_IMPORT_LOADOUT_ACCEPT_BUTTON
 -- Two things about an entry, side by side. The row's second line puts the date in front of the
 -- counts and the delete prompt puts the sender in front of the date, so what fills the two is the
@@ -2456,10 +2424,7 @@ L["IMPORT_ENTRY_LINE"] = "%1$s  %2$s"
 -- **The first line is the title**: this popup has no title bar, so it is what the reader reads
 -- first and it has to name what goes.
 --
--- **It said "from the drawer".** Nothing on this screen is called a drawer - the tab says Import
--- and the list has no name - so the phrase asked the reader to remove something from a place they
--- have never been shown. What it is being removed from is this list, and the popup is standing on
--- top of it.
+-- **It names no place to remove it from**: that is the list the popup stands on top of.
 L["IMPORT_DELETE_CONFIRM"] = "Remove |cnHIGHLIGHT_FONT_COLOR:%s|r?|n|nThis is the only copy. Anything you already added to your bindings stays where it is."
 -- **Four, where the decoder reports eight.** Each of its reasons is a different step, but a reader
 -- has three things they might do about one - look again at what they pasted, update, ask for it
@@ -2477,9 +2442,12 @@ L["IMPORT_FAILED_TOO_OLD"] = "That share code was made by a version of Debind to
 -- "Ask for it again" is gone: a Clique code is as often the reader's own, copied out of Clique.
 L["IMPORT_FAILED_DAMAGED"] = "That share code could not be read. It was most likely copied only part of the way - copy the whole thing and paste it again."
 L["IMPORT_FAILED_LIBS_MISSING"] = "Debind Storage could not load the libraries it reads share codes with. Downloading Debind again puts them back."
--- **What is missing is what this tab reads, not the tab.** Import and Export are Debind's own
--- panels now; `Debind Storage` is the load-on-demand part that keeps the strings, and without it
--- there is nothing for either to show. Switching it off in the AddOns list is the one way here.
+-- The Storage tab when `DebindStorage`, which is load-on-demand, could not be loaded. **What is
+-- missing is what this tab reads, not the tab**: the tab is Debind's own, and `Debind Storage`
+-- keeps the entries it shows. That addon is named because the AddOns list is where the reader can
+-- act, and switching it off there is the one way here. **One failure, one message**: it cannot
+-- load and still lack what this tab reads. No `%s` for the reason the client hands back, which is
+-- for the log rather than the middle of a window.
 L["PANEL_ADDON_MISSING"] = "This tab reads what |cnHIGHLIGHT_FONT_COLOR:Debind Storage|r keeps, and it could not be loaded.|n|nIf you switched it off, switch it back on in the AddOns list. If it is not in that list at all, install Debind again - Debind Storage comes with it."
 -- **One box does both jobs**, so the label says what is true and not what a click would do. It
 -- read "Select all" while checked, at the moment a click would put everything down.

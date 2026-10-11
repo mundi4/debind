@@ -3482,7 +3482,7 @@ return function(DebindPrivate, _, ctx)
         check(same(got, Spell({})), "got " .. Show(got));
     end);
 
-    -- A drawer entry is raised in place and can meet this step twice.
+    -- A stored entry is raised in place and can meet this step twice.
     test("7 -> 8 brings the old shapes to the same place when run twice", function()
         local function Old()
             return Spell({ hover = true, reactions = 3, frameTypes = 8, unit = "hover", bogus = 1,

@@ -28,7 +28,7 @@ local luatype            = type;
 --- and both doors into a payload run it.
 ---
 --- **2 (2026-08-21): the conditions moved into `action.conditions`.** v1 carried their names at the
---- top of the action. Without the bump, a v1 string and every entry stacked in the drawer walk
+--- top of the action. Without the bump, a v1 string and every stored entry walk
 --- through the gate as they are and `BuildAction`'s whitelist **drops every condition in silence**
 --- -- they land as unconditional actions, stand where no conditional band belongs, and fire on a
 --- key in states the writer had ruled out. It closes the other direction too: a 3.2 reader turns a
@@ -952,7 +952,7 @@ end
 --- v2 sent no override rows, so the definitions are the whole of `switches`.
 ---
 --- v2 called `fromAddon` `source`. 4.1 wrote it on a Clique payload, and such a payload is in 4.1
---- strings and in 4.1 drawers alike.
+--- strings and in entries stored by 4.1 alike.
 local function RaiseV2(payload)
     local account = {};
     local shared = luatype(payload.shared) == "table" and payload.shared or nil;
@@ -1059,11 +1059,11 @@ end
 --- `<=`, because that one is the profile's and every version between the ends of it is real.
 ---
 --- **Both doors ask this, and that is the point of it being a function.** A string is asked at the
---- moment it is pasted (`DecodeExportString`, below) and a stored entry is asked when the drawer
---- opens it (`GetEntryPayload` in `Import.lua`). The drawer used to ask nothing: it kept the
+--- moment it is pasted (`DecodeExportString`, below) and a stored entry is asked when it is
+--- opened (`GetEntryPayload` in `Import.lua`). That door used to ask nothing: it kept the
 --- payload it was handed and gave it straight back. That is invisible while there is one payload
---- version and it stops being invisible the day one is added, because the entries already sitting in the
---- drawer are exactly the ones that would go into the new code unasked.
+--- version and it stops being invisible the day one is added, because the entries already stored
+--- are exactly the ones that would go into the new code unasked.
 ---
 --- **Two directions, and opposite advice.** These were one reason and one sentence, "made by a
 --- newer version, update and try again", which is true one way and useless the other: on the first
@@ -1078,8 +1078,8 @@ end
 --- did not make: one has just deserialized bytes somebody else wrote, the other has read a table
 --- out of SavedVariables. Neither may error, and the answer is the same refusal, so asking twice
 --- would be the same question in two places. It caught one a development build had left (2026-08-20;
---- every released version stores a table here): an entry with no payload draws in the drawer
---- perfectly well, because the two that draw the row guard it (`CountEntry`, `EntryClassText`), and
+--- every released version stores a table here): an entry with no payload draws in Storage
+--- perfectly well, because the two that draw the row guard it (`CountEntry`, `EntryClass`), and
 --- then threw the moment the row was opened. So what it guards against is a hand-edited file.
 function DebindStorage.BringPayloadForward(payload)
     if (luatype(payload) ~= "table") then
@@ -1103,7 +1103,7 @@ function DebindStorage.BringPayloadForward(payload)
     end
 
     -- **Asked before the v2 step**, so a payload refused here is left in the shape it came in. The
-    -- drawer raises its entries in place (`Import.lua`'s `Vars`), and a refused one moved halfway
+    -- stored entries are raised in place (`Import.lua`'s `Vars`), and a refused one moved halfway
     -- would be stored in a shape no version wrote.
     --
     -- **NaN passes every comparison below**, and a payload claiming it would walk through the range

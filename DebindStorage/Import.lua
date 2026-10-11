@@ -266,9 +266,9 @@ local function BuildAction(source)
 end
 DebindStorage.BuildAction = BuildAction;
 
---- Every action list in `payload` through `SanitizeActionList`, **in place**: the drawer's door,
---- going in and coming out (`sanitizing-actions-with-one-function.md` §2-2). The preview, the counts
---- and a string made again all read the stored payload as it is.
+--- Every action list in `payload` through `SanitizeActionList`, **in place**: the stored entries'
+--- door, going in and coming out (`sanitizing-actions-with-one-function.md` §2-2). The preview, the
+--- counts and a string made again all read the stored payload as it is.
 ---
 --- **An arrival number is taken off first, as `BuildAction` does.** No wire carries one, and
 --- `SanitizeAction` reads a broken one as "remove this action", which is the profile's answer for
@@ -329,7 +329,8 @@ end
 --- raised is left as it was: its row still draws, and opening it says why (`GetEntryPayload`).
 ---
 --- **Each under its own `pcall`.** A step that raises on one entry would otherwise raise out of
---- every call that reaches the drawer, the delete that is the only way out for that entry included.
+--- every call that reaches the stored entries, the delete that is the only way out for that entry
+--- included.
 local broughtForward;
 
 local function BringEntryForward(payload)
@@ -405,7 +406,7 @@ end
 --- something to refuse. **Everything that reads a payload for its contents comes through here**, so
 --- past this line it is one of ours.
 ---
---- Two callers read `entry.payload` without asking: `CountEntry` and `EntryClassText`
+--- Two callers read `entry.payload` without asking: `CountEntry` and `EntryClass`
 --- (`StorageUI.lua`). Both draw the row rather than act on it, and a row has to be drawable for a
 --- entry that this refuses -- deleting it is the only thing left to do with it, and the delete
 --- button is on the row. So they guard the one field they touch and read nothing else.

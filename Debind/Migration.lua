@@ -13,7 +13,7 @@ local _, DebindPrivate = ...;
 -- **But no step may raise on such a value**: keeping a hand-made value from leaving the addon
 -- unusable is what `SanitizeAction` exists for. It runs after the ladder, so a broken value meets
 -- the ladder first, and a raise there is caught only as a whole: a received string is refused
--- (`DecodeExportString`), a drawer entry is not raised (`Vars`), and a stored profile is kept as it
+-- (`DecodeExportString`), a stored entry is not raised (`Vars`), and a stored profile is kept as it
 -- was while the whole addon stands down (`TryMigrateDB`). The last is
 -- not recovered from: `dbver` stays put, the same step raises at every login, and nothing in the
 -- game can reach the value. So a step guards what it reads against the wrong type, and the guard
@@ -248,7 +248,7 @@ DebindPrivate.RenameUnitInMacroTextAt7 = RenameUnitInMacroTextAt7;
 ---
 --- **Every step opens with `dbver <= N and N < to`, never `== N`.** With `==`, a profile two
 --- versions behind walks the first step and leaves. A profile never meets a step twice
---- (`TryMigrateDB`), but a drawer entry can: the drawer raises its entries in place (`Vars` in
+--- (`TryMigrateDB`), but a stored entry can: `DebindStorage` raises its entries in place (`Vars` in
 --- `Import.lua`), and one stopped partway keeps its old `dbver`. So a step a payload reaches is
 --- written to be safe to run again on data it has already finished, except where its own comment
 --- says why it cannot be (the `"usual"` cleanup in `dbver <= 7`).
@@ -268,12 +268,12 @@ DebindPrivate.RenameUnitInMacroTextAt7 = RenameUnitInMacroTextAt7;
 --- step never meets data another ladder has already carried further (`MigrateDB`).
 ---
 --- **A step leaves its version's stored shape and nothing else** (owner, 2026-10-09). Whatever it
---- moves or retires it removes in the same pass, and it counts on nothing after it to tidy up: the
---- drawer keeps a payload in the shape the ladder leaves it, so a field one step leaves is there for
---- good. A step that needs a clean-up pass of its own has a conversion that is wrong. The last two
---- passes of the `dbver <= 7` step are the one exception: no release has shipped version 8, so
---- every profile a release wrote meets them once, and they settle there what came before this (the
---- old shapes version 7 still read, then every name version 8 does not store).
+--- moves or retires it removes in the same pass, and it counts on nothing after it to tidy up: a
+--- stored entry keeps its payload in the shape the ladder leaves it, so a field one step leaves is
+--- there for good. A step that needs a clean-up pass of its own has a conversion that is wrong. The
+--- last two passes of the `dbver <= 7` step are the one exception: no release has shipped version
+--- 8, so every profile a release wrote meets them once, and they settle there what came before this
+--- (the old shapes version 7 still read, then every name version 8 does not store).
 ---
 --- **A step holds its own version's values**: the type names it compares and writes, the tables it
 --- asks, the bits it writes, as literals or as a local named for the version (`_AT_N`). A step is
@@ -1113,7 +1113,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         --
         -- **Not safe to run twice, unlike the rest of the ladder** (owner): a second pass takes a
         -- rewritten `"usual"` with Normal Cast off for off and makes it skip. A profile never meets
-        -- it twice (`TryMigrateDB`). A drawer entry still can, being raised in place, and that is
+        -- it twice (`TryMigrateDB`). A stored entry still can, being raised in place, and that is
         -- the thing to fix (`0-IDEAS.md`).
         for i = 1, #layerTbl do
             local action = layerTbl[i];
@@ -1300,9 +1300,9 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- 2026-10-09), **and then every name version 8 does not store** (owner, 2026-10-10: once this
         -- step is done, only the fields version 8 uses are left). No name is left for
         -- `SanitizeAction` to find: every profile a release wrote meets this step once, since no
-        -- release has shipped version 8, and the drawer keeps an entry in the shape the ladder leaves
-        -- it. A profile a development build already stamped 8 does not meet it again; its leftovers
-        -- are `SanitizeAction`'s.
+        -- release has shipped version 8, and `DebindStorage` keeps an entry in the shape the ladder
+        -- leaves it. A profile a development build already stamped 8 does not meet it again; its
+        -- leftovers are `SanitizeAction`'s.
         --
         --   - the old unit fields, which the 1 -> 2 step moves only from a version 1 profile and only
         --     when it can read them (1.11 to 1.15 wrote them at version 2), and `reactions`, which the

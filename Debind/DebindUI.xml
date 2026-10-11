@@ -1538,9 +1538,9 @@
 			</Frame>
 
 			<!--
-				**The panel a tab falls back to when what it reads could not be had.** Import and
-				Export are this addon's own panels and always exist; what may not is `DebindStorage`,
-				which holds the drawer and answers `IsExportable` and is load on demand. A reader who
+				**The panel a tab falls back to when what it reads could not be had.** Storage is
+				this addon's own panel and always exists; what may not is `DebindStorage`, which
+				keeps the entries and answers `IsExportable` and is load on demand. A reader who
 				switched it off in the AddOns list is the one way to get here (`ResolvePanel`).
 
 				**It stands in for the panel rather than letting it draw**, because a list with

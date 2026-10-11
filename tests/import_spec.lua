@@ -972,8 +972,9 @@ return function(DebindPrivate, DebindStorage, ctx)
         check(action.value == 13, "값이 " .. tostring(action.value));
     end);
 
-    --- **The raised payload is what the drawer keeps** (`Import.lua`'s `Vars` raises entries in
-    --- place), so the ladder has to hand it over in the stored shape: no `CleanUpDB` ever reaches it.
+    --- **The raised payload is what the stored entry keeps** (`Import.lua`'s `Vars` raises entries
+    --- in place), so the ladder has to hand it over in the stored shape: no `CleanUpDB` ever
+    --- reaches it.
     test("a dbver 6 payload whose only condition the ladder moved keeps no empty conditions", function()
         local old = V2General({ { type = Constants.SPELL, value = 585, key = "F", seq = 1,
             conditions = { units = { hover = {} } } } }, 6);
@@ -1112,7 +1113,7 @@ return function(DebindPrivate, DebindStorage, ctx)
     end);
 
     -- **Escape arrives keyless**: nothing can take the game menu's key. A string written at this
-    -- `dbver` reaches no migration step, so it is the drawer's door that takes the key off
+    -- `dbver` reaches no migration step, so it is the stored entries' door that takes the key off
     -- (`SanitizePayload`). The action itself comes through, and what the preview describes is the
     -- same keyless action.
     test("an action sent on Escape arrives with no key", function()

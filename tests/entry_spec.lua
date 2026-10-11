@@ -12,12 +12,13 @@
 -- system, so a layer travels verbatim and only the character has to be re-read. What these cases
 -- guard is that nothing quietly reintroduces a translation.
 --
--- **The drawer** holds work across a `/reload`, so what it stores has to survive being written to
--- SavedVariables and read back. What it stores is the payload.
+-- **The stored entries** (`DebindStorageVars.entries`) hold work across a `/reload`, so what they
+-- store has to survive being written to SavedVariables and read back. What they store is the
+-- payload.
 --
--- **The payload's own ladder is `export_spec`'s**; what the drawer adds is that its stored payloads
--- walk it too. The drawer's one step of its own is `ENTRY_VERSION` 2, which moved the row's name into
--- the payload.
+-- **The payload's own ladder is `export_spec`'s**; what the stored entries add is that their
+-- payloads walk it too. Their one step of their own is `ENTRY_VERSION` 2, which moved the row's
+-- name into the payload.
 
 return function(DebindPrivate, DebindStorage)
     local T = { passed = 0, failures = {} };
@@ -178,12 +179,13 @@ return function(DebindPrivate, DebindStorage)
     --- are shapes a hand-made string carries and neither may raise.
     local function Payload(layers)
         -- Reads the constants. A number written here would turn every case in this file red **over
-        -- the version** the day `PAYLOAD_VERSION` goes up, and what these ask is how the drawer
-        -- behaves, not the version. The cases that ask about the version build their values below.
+        -- the version** the day `PAYLOAD_VERSION` goes up, and what these ask is how the stored
+        -- entries behave, not the version. The cases that ask about the version build their values
+        -- below.
         --
         -- **Both are carried.** `v` counts the payload's own shape and `dbver` the shape of the
-        -- actions inside it (`unifying-action-migration.md` §3-3). With only one, the drawer's door
-        -- refuses it.
+        -- actions inside it (`unifying-action-migration.md` §3-3). With only one, the stored
+        -- entries' door refuses it.
         local payload = {
             v = DebindStorage.PAYLOAD_VERSION,
             dbver = Constants.DB_VERSION,
@@ -229,11 +231,11 @@ return function(DebindPrivate, DebindStorage)
     end
 
     ---------------------------------------------------------------------------
-    -- The drawer
+    -- The stored entries
     --
     -- **The decoder is stubbed here on purpose.** Whether a real string survives the trip is
     -- `export_spec`'s question and it answers it against the real libraries; this file's question
-    -- is what the drawer does with an answer once it has one.
+    -- is what the stored entries do with an answer once they have one.
     ---------------------------------------------------------------------------
 
     local realDecode = DebindStorage.DecodeExportString;
@@ -247,7 +249,7 @@ return function(DebindPrivate, DebindStorage)
         return payload;
     end
 
-    local function ResetDrawer()
+    local function ResetEntries()
         _G.DebindStorageVars = nil;
         STORED = {};
     end
@@ -256,21 +258,21 @@ return function(DebindPrivate, DebindStorage)
     local GOOD_PAYLOAD = Payload({ { scope = "general", key = "F", count = 1 } });
 
     test("받아들인 문자열이 배치가 된다", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
 
         local entry = DebindStorage.ImportEntry(GOOD, "친구 세팅");
         check(entry, "배치가 안 만들어짐");
         check(entry.payload.name == "친구 세팅", "이름 " .. tostring(entry.payload.name));
         check(entry.name == nil, "이름이 행에도 남았다");
-        check(#DebindStorage.GetEntries() == 1, "서랍에 안 들어감");
+        check(#DebindStorage.GetEntries() == 1, "저장되지 않음");
         check(DebindStorage.GetEntry(entry.id) == entry, "id로 못 찾음");
     end);
 
     -- Counted off the payload every time the row asks, because the payload is what the entry
     -- holds. The two numbers were stored fields while the string was.
     test("개수는 저장된 페이로드에서 나온다", function()
-        ResetDrawer();
+        ResetEntries();
         local text = "DEB1:여럿";
         STORED[text] = Payload({
             { scope = "general", key = "F", count = 2 },
@@ -288,19 +290,19 @@ return function(DebindPrivate, DebindStorage)
 
     -- Refused where the user is looking at it, rather than becoming a row that fails every time it
     -- is opened.
-    test("못 읽는 문자열은 서랍에 안 들어간다", function()
-        ResetDrawer();
+    test("못 읽는 문자열은 저장되지 않는다", function()
+        ResetEntries();
 
         local entry, reason = DebindStorage.ImportEntry("DEB1:쓰레기");
         check(entry == nil, "받아들였다");
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
-        check(#DebindStorage.GetEntries() == 0, "서랍에 들어갔다");
+        check(#DebindStorage.GetEntries() == 0, "저장됐다");
     end);
 
     -- What SavedVariables holds is the payload. The string is refused outright once `payload.v`
-    -- moves past it, so a drawer of strings is a drawer nothing can bring forward.
-    test("서랍에 남는 것은 페이로드지 문자열이 아니다", function()
-        ResetDrawer();
+    -- moves past it, so entries holding strings are entries nothing can bring forward.
+    test("저장되는 것은 페이로드지 문자열이 아니다", function()
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
 
         local entry = DebindStorage.ImportEntry("  " .. GOOD .. "\n");
@@ -309,19 +311,20 @@ return function(DebindPrivate, DebindStorage)
         check(DebindStorage.GetEntryPayload(entry) == GOOD_PAYLOAD, "다시 못 읽음");
     end);
 
-    -- **서랍에서 여는 문도 버전을 묻는다.** 붙여넣는 쪽은 `DecodeExportString`이 물어서
-    -- `export_spec`이 그것을 잡고 있는데, 서랍은 저장된 페이로드를 그대로 내주고 있었다.
+    -- **The door that opens a stored entry asks the version too.** The paste side is asked by
+    -- `DecodeExportString`, which `export_spec` holds; the stored side used to hand the payload
+    -- back as it was.
     --
     -- While there is one payload version the two doors answer alike. **They part once
-    -- `PAYLOAD_VERSION` goes up, and then what was sitting in the drawer walks into the new code
+    -- `PAYLOAD_VERSION` goes up, and then every entry already stored walks into the new code
     -- unasked** - which is what happens, silently, if a step is added on the paste side only. So a
     -- stored entry is built by hand and asked.
     local function StoredEntryWithVersion(version)
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
         local entry = DebindStorage.ImportEntry(GOOD);
-        -- 문을 지나 저장된 뒤에 버전만 바꾼다. 붙여넣는 쪽 문은 이 값을 이미 봤으므로,
-        -- 여기서 걸리는 것은 **서랍에서 여는 문**뿐이다.
+        -- Only the version changes, after the entry is stored. The paste side has already seen
+        -- this value, so what can catch it here is **the door that opens a stored entry** alone.
         if (version == 1) then
             entry.payload = { v = version, class = CLASS, shared = { GENERAL = {} } };
         else
@@ -331,11 +334,11 @@ return function(DebindPrivate, DebindStorage)
         return entry;
     end
 
-    -- **The drawer holds payloads, and the ones from before 3 are v2.** The row is drawn from its
-    -- payload before anyone opens it (`CountEntry`), so the step has to have run by then, not only
-    -- when the entry is opened.
-    test("서랍의 v2 배치는 서랍을 열 때 v3로 올라간다", function()
-        ResetDrawer();
+    -- **The stored entries hold payloads, and the ones from before 3 are v2.** The row is drawn
+    -- from its payload before anyone opens it (`CountEntry`), so the step has to have run by then,
+    -- not only when the entry is opened.
+    test("저장된 v2 배치는 항목을 읽을 때 v3로 올라간다", function()
+        ResetEntries();
         _G.DebindStorageVars = { version = 1, nextID = 2, entries = { {
             id = 1, received = 0,
             payload = { v = 2, dbver = 7, class = CLASS, shared = { GENERAL = {
@@ -350,10 +353,11 @@ return function(DebindPrivate, DebindStorage)
         check(groups == 2 and actions == 2, "그룹 " .. groups .. ", 액션 " .. actions);
     end);
 
-    -- **One entry the ladder raises on must not take the drawer with it.** Its row still has to
-    -- draw, because deleting it is the one thing left to do with it and the button is on the row.
-    test("올리다 터지는 배치가 서랍 전체를 막지 않는다", function()
-        ResetDrawer();
+    -- **One entry the ladder raises on must not take the other entries with it.** Its row still
+    -- has to draw, because deleting it is the one thing left to do with it and the button is on the
+    -- row.
+    test("올리다 터지는 배치가 다른 항목을 막지 않는다", function()
+        ResetEntries();
         _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
             { id = 1, received = 0, payload = { v = 2, dbver = 7, class = CLASS } },
             { id = 2, received = 0, payload = { v = 2, dbver = 7, class = CLASS } },
@@ -368,13 +372,13 @@ return function(DebindPrivate, DebindStorage)
 
         local ok, entries = pcall(DebindStorage.GetEntries);
         DebindStorage.BringPayloadForward = real;
-        check(ok, "서랍이 터졌다: " .. tostring(entries));
+        check(ok, "항목 읽기가 터졌다: " .. tostring(entries));
         check(#entries == 2, "배치 수 " .. #entries);
         check(entries[2].payload.v == DebindStorage.PAYLOAD_VERSION, "뒤의 배치가 안 올라갔다");
         check(DebindStorage.DeleteEntry(1), "터진 배치를 못 지웠다");
     end);
 
-    test("서랍에 있는 배치가 더 새 판이면 거절한다", function()
+    test("저장된 배치가 더 새 판이면 거절한다", function()
         local entry = StoredEntryWithVersion(DebindStorage.PAYLOAD_VERSION + 1);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload == nil, "읽어버렸다");
@@ -385,9 +389,9 @@ return function(DebindPrivate, DebindStorage)
     -- refusing was to become migrating, and that day came (`PAYLOAD_VERSION` 2, when the conditions
     -- moved into `action.conditions`).
     --
-    -- **서랍에 쌓인 배치가 이 길로 온다.** 여기서 거절하면 받아둔 것이 전부 못 읽히고,
-    -- 조용히 통과시키면 조건이 전부 버려진 채 무조건 액션으로 도착한다.
-    test("서랍에 있는 v1 배치는 사다리를 타고 올라온다", function()
+    -- **Stored entries come this way.** Refusing here leaves everything kept unreadable, and
+    -- letting it through silently has every condition dropped and the actions arrive unconditional.
+    test("저장된 v1 배치는 사다리를 타고 올라온다", function()
         local entry = StoredEntryWithVersion(1);
         local payload, reason = DebindStorage.GetEntryPayload(entry);
         check(payload ~= nil, "거절당했다: " .. tostring(reason));
@@ -452,16 +456,16 @@ return function(DebindPrivate, DebindStorage)
         check(reason == "BAD_PAYLOAD", "이유 " .. tostring(reason));
     end);
 
-    -- **행은 그려지는데 열면 터지던 자리.** 서랍 행을 그리는 둘(`CountEntry`,
-    -- `EntryClassText`)은 페이로드가 없는 배치를 막고 있어서 날짜만 달고 멀쩡히 선다. 그
-    -- 행을 누르면 문이 페이로드를 그대로 인덱싱했다.
+    -- **Where a row drew and then raised when opened.** The two that draw a stored entry's row
+    -- (`CountEntry`, `EntryClass`) guard against an entry with no payload, so it stands with a date
+    -- and nothing wrong showing; pressing the row had the door index the payload as it was.
     --
-    -- **나가는 빌드에서 그런 배치는 안 생긴다** - `ImportEntry`가 언제나 채우고, 이 애드온이
-    -- 이번에 처음 나가므로 그 문을 안 지난 배치가 남의 디스크에 있을 수 없다. 닿는 것은
-    -- 문자열 대신 페이로드를 저장하기로 바뀌기 전에 만들어진 개발용 `DebindStorageVars`다.
-    -- 거절이 답인 자리에서 던지지는 말아야 한다.
+    -- **A shipped build never makes such an entry**: `ImportEntry` always fills it, and nothing
+    -- that skipped that door can be on anybody's disk. What reaches this is a development
+    -- `DebindStorageVars` from before entries stored the payload instead of the string. Where
+    -- refusing is the answer, it must not raise.
     test("페이로드가 없는 배치는 던지지 않고 거절한다", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
         local entry = DebindStorage.ImportEntry(GOOD);
         entry.payload = nil;
@@ -473,7 +477,7 @@ return function(DebindPrivate, DebindStorage)
 
 
     test("id는 지워도 다시 안 쓰인다", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
 
         local first = DebindStorage.ImportEntry(GOOD);
@@ -486,7 +490,7 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     test("없는 것을 지우면 아무 일도 안 난다", function()
-        ResetDrawer();
+        ResetEntries();
         check(DebindStorage.DeleteEntry(999) == false, "지웠다고 답했다");
     end);
 
@@ -494,7 +498,7 @@ return function(DebindPrivate, DebindStorage)
     -- being a plain table has to survive. Nothing here may be a closure, a metatable, or a
     -- reference to a live profile table.
     test("배치는 저장 가능한 값만 들고 있다", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
         local entry = DebindStorage.ImportEntry(GOOD);
 
@@ -626,7 +630,7 @@ return function(DebindPrivate, DebindStorage)
 
     -- A string can carry its sender's name now; the reader's own, when typed, is the one kept.
     test("이름 없이 붙이면 문자열의 이름이 남고, 붙이며 적은 이름이 그 위에 선다", function()
-        ResetDrawer();
+        ResetEntries();
         local sent = Payload({ { scope = "general", key = "F" } });
         sent.name = "보낸 이름";
         STORED["DEB2:named"] = sent;
@@ -639,10 +643,10 @@ return function(DebindPrivate, DebindStorage)
             "적은 이름이 안 섰다");
     end);
 
-    -- A drawer from 4.1 holds the name on the row. Nothing but this step moves it, and a row whose
-    -- name stayed behind would draw as if it had none.
-    test("옛 서랍의 행 이름은 페이로드로 옮겨진다", function()
-        ResetDrawer();
+    -- An entry stored by 4.1 holds the name on the row. Nothing but this step moves it, and a row
+    -- whose name stayed behind would draw as if it had none.
+    test("4.1이 저장한 항목의 행 이름은 페이로드로 옮겨진다", function()
+        ResetEntries();
         local named = Payload({ { scope = "general", key = "F" } });
         _G.DebindStorageVars = { version = 1, nextID = 2, entries = {
             { id = 1, received = 0, name = "옛 이름", payload = named },
@@ -654,10 +658,11 @@ return function(DebindPrivate, DebindStorage)
         check(entries[1].name == nil, "행에 이름이 남았다");
     end);
 
-    -- Whose cells a payload holds is the payload's own `characters`. A drawer from 4.1 also has who
-    -- made the row beside it, and left there it is a second answer for the next reader to pick up.
-    test("옛 서랍의 행이 든 만든 캐릭터·서버·guid는 걷힌다", function()
-        ResetDrawer();
+    -- Whose cells a payload holds is the payload's own `characters`. An entry stored by 4.1 also
+    -- has who made the row beside it, and left there it is a second answer for the next reader to
+    -- pick up.
+    test("4.1이 저장한 항목의 행이 든 만든 캐릭터·서버·guid는 걷힌다", function()
+        ResetEntries();
         _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
             { id = 1, received = 100, character = "Tester", realm = "Test Realm", guid = "Player-1-A",
               payload = Payload({ { scope = "general", key = "F" } }) },
@@ -674,8 +679,8 @@ return function(DebindPrivate, DebindStorage)
     -- The character beside a 4.1 row is the only record of it having been made here, so it has to
     -- become `receivedFrom` in the step that drops it. A 4.1 Clique row counts as read off a
     -- profile whichever way it came in (owner, 2026-10-03).
-    test("옛 서랍의 행은 어디서 받았는지를 얻는다", function()
-        ResetDrawer();
+    test("4.1이 저장한 항목의 행은 어디서 받았는지를 얻는다", function()
+        ResetEntries();
         local clique = { v = 2, dbver = Constants.DB_VERSION, source = "clique",
             shared = { GENERAL = { { type = Constants.SPELL, value = 1, key = "H", seq = 1 } } } };
         _G.DebindStorageVars = { version = 1, nextID = 4, entries = {
@@ -694,8 +699,8 @@ return function(DebindPrivate, DebindStorage)
     -- A 4.1 payload has no `created`, and what said a row was made here was the character beside it.
     -- Made here, it was made the moment it was received; that has to reach the payload before the
     -- character goes, or the row's making is lost.
-    test("옛 서랍의 여기서 만든 행은 받은 시각을 만든 시각으로 넘긴다", function()
-        ResetDrawer();
+    test("4.1이 저장한 항목 중 여기서 만든 행은 받은 시각을 만든 시각으로 넘긴다", function()
+        ResetEntries();
         local made = Payload({ { scope = "general", key = "F" } });
         local pasted = Payload({ { scope = "general", key = "G" } });
         _G.DebindStorageVars = { version = 1, nextID = 3, entries = {
@@ -885,7 +890,7 @@ return function(DebindPrivate, DebindStorage)
     end
 
     test("a pasted payload is sanitized as it is stored", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = BrokenPayload();
         local entry = DebindStorage.ImportEntry(GOOD);
         check(entry, "refused");
@@ -893,22 +898,22 @@ return function(DebindPrivate, DebindStorage)
     end);
 
     test("a converted payload is sanitized as it is stored", function()
-        ResetDrawer();
+        ResetEntries();
         local entry = DebindStorage.StorePayload(BrokenPayload());
         check(entry, "refused");
         CheckSanitized(entry.payload, "stored");
     end);
 
-    test("what is already in the drawer is sanitized when the drawer is read", function()
-        ResetDrawer();
+    test("what is already stored is sanitized when the entries are read", function()
+        ResetEntries();
         _G.DebindStorageVars = { version = 2, nextID = 2, entries = {
             { id = 1, received = 0, receivedFrom = "string", payload = BrokenPayload() },
         } };
-        CheckSanitized(DebindStorage.GetEntries()[1].payload, "in the drawer");
+        CheckSanitized(DebindStorage.GetEntries()[1].payload, "in the stored entries");
     end);
 
     test("an entry is sanitized again when it is opened", function()
-        ResetDrawer();
+        ResetEntries();
         STORED[GOOD] = GOOD_PAYLOAD;
         local entry = DebindStorage.ImportEntry(GOOD);
         entry.payload = BrokenPayload();

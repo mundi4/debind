@@ -43,7 +43,7 @@
 				A pin stood beside the delete button, to keep an entry out of the expiry sweep.
 				**There is no sweep** - nothing removes an entry but that button - so it exempted the
 				reader from something that does not happen, and the line beside it promised a
-				clear-out the drawer does not perform. Both are gone until there is one, and it will
+				clear-out Storage does not perform. Both are gone until there is one, and it will
 				have to ask rather than sweep (`devdocs/building-export-import.md`).
 			-->
 			<Button parentKey="DeleteButton" inherits="DebindRowDeleteButtonTemplate">
@@ -426,7 +426,7 @@
 
 		A dialog rather than a box in the panel, for the reason the copy dialog is one: a box used
 		when a string arrives and empty the rest of the time spends the list's height on nothing.
-		The drawer is what the panel is for; pasting is how a row gets into it.
+		The list of entries is what the panel is for; pasting is one way a row gets into it.
 
 		**The shape is the game's own import dialog** - `Blizzard_ClassTalentLoadoutImportDialog.xml`,
 		the one a talent loadout is pasted into. It is the same dialog doing the same job, down to the

@@ -34,7 +34,7 @@ local function UnitConditionForBinding(value)
         -- **Only a value set with `/run` in this session gets here.** The ladder carries a broken row
         -- up as it is, and every door then drops a row that is not a table (`SanitizeAction`) before
         -- anything reads it: the load sanitizes before the first rebuild, and a payload is sanitized
-        -- going into the drawer and coming out. Its action is left out by `INVALID_ACTION`
+        -- going into `DebindStorage` and coming out. Its action is left out by `INVALID_ACTION`
         -- (`UnitConditionIsUnreadable`). `false` rather than reading it, so the rebuild does not
         -- raise on it, and because the tooltip and the condition menu pick one of three radios and
         -- have no fourth.

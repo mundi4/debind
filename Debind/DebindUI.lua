@@ -1664,14 +1664,14 @@ end
 --- The window's tab row. One row per tab, and `id` is the seat - the XML's `id=` and the order
 --- here have to agree, because `parentArray="Tabs"` fills the array by declaration order.
 ---
---- **Every panel is this addon's own now**, so all three arrive by `panelKey`. Two of them used to
+--- **Every panel is this addon's own now**, so every one arrives by `panelKey`. Two of them used to
 --- be built by the load-on-demand addon, which is why they could not be XML children of the frame
 --- and had to be fetched by global name and reparented. Moving the UI over here closed that road
 --- (`building-export-import.md`).
 ---
 --- `needsStore` is what is left of the split, and it asks about **data** rather than about the
---- panel. Import reads the drawer, Export walks the profile through `IsExportable`, and both of
---- those still live in the addon that is loaded on demand.
+--- panel. Storage reads the entries `DebindStorage` keeps and walks the profile through
+--- `IsExportable`, and both of those still live in the addon that is loaded on demand.
 --- Overview's seat. Named because two places outside the tab row have to name it: the first
 --- selection at load, and anything that has to put the reader back somewhere its work is visible.
 local OVERVIEW_PANEL = 1;
@@ -1684,7 +1684,7 @@ local STORE_ADDON = "DebindStorage";
 
 local PANELS = {
 	{ title = "OVERVIEW",     desc = "OVERVIEW_DESC",      panelKey = "OverviewPanel" },
-	-- **Ahead of the sharing pair, and the only seat that is not about actions.** It reads the
+	-- **Ahead of Storage, and the only seat that is not about actions.** It reads the
 	-- switch definitions, which are ordinary profile data, so it needs nothing loaded on demand.
 	{ title = "SWITCHES", desc = "SWITCHES_DESC", panelKey = "SwitchesPanel" },
 	-- **One seat where there were two.** Making a string and taking one in are the same list read
@@ -1703,11 +1703,12 @@ local function PanelTitle(entry)
 	return rawget(LLL, entry.title) or _G[entry.title];
 end
 
---- Brings in the addon that builds the strings and keeps the drawer. Does nothing if it is here.
+--- Brings in the addon that builds the share codes and keeps the entries. Does nothing if it is
+--- here.
 ---
 --- **The private table is parked on `_G` only for the length of `LoadAddOn`.** The first file over
 --- there grabs it inside that window and hands its own table back as `DebindPrivate.Store`, which
---- is what the two panels reach the model through. `DebindCliqueFake` crosses the same way.
+--- is what the Storage panel reaches the model through. `DebindCliqueFake` crosses the same way.
 ---
 --- It asks `IsAddOnLoaded`. It once named a frame over there instead, which answers "was that one
 --- frame built", not "is the addon in" - and every frame it could have named now belongs to this
@@ -4133,10 +4134,10 @@ end
 
 --- The panel this tab shows, or nil - in which case `MissingPanel` stands in its place.
 ---
---- **The panel always exists; what can be missing is what it reads.** Every one of the three is
---- built by this addon's own XML, so the old road - fetch it by global name from the load-on-demand
---- addon, reparent it, pin it - is gone along with the reason for it. What is left is that two of
---- them have nothing to draw without the addon that holds the drawer and answers `IsExportable`.
+--- **The panel always exists; what can be missing is what it reads.** Every one of them is built by
+--- this addon's own XML, so the old road - fetch it by global name from the load-on-demand addon,
+--- reparent it, pin it - is gone along with the reason for it. What is left is that Storage has
+--- nothing to draw without the addon that keeps the entries and answers `IsExportable`.
 ---
 --- **It does not say why, because there is only one why: that addon did not come in.** A reader who
 --- switched it off in the AddOns list is the one case, and `MissingPanel` says exactly that. Drawing
