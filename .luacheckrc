@@ -151,6 +151,7 @@ globals = {
 	"FindSpellBookSlotBySpellID",
 	"IsInRaid",
 	"IsInGroup",
+	"GetRaidRosterInfo",
 	-- 12.1 secret-value probe; nil on older clients, callers must guard
 	"issecretvalue",
 

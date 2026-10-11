@@ -30,14 +30,24 @@ function DebindPrivate.CountText(noun, n)
 end
 
 
+--- `UnitName`'s two returns, or nil where the unit has no name to give.
+---
+--- 12.1 can answer with secrets for units outside our access (arena enemies). A secret name
+--- cannot be formatted or concatenated, and **either half secret is no name at all**: a first
+--- name kept alone is not one person on camelot. Every caller treats nil as "nothing to show".
+function DebindPrivate.PlainUnitName(unit)
+    local name, second = UnitName(unit);
+    if (issecretvalue and (issecretvalue(name) or issecretvalue(second))) then
+        return nil;
+    end
+    return name, second;
+end
+
 --- **The name a character is stored and shown by**, the player's included: `UnitName`'s first
 --- return alone is not one on camelot (`JoinUnitName`).
 function DebindPrivate.GetUnitFullName(unit)
-    local name, second = UnitName(unit);
-    -- 12.1 can answer with secrets for units outside our access (arena enemies). A
-    -- secret name cannot be formatted or concatenated, and every caller already treats
-    -- nil as "nothing to show", so that is what a secret becomes.
-    if (issecretvalue and (issecretvalue(name) or issecretvalue(second))) then
+    local name, second = DebindPrivate.PlainUnitName(unit);
+    if (not name) then
         return nil;
     end
     return DebindPrivate.JoinUnitName(name, second);

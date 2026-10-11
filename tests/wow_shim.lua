@@ -85,6 +85,7 @@ function M.resetWorld(client)
     end
     M.world.inCombat = false;
     M.world.specIndex = nil;
+    M.world.group = nil;
     M.world.modifiedClicks.SELFCAST = "CTRL";
     M.world.modifiedClicks.FOCUSCAST = "ALT";
     M.world.client = client;
@@ -429,6 +430,10 @@ function M.install()
         local unit = M.world.units[token];
         return (unit and unit.ghost) and true or false;
     end
+    _G.UnitIsPlayer = function(token)
+        local unit = M.world.units[token];
+        return (unit and unit.isPlayer) and true or false;
+    end
     _G.PlayerCanAssist = function(token)
         local unit = M.world.units[token];
         return (unit and unit.reaction == "help") and true or false;
@@ -442,9 +447,39 @@ function M.install()
     _G.GetBonusBarOffset = function() return 0; end
     _G.IsStealthed = function() return false; end
     _G.IsMounted = function() return false; end
-    _G.IsInGroup = function() return false; end
-    _G.IsInRaid = function() return false; end
-    _G.GetNumGroupMembers = function() return 0; end
+    --- **The group is `M.world.group`**: nil alone, `"party"` or `"raid"`. Its members are the
+    --- `partyN` / `raidN` entries of `M.world.units`, so a spec stands a group up by putting both
+    --- down. A raid member's `rosterName` is what `GetRaidRosterInfo` answers for it, and in a raid
+    --- the `partyN` entries are the reader's subgroup, as the client has them.
+    ---
+    --- **Counting the `raidN` entries is the highest index**, because the client numbers a raid
+    --- from 1 with no gaps: a member leaving moves everyone above them down one.
+    local function CountUnits(prefix, limit)
+        local n = 0;
+        for i = 1, limit do
+            if (M.world.units[prefix .. i]) then
+                n = n + 1;
+            end
+        end
+        return n;
+    end
+    _G.IsInGroup = function() return M.world.group ~= nil; end
+    _G.IsInRaid = function() return M.world.group == "raid"; end
+    _G.GetNumSubgroupMembers = function()
+        return M.world.group and CountUnits("party", 4) or 0;
+    end
+    _G.GetNumGroupMembers = function()
+        if (M.world.group == "raid") then
+            return CountUnits("raid", 40);
+        elseif (M.world.group == "party") then
+            return CountUnits("party", 4) + 1;
+        end
+        return 0;
+    end
+    _G.GetRaidRosterInfo = function(index)
+        local unit = M.world.group == "raid" and M.world.units["raid" .. index];
+        return unit and unit.rosterName or nil;
+    end
     --- **The insecure side's copy, and it answers only `[known:]`.** That is the one conditional
     --- a rebuild hands this global (`KeyRecords.lua` settles a fixed `known` here); the
     --- restricted environment has its own reader with the whole grammar (`tests/restricted.lua`).
@@ -576,7 +611,19 @@ function M.install()
     -- uses `UnitGUID` as a key, and `GetClassInfo` mirrors how the import builds class names.
     _G.UnitGUID = function() return "Player-1-TESTGUID"; end
     _G.UnitLevel = function() return 80; end
-    _G.UnitName = function() return "Tester"; end
+    --- A unit in `M.world.units` that carries a `name` answers with it and its `second`.
+    --- A token that names no unit answers nil, as the client does; `player` exists whether or not
+    --- a spec put it in the world.
+    _G.UnitName = function(token)
+        local unit = M.world.units[token];
+        if (unit and unit.name) then
+            return unit.name, unit.second;
+        end
+        if (unit or token == "player") then
+            return "Tester";
+        end
+        return nil;
+    end
     _G.UnitRace = function() return "Human", "Human", 1; end
     _G.UnitSex = function() return 2; end
     _G.UnitFactionGroup = function() return "Alliance"; end
@@ -620,7 +667,16 @@ function M.install()
         };
         --- **Camelot's second return is the surname, not a realm**: its own `NameUtil.lua` joins the
         --- two. A tab tooltip on 70009 got "Smelly", "Pitt" and took the surname for its colour.
-        _G.UnitName = function() return "Tester", "Surname"; end
+        _G.UnitName = function(token)
+            local unit = M.world.units[token];
+            if (unit and unit.name) then
+                return unit.name, unit.second;
+            end
+            if (unit or token == "player") then
+                return "Tester", "Surname";
+            end
+            return nil;
+        end
         --- **Not the client's value**, which the interface export does not carry. Kept apart from
         --- `FULL_PLAYER_NAME`'s dash so a name joined through the realm format shows.
         _G.Constants = { CharacterNameSeparatorConsts = { CHARACTERNAME_SURNAME_SEPARATOR = "~" } };
@@ -1166,6 +1222,7 @@ function M.install()
     _G.ORANGE_FONT_COLOR = color("ffff7f3f");
     _G.NORMAL_FONT_COLOR = color("ffffd100");
     _G.GREEN_FONT_COLOR = color("ff19ff19");
+    _G.GRAY_FONT_COLOR = color("ff808080");
     _G.ITEM_QUALITY_COLORS = { [6] = { color = color("ffe6cc80") } };
 
     --- **A colour per class, so a spec reading a line back can tell two of them apart.** The codes

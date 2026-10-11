@@ -117,6 +117,7 @@ function M.reset()
     for frame in pairs(attributeDrivers) do attributeDrivers[frame] = nil; end
     for key in pairs(overrides) do overrides[key] = nil; end
     for frame in pairs(wrappers) do wrappers[frame] = nil; end
+    M.layoutGroupHeader = nil;
     -- `SecureStateDriverManager` and the other frames `install` stands up are not cleared here:
     -- `resetWorld` runs `install` again before every spec, so each spec gets new ones.
     M.__clearTimers();
@@ -249,6 +250,20 @@ function frameMethods:HasAccessConstraints() return false; end
 function frameMethods:SetAttribute(name, value)
     self.__attributes[name] = value;
     record("SetAttribute", label(self), name, value, self);
+    M.groupHeaderTouched(self, name);
+end
+
+--- **A group header lays itself out on `OnShow` and on an attribute written while it shows**
+--- (`SecureGroupHeaders.xml`, `SecureGroupHeader_OnAttributeChanged`). The layout is the
+--- interpreter's to run, since what it writes on the children runs their wrapped bodies; it sets
+--- `M.layoutGroupHeader`. Nil is a spec that stood no interpreter up, where nothing could run them.
+function M.groupHeaderTouched(frame, name)
+    if (M.layoutGroupHeader and frame.__shown and frame.__template
+            and sfind(frame.__template, "SecureGroupHeaderTemplate", 1, true)
+            and (name == nil or not sfind(name, "^_") and not sfind(name, "^child")
+                and not sfind(name, "^frameref%-"))) then
+        M.layoutGroupHeader(frame);
+    end
 end
 
 function frameMethods:GetAttribute(name) return self.__attributes[name]; end
@@ -293,7 +308,13 @@ function frameMethods:EnableMouseWheel(on) self.__mouseWheel = on and true or fa
 --- one thing this file does not stand in for.
 function frameMethods:Click() end
 
-function frameMethods:Show() self.__shown = true; end
+function frameMethods:Show()
+    local was = self.__shown;
+    self.__shown = true;
+    if (not was) then
+        M.groupHeaderTouched(self);
+    end
+end
 function frameMethods:Hide() self.__shown = false; end
 function frameMethods:IsShown() return self.__shown and true or false; end
 function frameMethods:IsVisible() return self.__shown and true or false; end

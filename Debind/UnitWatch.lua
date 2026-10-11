@@ -59,10 +59,104 @@ do
     SecureHandlerExecute(UnitWatch, table.concat(tmp, "\n"));
 end
 
+--- The `nameList` a custom target's header has to hold to find this group member, or nil.
+---
+--- **Built the way the header builds the name it compares, not the way a name is shown**
+--- (`GetGroupRosterInfo` in `SecureGroupHeaders.lua`): `UnitName`'s two returns joined by "-"
+--- outside a raid, `GetRaidRosterInfo`'s name inside one. Not `GetUnitFullName`: on camelot that
+--- joins the surname with the client's separator, a space, and a list in that form matches no
+--- surnamed member (measured on 1.60.1.70338: "Jathelbur Drillmaven" filled no child,
+--- "Jathelbur-Drillmaven" filled party1).
+---
+--- **The "-" name comes first, and it is the one that says who this is.** It can be built for any
+--- token, so it is what a pin is kept by across a party becoming a raid and back
+--- (`UpdateGroupRoster`). In a raid the roster's name rides after it, because that is the only
+--- one the header reads there and nothing makes the two spelled alike. **The roster index comes
+--- from `UnitInRaid`, not the token**: a member of the reader's subgroup is `partyN` as well, and
+--- a list built for that token without the roster's name finds nobody in the raid.
+---
+--- Saved pins need no conversion to this: what every released build saved was
+--- `FULL_PLAYER_NAME`'s "-" join, and the space-joined form never shipped.
+local function HeaderNameList(unit)
+    local name, second = DebindPrivate.PlainUnitName(unit);
+    if (not name) then
+        return nil;
+    end
+    if (second and second ~= "") then
+        name = name .. "-" .. second;
+    end
+    local index = IsInRaid() and PlainOrNil(UnitInRaid(unit));
+    local roster = index and PlainOrNil((GetRaidRosterInfo(index)));
+    if (roster and roster ~= name) then
+        return name .. "," .. roster;
+    end
+    return name;
+end
+
+--- The first name in a list, nil where it has none. **A list is not always ours**: `/deb
+--- custom1` and the `DebindCustom` buttons take whatever they are handed, `":,Bob"` included.
+local function PinKey(list)
+    return list and strmatch(list, "^[^,]+");
+end
+
+--- The pin's "-" name as the client shows a name, for a chat line naming someone the group no
+--- longer has. A first name holds no "-", so the first one is where the second name starts. A
+--- list with no first name is shown as it is.
+local function ShownNameOfList(list)
+    local key = PinKey(list);
+    if (not key) then
+        return list;
+    end
+    local first, second = strmatch(key, "^([^-]+)-(.+)$");
+    if (first) then
+        return DebindPrivate.JoinUnitName(first, second);
+    end
+    return key;
+end
+
 ---------------------------------------
 -- UpdateGroupRoster
 do
     local _prevUnitNameMap = {};
+
+    --- **A pin held by name gains the names this roster writes for the same person.** The header
+    --- looks up a different name in a raid than in a party, so the list it was given in one finds
+    --- nobody once the group converts. Out of combat only, like everything here.
+    ---
+    --- **Names are added and never taken away.** A roster that cannot answer a member's raid name
+    --- yet (a login into a raid) writes a list without it, and replacing with that would lose the
+    --- one name the raid header reads until the next roster update -- none comes in a fight. A list
+    --- handed over by hand can also name people the roster says nothing about, and they stay.
+    ---
+    --- **The custom headers can be missing.** The roster watcher below is shown while this file is
+    --- still loading, its first layout calls `UpdateGroupRoster`, and the custom headers are made
+    --- after it.
+    local function CarryNamePins(unitNameMap)
+        for i = 1, 2 do
+            local header = DebindPrivate.UnitWatchHeaders["custom" .. i];
+            local list = header and header:IsShown() and header:GetAttribute("nameList");
+            if (list) then
+                local held = {};
+                for entry in list:gmatch("[^,]+") do
+                    held[entry] = true;
+                end
+                local carried = list;
+                for _, names in pairs(unitNameMap) do
+                    if (held[PinKey(names)]) then
+                        for entry in names:gmatch("[^,]+") do
+                            if (not held[entry]) then
+                                held[entry] = true;
+                                carried = carried .. "," .. entry;
+                            end
+                        end
+                    end
+                end
+                if (carried ~= list) then
+                    header:SetAttribute("nameList", carried);
+                end
+            end
+        end
+    end
     function UnitWatch:UpdateGroupRoster()
         if (InCombatLockdown()) then
             return;
@@ -72,13 +166,13 @@ do
         if (IsInRaid()) then
             for i = 1, MAX_RAID_MEMBERS do
                 local unitToken = "raid" .. i;
-                unitNameMap[unitToken] = DebindPrivate.GetUnitFullName(unitToken);
+                unitNameMap[unitToken] = HeaderNameList(unitToken);
             end
         end
         if (IsInRaid() or IsInGroup()) then
             for i = 1, MAX_PARTY_MEMBERS do
                 local unitToken = "party" .. i;
-                unitNameMap[unitToken] = DebindPrivate.GetUnitFullName(unitToken);
+                unitNameMap[unitToken] = HeaderNameList(unitToken);
             end
         end
 
@@ -104,6 +198,7 @@ do
         end
 
         _prevUnitNameMap = unitNameMap;
+        CarryNamePins(unitNameMap);
         UnitWatch:SetAttribute("grouproster_uptodate", true);
         SecureHandlerExecute(UnitWatch, [[self:RunAttribute("OnGroupRosterChanged", true)]]);
     end
@@ -279,7 +374,8 @@ end
 
 -- Tidies custom targets when the roster changed (uptodate=false) and when it is current
 -- again (uptodate=true). Name-tracked ones (their header is shown) follow the person by
--- themselves, so only the volatile ones (a raw token) are touched here.
+-- themselves, and `UpdateGroupRoster` carries their list across a party becoming a raid, so only
+-- the volatile ones (a raw token) are touched here.
 --
 -- A volatile one is dropped rather than carried over because we never learned who it points
 -- at. `unitNames` is filled by `UpdateGroupRoster`, which bails out in combat, so from the
@@ -535,17 +631,25 @@ do
                         unitName = DebindPrivate.GetUnitFullName(value);
                         guid = PlainOrNil(UnitGUID(value));
                         if (unitType == "group") then
-                            isVolatile = not DebindPrivate.UnitWatchHeaders[alias]:IsShown();
-                            if (unitName) then
-                                saveValue = ":" .. unitName;
+                            local header = DebindPrivate.UnitWatchHeaders[alias];
+                            isVolatile = not header:IsShown();
+                            local list;
+                            if (isVolatile) then
+                                list = HeaderNameList(value);
+                            else
+                                list = header:GetAttribute("nameList");
+                            end
+                            if (list) then
+                                saveValue = ":" .. list;
                             end
                         else
                             saveValue = value;
                         end
                     elseif (DebindPrivate.UnitWatchHeaders[alias]:IsShown()) then
-                        unitName = DebindPrivate.UnitWatchHeaders[alias]:GetAttribute("nameList");
-                        if (unitName) then
-                            saveValue = ":" .. unitName;
+                        local list = DebindPrivate.UnitWatchHeaders[alias]:GetAttribute("nameList");
+                        if (list) then
+                            unitName = ShownNameOfList(list);
+                            saveValue = ":" .. list;
                         end
                     end
 
@@ -670,7 +774,12 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
             unit = self:GetAttribute("resolvedUnit") or unit
 		end
 
-        if (unit ~= unitMap[alias]) then
+        local header = UnitwatchHeaders[alias]
+        -- A name the header holds and nobody in the group answers to leaves unitMap nil, so a
+        -- clear compares nil with nil; the header is what still holds it. Only a clear asks: a
+        -- press over the person the header already matched, after a roster change in combat,
+        -- would come back with no nameList and turn the name into a bare token.
+        if (unit ~= unitMap[alias] or (not unit and header:IsShown())) then
             if (unit) then
                 if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit]) then
                     if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
@@ -692,7 +801,6 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
                 end
             end
 
-            local header = UnitwatchHeaders[alias]
             if (nameList) then
                 header:SetAttribute("nameList", nameList)
                 header:Show()
@@ -724,8 +832,11 @@ UnitWatch:SetAttribute("_onattributechanged", [==[
 --- those two lines breaks this in silence. Remove the dependency before moving either.
 UnitWatch:SetScript("OnEvent", function(_, event, arg1)
     if (event == "PLAYER_LOGIN") then
-        UnitWatch:UpdateGroupRoster();
+        -- Loaded first, so the roster below can carry a list saved in a party to the raid the
+        -- reader logged back into (`CarryNamePins` only sees a pin whose header shows). A saved
+        -- value is a name list or a token that is not a group's, and neither needs the roster.
         UnitWatch:LoadCustomTargets();
+        UnitWatch:UpdateGroupRoster();
         UnitWatch:RegisterEvent("PLAYER_REGEN_ENABLED");
         UnitWatch:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT");
         UnitWatch:RegisterEvent("ARENA_OPPONENT_UPDATE");

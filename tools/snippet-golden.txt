@@ -4482,7 +4482,12 @@ self:RunAttribute("ClearRoleUnits", %q)
             unit = self:GetAttribute("resolvedUnit") or unit
 		end
 
-        if (unit ~= unitMap[alias]) then
+        local header = UnitwatchHeaders[alias]
+
+
+
+
+        if (unit ~= unitMap[alias] or (not unit and header:IsShown())) then
             if (unit) then
                 if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit]) then
                     if (CUSTOM_TARGET_VALID_UNIT_TOKENS[unit] == "group") then
@@ -4504,7 +4509,6 @@ self:RunAttribute("ClearRoleUnits", %q)
                 end
             end
 
-            local header = UnitwatchHeaders[alias]
             if (nameList) then
                 header:SetAttribute("nameList", nameList)
                 header:Show()

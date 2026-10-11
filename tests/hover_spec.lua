@@ -392,5 +392,26 @@ return function(DebindPrivate, _, ctx)
         check(unit == nil, "custom1: " .. tostring(unit));
     end);
 
+    --- **A name nobody in the group answers to is still a custom target**, held by the header
+    --- rather than by `unitMap` -- the person who left, or the one saved before a solo login. A
+    --- clear has to take it off the header too, or that person becomes custom1 again on rejoining.
+    --- `"none"` is swept beside the empty cursor because the same comparison decides both.
+    test("이름으로 붙든 사용자 지정 대상도 빈 곳에서 누르면 지워진다", function()
+        local header = DebindPrivate.UnitWatchHeaders.custom1;
+        for _, clear in ipairs({ "unitframe", "none" }) do
+            customFromHover({ player = { id = "me" } });
+            interp:setCustomTarget("custom1", ":Somebody");
+            frames.drainTimers();
+            check(header:IsShown() and DebindPrivate.GetSavedCustomTarget("custom1") == ":Somebody",
+                "전제가 깨졌다 - 이름이 헤더에 안 걸렸다");
+
+            interp:setCustomTarget("custom1", clear);
+            frames.drainTimers();
+            check(not header:IsShown(), clear .. ": 헤더가 아직 그 이름을 찾고 있다");
+            local saved = DebindPrivate.GetSavedCustomTarget("custom1");
+            check(saved == nil, clear .. ": 저장된 값이 " .. tostring(saved));
+        end
+    end);
+
     return T;
 end

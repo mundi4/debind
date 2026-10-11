@@ -399,6 +399,8 @@ local specs = {
     { name = "camelotdispel", path = root .. "/camelotdispel_spec.lua", client = "camelot" },
     { name = "unlearned", path = root .. "/unlearned_spec.lua", client = "camelot" },
     { name = "actionmenutree/camelot", path = root .. "/actionmenutree_spec.lua", client = "camelot" },
+    { name = "customtarget", path = root .. "/customtarget_spec.lua" },
+    { name = "customtarget/camelot", path = root .. "/customtarget_spec.lua", client = "camelot" },
 };
 
 --- What a spec is handed besides the addon. Only the golden reads it so far, and what it needs is

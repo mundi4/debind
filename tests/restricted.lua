@@ -411,6 +411,7 @@ local function setAttribute(handle, name, value, fromManager)
     if (name:sub(1, 1) == "_") then
         return;
     end
+    frames.groupHeaderTouched(frame, name);
     local body = frame:GetAttribute("_onattributechanged");
     if (body) then
         tally(self.__interp, "handler entry");
@@ -761,6 +762,12 @@ function Interp:replay(entries)
     local replayed = self.replayFrames;
     for i = 1, #entries do
         local entry = entries[i];
+        --- **A frame ref is taken on any frame.** It is a name pointing at a frame and runs nothing,
+        --- and a body reaches frames through it that are not ours to replay into: `UnitWatch` reads
+        --- each custom header's children as `header:GetFrameRef("child" .. i)`.
+        if (entry.kind == "SetFrameRef" and not replayed[entry.frame]) then
+            handleFor(self, entry.frame).__refs[entry.name] = handleFor(self, entry.ref);
+        end
         if (replayed[entry.frame]) then
             local handle = handleFor(self, entry.frame);
             if (entry.kind == "Execute") then
@@ -1249,6 +1256,91 @@ function Interp:setCustomTarget(alias, value)
     return self.env.UnitAliasMap[alias];
 end
 
+--- **A `SecureGroupHeaderTemplate` header's layout, for a header filtered by `nameList`.**
+--- Transcribed from `SecureGroupHeader_Update` and the two functions under it
+--- (`SecureGroupHeaders.lua`, the same on both clients): which members it takes and **the name it
+--- compares each by** -- `GetRaidRosterInfo`'s in a raid, `UnitName`'s two returns joined by "-"
+--- otherwise -- then a unit written on every child in index order, `nil` past the last one filled.
+--- Each write runs the child's wrapped `OnAttributeChanged`, as the client's does.
+---
+--- A header filtered by group or role is left alone. Nothing headless asks one to lay out, and a
+--- transcription of the half nobody reads is one nobody would notice going wrong.
+function Interp:layoutGroupHeader(frame)
+    local attrs = frame.__attributes;
+    local nameList = attrs.nameList;
+    if (not nameList or attrs.groupFilter or attrs.roleFilter) then
+        return;
+    end
+
+    local kind, start, stop;
+    if (IsInRaid() and attrs.showRaid) then
+        kind = "RAID";
+    elseif (IsInGroup() and attrs.showParty) then
+        kind = "PARTY";
+    elseif (attrs.showSolo) then
+        kind = "SOLO";
+    end
+    local units = {};
+    if (kind) then
+        if (kind == "RAID") then
+            start, stop = 1, GetNumGroupMembers();
+        else
+            start = (kind == "SOLO" or attrs.showPlayer) and 0 or 1;
+            stop = GetNumSubgroupMembers();
+        end
+        local wanted = {};
+        for entry in nameList:gmatch("[^,]+") do
+            wanted[entry:match("^%s*(.-)%s*$")] = true;
+        end
+        for i = start, stop do
+            local unit, name;
+            if (kind == "RAID") then
+                unit = "raid" .. i;
+                name = GetRaidRosterInfo(i);
+            else
+                unit = i > 0 and ("party" .. i) or "player";
+                if (UnitExists(unit)) then
+                    local first, second = UnitName(unit);
+                    name = (second and second ~= "") and (first .. "-" .. second) or first;
+                end
+            end
+            if (name and wanted[name]) then
+                units[#units + 1] = unit;
+            end
+        end
+    end
+
+    local shown = math.min(#units, attrs.unitsPerColumn or #units);
+    local i = 1;
+    while (attrs["child" .. i]) do
+        local child = attrs["child" .. i];
+        local unit = i <= shown and units[i] or nil;
+        child.__attributes.unit = unit;
+        local chain = frames.wrapperChain(child, "OnAttributeChanged");
+        for n = 1, chain and #chain or 0 do
+            self:run(chain[n].pre, handleFor(self, child), "self,name,value",
+                self:envFor(chain[n].header), "unit", unit);
+        end
+        i = i + 1;
+    end
+end
+
+--- The group changing, as the client delivers it: `GROUP_ROSTER_UPDATE` lays out every header
+--- that shows, and the roster watcher's child moving is what calls `UpdateGroupRoster`
+--- (`UnitWatch.lua`). The headers go first, so a fix that leans on the watcher has to survive
+--- the headers having already looked. What `UpdateGroupRoster` hands the restricted side is
+--- replayed after it returns.
+function Interp:rosterChanged()
+    for _, header in pairs(self.Private.UnitWatchHeaders) do
+        if (header:IsShown()) then
+            self:layoutGroupHeader(header);
+        end
+    end
+    local mark = frames.mark();
+    self.Private.UnitWatch:UpdateGroupRoster();
+    self:replay(frames.since(mark));
+end
+
 --- Stands an interpreter up on everything recorded so far.
 ---
 --- `world` is the shim's, so the units the insecure side sees are the ones in here. `state` is the
@@ -1326,6 +1418,16 @@ function M.new(DebindPrivate, world, opts)
     interp.replayFrames = { [interp.driver] = true, [interp.unitWatch] = true };
 
     interp:replay(frames.all());
+    frames.layoutGroupHeader = function(frame) interp:layoutGroupHeader(frame); end
+
+    --- **An insecure write on `UnitWatch` runs its handler on the spot**, as the client's does.
+    --- `LoadCustomTargets` and `/deb custom1` set a custom target that way, and a replay after the
+    --- call returns would run the handler after everything the same call did next.
+    local shellSetAttribute = interp.unitWatch.SetAttribute;
+    rawset(interp.unitWatch, "SetAttribute", function(frame, name, value)
+        shellSetAttribute(frame, name, value);
+        setAttribute(interp.unitWatchHandle, name, value, false);
+    end);
 
     return interp;
 end
