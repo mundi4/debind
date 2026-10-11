@@ -182,6 +182,22 @@ return function(DebindPrivate, shim)
                     ["@"] = { reaction = Constants.REACTION_HELP + Constants.REACTION_OTHER },
                     target = { dead = false },
                 } } }),
+            --- **`"@"` with no unit picked**: asked of `target` wherever `binding.unit` is empty, the
+            --- `none` original included though it goes out at `none`, and of the unit a twin carries
+            --- on the rest. CTRL-SHIFT-F9 leaves `hoverCast`
+            --- absent, so with `normalCast` false its hover twin is the empty one.
+            action({ type = Constants.SPELL, value = 8936, key = "CTRL-SHIFT-F8",
+                casting = { hoverCast = "cast", focusCastKey = "usual" },
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP, dead = false } } } }),
+            action({ type = Constants.SPELL, value = 774, key = "CTRL-SHIFT-F9",
+                casting = { normalCast = false, selfCastKey = "usual" },
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }),
+            --- `none` empties `binding.unit` too, and goes out at `none` (`CastUnitOf`). Under it, a
+            --- tail with a `"@"` of its own, which goes out as a BLOCK carrying no unit.
+            action({ type = Constants.SPELL, value = 585, key = "CTRL-SHIFT-F10", unit = "none",
+                conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } }),
+            action({ type = Constants.GIVEBACK, key = "CTRL-SHIFT-F10",
+                conditions = { units = { ["@"] = { dead = true } } } }),
             --- A unit that has to exist, and one that has to be absent.
             action({ type = Constants.SPELL, value = 774, key = "CTRL-F10",
                 conditions = { units = { focus = { reaction = Constants.REACTION_HARM } } } }),

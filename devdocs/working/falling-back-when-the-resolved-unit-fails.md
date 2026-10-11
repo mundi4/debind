@@ -1,7 +1,9 @@
 # Resolved Unit 조건이 안 맞을 때 평소처럼 쓰는 옵션 (2026-10-11 계획)
 
-> 상태: 동작은 소유자와 정했다(2026-10-11, 3절). 만들지 말지는 아직 정하지 않았다(10절).
-> 구현은 시작하지 않았다.
+> 상태: 동작은 소유자와 정했다(2026-10-11, 3절). 만들기로 했다(2026-10-11, 소유자, 10절).
+> 구현 중이다. 9절의 픽스처 줄은 들어갔고, 옵션은 아직 없다.
+>
+> 구현하는 세션: `debind-79` (세션 ID `e717234d-2b67-4169-aeb9-67c05ed1a229`).
 >
 > 처음 쓴 세션: `debind-34` (세션 ID `234b5878-2331-48a6-a0a8-d3efd3c8f925`). 그 초안을 검토하고 소유자와 정한 내용으로 다시 쓴
 > 세션: `debind-be` (세션 ID `3a899c61-4355-4585-abc2-ac37f68d40a7`). 초안의 검토 기록은 `.zzz/reviewing-the-resolved-unit-fallback-2026-10-11.md`에
@@ -270,18 +272,17 @@ Target이 비고 Resolved Unit 줄은 그대로 남아(`MacroText.lua`의 `Aimed
 - **3-7은 지금 있는 테스트가 지킨다.** 지금 있는 헤드리스 스펙은 한 줄도 고치지 않고 통과해야 한다. 고쳐야 통과하는 스펙이 나오면
   3-7이 깨진 것이고, 코드부터 의심한다. Target을 비워 둔 액션의 Resolved Unit 조건은 `eval_spec`, `issue_spec`, `judgmentloop_spec`의
   B9~B13이 이미 든다.
-- **출력 골든도 움직이지 않아야 한다**(`tests/emit-golden.txt`, `tests/emit-shipped-golden.txt`). 다만 지금 픽스처의 Resolved Unit 행은
-  둘 다 Target에서 `target`을 고른 액션이라(`tests/emit_fixture.lua`의 CTRL-F8, CTRL-F9) 이 옵션이 갈라지는 길에 닿지 않는다. 구현에
-  앞서 Target을 비운 액션에 Resolved Unit 조건을 건 줄을 픽스처에 더하고, 골든을 그 커밋에서 따로 갱신한다. 옵션을 넣는 커밋은
-  골든을 바꾸지 않는다.
+- **출력 골든도 움직이지 않아야 한다**(`tests/emit-golden.txt`, `tests/emit-shipped-golden.txt`). 픽스처의 CTRL-SHIFT-F8부터
+  CTRL-SHIFT-F10까지가 이 옵션이 갈라지는 길에 닿는 줄이다. Target을 비운 원본, Hover Cast의 두 쌍둥이(Cast on pointed unit,
+  그리고 Normal Cast를 끈 Cast as usual), Self·Focus Cast Key의 Cast as usual, Target `none`, 그리고 Resolved Unit 조건을 건
+  `GIVEBACK`이다. 옵션은 켜지 않았다. 그 줄들과 골든은 옵션보다 먼저 따로 커밋했고, 옵션을 넣는 커밋은 골든을 바꾸지 않는다.
 - **`/debtest`가 닿는 것.** 누름마다 어느 바인딩이 이기고 어느 유닛에 나가는지.
 - **원리상 못 닿는 것.** 유닛 없이 나간 시전이 어디에 떨어지는지. 게임이 정한다. `which-action-a-key-runs.md` §10과
   `matching-the-clients-cast-targeting.md` §4가 같은 말을 한다.
 
-## 10. 정할 것
+## 10. 만들기로 한 것
 
-**만들지 말지.** 2절의 저울이다. 액션 하나를 아끼는 값과, "유닛을 지정하지 않고 평소처럼 쓰는 경우에는 Resolved Unit 조건이 없어진다"를
-배우는 값을 단다.
+**만든다** (2026-10-11, 소유자). 2절의 저울에 대한 답이다. 출처는 `debind-34`가 같은 날 `debind-79`에 넘긴 인계문이다.
 
 ## 11. 버린 안
 
