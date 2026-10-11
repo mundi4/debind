@@ -100,6 +100,18 @@ package nor a user. Without the hook there is no file and the label reads `dev`.
 
 ## Worktrees
 
+**Claude makes the worktree**: `EnterWorktree` inside a session, or `claude --worktree <name>` from
+a shell. It lands in `.claude/worktrees/<name>`, and `<name>` is what `npm run link` calls it.
+
+**`.zzz/` comes in as a symlink to the main worktree's**, through `worktree.symlinkDirectories` in
+`.claude/settings.json`. That needs Windows Developer Mode: without it the setting is accepted and
+no link appears. Only a top-level path works there; a nested one whose parent the worktree lacks is
+skipped without a word.
+
+**A symlink, never a junction.** Removing a worktree, by Claude or by `git worktree remove --force`,
+deletes a symlink and leaves what it points at. Through a junction, `git worktree remove --force`
+deleted the files on the far side.
+
 **`reference/` needs a junction, and it is three rather than one.** It is gitignored, so a new
 worktree has nothing there: `reference/globalstrings` (what `npm run globalstrings` fetched) and
 `reference/wow-ui-source/mainline` and `reference/wow-ui-source/forever` (each itself a junction to

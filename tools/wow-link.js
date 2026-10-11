@@ -2,7 +2,7 @@
 //
 //   npm run link                        list the client folders and worktrees, change nothing
 //   npm run link -- ptr                 show what _ptr_ currently points at
-//   npm run link -- ptr debind-3.1.6    point _ptr_ at that worktree
+//   npm run link -- ptr camelot         point _ptr_ at .claude\worktrees\camelot
 //   npm run link -- ptr main            point _ptr_ back at the main worktree
 //
 // One client and one worktree per run, both named explicitly. Nothing is swapped that was not
@@ -148,7 +148,9 @@ function resolveWorktree(spec, trees) {
     for (const w of trees) {
         process.stderr.write(`  ${w.name.padEnd(28)} ${w.path}${w.isMain ? "  (main)" : ""}\n`);
     }
-    process.stderr.write(`\nTo make one:  git worktree add ..\\debind-<name> -b <branch>\n`);
+    process.stderr.write(
+        `\nTo make one:  EnterWorktree in a Claude session, or  claude --worktree <name>` +
+            `\n              (either lands in .claude\\worktrees\\<name>)\n`);
     process.exit(1);
 }
 

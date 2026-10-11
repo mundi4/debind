@@ -8,4 +8,6 @@ tools/cache
 .claude/worktrees
 Debind/DevStamp.lua
 reference
+# No trailing slash: in a worktree .zzz is a symlink, which git sees as a file, and `.zzz/` matches
+# only a directory.
 .zzz
