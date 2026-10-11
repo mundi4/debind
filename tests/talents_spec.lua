@@ -375,7 +375,7 @@ return function(DebindPrivate, _, harness)
         end
         Bind(actions(), { giveBackWhenNoActionRuns = false });
         check(DebindPrivate.IsKeyOurs("F1"), "the key was handed back with the option off");
-        Bind(actions());
+        Bind(actions(), { giveBackWhenNoActionRuns = true });
         check(not DebindPrivate.IsKeyOurs("F1"), "the key was held with the option on");
     end);
 

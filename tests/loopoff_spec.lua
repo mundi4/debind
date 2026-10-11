@@ -1,5 +1,5 @@
 -- With `giveBackWhenNoActionRuns` off, every key that holds a key record is ours for good, and a
--- press nothing answers does nothing (`dropping-the-game-fallback.md` §2, §3). On, the default, a
+-- press nothing answers does nothing (`dropping-the-game-fallback.md` §2, §3). Off is the default. On, a
 -- key where no action can ever run is not held at all, and one whose actions run in some states is
 -- judged (`giving-keys-back-when-no-action-runs.md`; `judgmentloop_spec.lua`). Each case asks both
 -- where the two part. No WoW client needed.
@@ -66,6 +66,7 @@ return function(DebindPrivate, _, ctx)
     end
 
     local HOLD_UNMATCHED = { giveBackWhenNoActionRuns = false };
+    local GIVE_BACK_UNMATCHED = { giveBackWhenNoActionRuns = true };
 
     local function Bind(actions, options)
         _G.DebindVars = {
@@ -132,7 +133,7 @@ return function(DebindPrivate, _, ctx)
     -- The gap after the last action. Both halves are asked, so a key that never moves cannot pass.
     -- With the option on the gap is the key's end, which gives it back (`judgmentloop_spec.lua` N1).
     test("a key with a gap stays ours and does nothing in the gap", function()
-        Bind({ action({ value = 585, key = "F1", conditions = { combat = true } }) });
+        Bind({ action({ value = 585, key = "F1", conditions = { combat = true } }) }, GIVE_BACK_UNMATCHED);
         check(not IsOurs("F1"), "the option on left the key ours out of combat: " .. Bound("F1"));
 
         Bind({ action({ value = 585, key = "F1", conditions = { combat = true } }) }, HOLD_UNMATCHED);
@@ -194,7 +195,7 @@ return function(DebindPrivate, _, ctx)
     end
 
     test("a key whose one action the specialization condition leaves out", function()
-        Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) });
+        Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) }, GIVE_BACK_UNMATCHED);
         checkNotOurs("F1");
         Bind({ action({ value = 585, key = "F1", conditions = { specs = OtherSpec() } }) }, HOLD_UNMATCHED);
         checkOursAndSilent("F1");
@@ -209,7 +210,7 @@ return function(DebindPrivate, _, ctx)
                 action({ value = 774, key = "SHIFT-BUTTON2", conditions = { specs = OtherSpec() } }),
             };
         end
-        Bind(actions());
+        Bind(actions(), GIVE_BACK_UNMATCHED);
         checkNotOurs("SHIFT-BUTTON2");
         check(DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "the frame's click no longer reads as ours");
         Bind(actions(), HOLD_UNMATCHED);
@@ -224,7 +225,7 @@ return function(DebindPrivate, _, ctx)
             return { action({ value = 585, key = "SHIFT-BUTTON2",
                 conditions = { units = { unitframe = {} }, specs = OtherSpec() } }) };
         end
-        Bind(actions());
+        Bind(actions(), GIVE_BACK_UNMATCHED);
         check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");
         Bind(actions(), HOLD_UNMATCHED);
         check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option off");
@@ -250,7 +251,8 @@ return function(DebindPrivate, _, ctx)
 
     -- A binding with no way to fire is dropped per key, which left a key holding nothing.
     test("a key whose one action has no way to fire", function()
-        Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) });
+        Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) },
+            GIVE_BACK_UNMATCHED);
         checkNotOurs("F1");
         Bind({ action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }),
             }, HOLD_UNMATCHED);
@@ -277,7 +279,7 @@ return function(DebindPrivate, _, ctx)
             local function actions()
                 return { action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "F1" }) };
             end
-            Bind(actions());
+            Bind(actions(), GIVE_BACK_UNMATCHED);
             check(DebindPrivate.KeyMap["F1"] ~= nil, "the binding never reached the builder");
             checkNotOurs("F1");
             check(not DebindPrivate.IsKeyHandled("F1"), "a key not bound reads as ours");
@@ -295,7 +297,7 @@ return function(DebindPrivate, _, ctx)
                 return { action({ type = Constants.PETACTION, value = "PETNOSUCHCOMMAND", key = "SHIFT-BUTTON2",
                     conditions = { units = { unitframe = {} } } }) };
             end
-            Bind(actions());
+            Bind(actions(), GIVE_BACK_UNMATCHED);
             check(DebindPrivate.KeyMap["SHIFT-BUTTON2"] ~= nil, "the binding never reached the builder");
             checkNotOurs("SHIFT-BUTTON2");
             check(not DebindPrivate.IsKeyHandled("SHIFT-BUTTON2"), "it reads as ours with the option on");

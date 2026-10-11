@@ -2222,7 +2222,8 @@ return function(DebindPrivate, _, ctx)
                 "#41: the reason is " .. tostring(DebindPrivate.GetNotRunningReason(subject)));
         end);
         Row(42, function()
-            Bind({ A({ casting = { normalCast = false, hoverCast = "skip" } }) });
+            Bind({ A({ casting = { normalCast = false, hoverCast = "skip" } }) }, nil,
+                { giveBackWhenNoActionRuns = true });
             check(_G.GetBindingAction("F1", true) == "",
                 "#42: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
             check(not DebindPrivate.IsKeyOurs("F1"), "#42: IsKeyOurs says yes");

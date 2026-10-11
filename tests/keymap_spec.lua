@@ -494,7 +494,7 @@ return function(DebindPrivate)
         check(DebindPrivate.KeyMap["F6"] == nil, "the broken action reached a record");
         check(DebindPrivate.IsKeyHandled("F6") == true, "a key held for a broken action reads as dead");
 
-        Bind(broken());
+        Bind(broken(), nil, { giveBackWhenNoActionRuns = true });
         check(DebindPrivate.IsKeyHandled("F6") == false,
             "a key given back for a broken action still reads as ours");
     end);

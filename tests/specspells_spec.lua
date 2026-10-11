@@ -225,14 +225,14 @@ return function(DebindPrivate, _, ctx)
     -- false for every press this build will see, so the rebuild leaves the action out the way it
     -- leaves out an action for another specialization (`Known.lua`'s `KnownConditionCanHold`).
     -- **Out of the build, and the key then gets what a key whose actions all fail gets**
-    -- (`giving-keys-back-when-no-action-runs.md`): given back by default, held doing nothing with
-    -- `giveBackWhenNoActionRuns` off.
+    -- (`giving-keys-back-when-no-action-runs.md`): given back with `giveBackWhenNoActionRuns` on,
+    -- held doing nothing with it off.
     test("a known with no spell is left out of the build", function()
         shim.world.specIndex = 1;
         withNoDispel(function()
             Bind({
                 action({ type = Constants.DISPEL, key = "F2", skipWhenUnusable = true }),
-            });
+            }, { giveBackWhenNoActionRuns = true });
             check(DebindPrivate.KeyMap["F2"] == nil, "the action reached the key map anyway");
             check(not DebindPrivate.IsKeyOurs("F2"), "the key was held with the option on");
 

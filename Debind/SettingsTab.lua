@@ -255,9 +255,9 @@ local function Build()
     Dropdown(L["GIVE_BACK_NO_ACTION_RUNS"], L["GIVE_BACK_NO_ACTION_RUNS_DESC"], function(_, rootDescription)
         Radios(rootDescription, noActionChoices, DebindPrivate.GiveBackWhenNoActionRuns, function(value)
             if (value) then
-                Options().giveBackWhenNoActionRuns = nil;
+                Options().giveBackWhenNoActionRuns = true;
             else
-                Options().giveBackWhenNoActionRuns = false;
+                Options().giveBackWhenNoActionRuns = nil;
             end
             DebindPrivate.QueueUpdateBindings();
         end);

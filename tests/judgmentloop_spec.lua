@@ -394,14 +394,15 @@ return function(DebindPrivate)
 
     ---------------------------------------------------------------------------
     -- A press where no action runs (`giving-keys-back-when-no-action-runs.md`). With
-    -- `giveBackWhenNoActionRuns` on, the default, every key ends as though a giveback stood
-    -- unconditional at its end; off, it ends in a block as before.
+    -- `giveBackWhenNoActionRuns` on, every key ends as though a giveback stood unconditional at its
+    -- end; off, the default, it ends in a block as before.
     ---------------------------------------------------------------------------
 
     local HOLD_UNMATCHED = { giveBackWhenNoActionRuns = false };
+    local GIVE_BACK_UNMATCHED = { giveBackWhenNoActionRuns = true };
 
     test("N1 a key whose only action does not run is given back", function()
-        Bind({ action({ conditions = { combat = true } }) });
+        Bind({ action({ conditions = { combat = true } }) }, GIVE_BACK_UNMATCHED);
         check(Released("F1"), "F1 is bound out of combat: " .. Bound("F1"));
         interp.state.combat = true;
         interp:beat();
@@ -420,11 +421,12 @@ return function(DebindPrivate)
     -- An action that always runs ends the key before the end is reached, so the key has nothing to
     -- judge and stays out of the loop. Nothing, unconditional, is such an action.
     test("N3 a key ending in an action that always runs stays held and out of the loop", function()
-        Bind({ action({ conditions = { combat = true } }), action({ value = 774 }) });
+        Bind({ action({ conditions = { combat = true } }), action({ value = 774 }) }, GIVE_BACK_UNMATCHED);
         check(IsOurs("F1"), "F1 was let go: " .. Bound("F1"));
         check(DebindPrivate.JudgmentItems["F1"] == nil, "an item was built for F1");
 
-        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.BLOCK }) });
+        Bind({ action({ conditions = { combat = true } }), action({ type = Constants.BLOCK }) },
+            GIVE_BACK_UNMATCHED);
         check(IsOurs("F1"), "F1 ending in Nothing was let go: " .. Bound("F1"));
         check(DebindPrivate.JudgmentItems["F1"] == nil, "an item was built for F1 ending in Nothing");
     end);
@@ -433,7 +435,7 @@ return function(DebindPrivate)
         Bind({
             action({ conditions = { combat = true } }),
             action({ type = Constants.BLOCK, conditions = { mounted = true } }),
-        });
+        }, GIVE_BACK_UNMATCHED);
         check(Released("F1"), "F1 is bound out of combat and unmounted: " .. Bound("F1"));
         interp.state.mounted = true;
         interp:beat();
@@ -443,7 +445,7 @@ return function(DebindPrivate)
     -- An action that runs only while a unit frame is pointed at runs on no plain press.
     test("N5 an action only over unit frames gives the key back away from them", function()
         shim.world.units.party1 = { id = "p1", reaction = "help" };
-        Bind({ action({ casting = { normalCast = false, hoverCast = "cast" } }) });
+        Bind({ action({ casting = { normalCast = false, hoverCast = "cast" } }) }, GIVE_BACK_UNMATCHED);
         shim.world.units.party1 = { id = "p1", reaction = "help" };
         interp:beat();
         check(Released("F1"), "F1 is bound with no frame pointed at: " .. Bound("F1"));
@@ -455,7 +457,7 @@ return function(DebindPrivate)
 
     -- The same case as B9 to B13 with no giveback written: the chords answer as they do there.
     test("N6 the chords follow their tier and their base key", function()
-        Bind({ action({ conditions = { units = { ["@"] = {} } } }) });
+        Bind({ action({ conditions = { units = { ["@"] = {} } } }) }, GIVE_BACK_UNMATCHED);
         check(Released("F1"), "B13: F1 is bound");
         check(Released("ALT-F1"), "B13: ALT-F1 is bound");
         check(IsOurs("CTRL-F1"), "the self chord always has a winner and was let go");

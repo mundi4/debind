@@ -189,7 +189,7 @@ return function(DebindPrivate)
         local switches = {
             ["$state1"] = { mode = Constants.SWITCH_MODES.EXPR, expr = "[mounted]" },
         };
-        check(PlanFor(actions(), switches).judges == true,
+        check(PlanFor(actions(), switches, { giveBackWhenNoActionRuns = true }).judges == true,
             "a key whose actions can all fail was not judged with the option on");
 
         local plan = PlanFor(actions(), switches, { giveBackWhenNoActionRuns = false });
@@ -340,7 +340,7 @@ return function(DebindPrivate)
                 spell({ key = "F1", conditions = { combat = false } }),
             } },
         }) do
-            local plan = PlanFor(case.actions, case.switches);
+            local plan = PlanFor(case.actions, case.switches, { giveBackWhenNoActionRuns = true });
             if (plan.judges ~= case.judges) then
                 wrong[#wrong + 1] = case.what .. ": judges is " .. tostring(plan.judges);
             end

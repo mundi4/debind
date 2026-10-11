@@ -175,7 +175,10 @@ return function(DebindPrivate)
             characters = { [GUID] = { switches = {} } },
             migrated = {},
             switches = { account = { GENERAL = { [0] = defined } } },
-            options = options,
+            -- **`giveBackWhenNoActionRuns` on unless a line asks for off**, whatever the default is:
+            -- the profiles here were sized with every key whose actions can all fail in the loop,
+            -- and off would price a smaller loop under the same labels.
+            options = options or { giveBackWhenNoActionRuns = true },
         };
         DebindPrivate.InitDB();
         local mark = frames.mark();

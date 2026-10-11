@@ -443,11 +443,12 @@ local function SetIsolated(isolated)
                 hoverCastMode = DebindPrivate.Options.hoverCastMode,
             }
             DebindPrivate.Options.hoverCastMode = nil
-            -- **The default, whatever the tester runs with**, and swapped like the layer walk
-            -- rather than written: `Options` is the saved table, and a run that crosses a reload
-            -- would save a value written here over the tester's own. A key whose actions all fail is
-            -- given back or held by this option, so a tester who turned it off would see every case
-            -- built on the other answer go red (`HoldUnmatchedKeys` asks for that answer).
+            -- **On, whatever the tester runs with and whatever the shipped default is**, and swapped
+            -- like the layer walk rather than written: `Options` is the saved table, and a run that
+            -- crosses a reload would save a value written here over the tester's own. A key whose
+            -- actions all fail is given back or held by this option, and the cases here were built on
+            -- given back; a run that followed the tester or the default would turn every one of them
+            -- red on held (`HoldUnmatchedKeys` asks for held).
             realGiveBackWhenNoActionRuns = DebindPrivate.GiveBackWhenNoActionRuns
             DebindPrivate.GiveBackWhenNoActionRuns = function()
                 return not holdUnmatchedKeys
@@ -6672,7 +6673,7 @@ RegisterTest("Switch condition on a name outside the five", {
 --
 -- A specialization cannot be changed from a test, so the change and the rebuild it pulls are the
 -- spec's. What is left is the pair: the set holding this specialization fires, the set leaving it
--- out does not. With `giveBackWhenNoActionRuns` on, the default, the second key is not held at all;
+-- out does not. With `giveBackWhenNoActionRuns` on, as the kit runs it, the second key is not held at all;
 -- off, **both keys are ours** (`Debind.lua`'s `KeysOnLiveLayers`), so the press is what tells them
 -- apart.
 -- **Both halves, because on its own "fires nothing" also describes a key nothing was ever put on.**
@@ -6751,10 +6752,11 @@ RegisterTest("Spec condition: the specialization the character is on decides the
             return Fail(NAME, format("the mask holds %d and the press fires nothing", spec))
         end
 
-        -- With the default the key whose only action is left out is not held at all.
+        -- With the option on, as the kit runs it, the key whose only action is left out is not held.
         local outside = GetBindingAction(OUTSIDE, true) or ""
         if IsOurClick(outside) then
-            return Fail(NAME, format("the mask leaves %d out and the key was held by default: %q", spec, outside))
+            return Fail(NAME, format("the mask leaves %d out and the key was held with the option on: %q",
+                spec, outside))
         end
 
         HoldUnmatchedKeys()

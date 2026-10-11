@@ -539,6 +539,8 @@ return function(DebindPrivate, _, ctx)
     -- ending in an action with no condition, and conditional ones that between them cover every
     -- state. Thrown away, an item is held by nothing else, so the press and the loop are asked at
     -- every point of it. A key that does not cover keeps its item and is swept as any other.
+    -- **With `giveBackWhenNoActionRuns` on**: off, a key with no tail gets no item to throw away
+    -- (`judgmentloop_spec.lua` N2).
     test("a key ours in every state keeps no item, and holds at every point", function()
         local cases = {
             { what = "an action with no condition", dropped = true, actions = {
@@ -564,7 +566,7 @@ return function(DebindPrivate, _, ctx)
                 end
                 return item;
             end
-            local ok, err = pcall(Bind, case.actions);
+            local ok, err = pcall(Bind, case.actions, nil, { giveBackWhenNoActionRuns = true });
             Judgment.Build = build;
             check(ok, tostring(err));
             check(bare, case.what .. ": no item was built for F1");

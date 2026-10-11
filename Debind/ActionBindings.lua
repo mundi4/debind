@@ -500,12 +500,13 @@ do
     end
 
     --- A press where none of a key's actions runs: given back, or held doing nothing
-    --- (`giving-keys-back-when-no-action-runs.md`). **On with the value absent**: a key with no
-    --- action of ours already goes to whatever is beneath, and one whose actions all fail is the
-    --- same key in this state.
+    --- (`giving-keys-back-when-no-action-runs.md`). **Off unless set to `true`** (owner,
+    --- 2026-10-11, `turning-the-give-back-default-off.md`). Held, such a press does nothing, which is
+    --- what every key has done since 4.0. Given back, it runs whatever else is bound to the key, and
+    --- when to let go is the beat's call rather than the press's.
     function DebindPrivate.GiveBackWhenNoActionRuns()
         local options = DebindPrivate.Options;
-        return not (options and options.giveBackWhenNoActionRuns == false);
+        return options ~= nil and options.giveBackWhenNoActionRuns == true;
     end
 
 

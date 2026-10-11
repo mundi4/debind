@@ -61,6 +61,10 @@ return function(DebindPrivate, shim)
     function M.profile()
         return {
             dbver = Constants.DB_VERSION,
+            --- **On, whatever the default is**: it puts every key whose actions can all fail into
+            --- the judge loop, and the golden locks what that loop emits. Off, a key with no tail
+            --- keeps no item and that part of the golden is gone; `loopoff_spec.lua` holds off.
+            options = { giveBackWhenNoActionRuns = true },
             layers = {
                 account = {
                     GENERAL = { [0] = M.generalLayer() },
