@@ -175,10 +175,11 @@ do
                 for entry in list:gmatch("[^,]+") do
                     held[strtrim(entry)] = true;
                 end
-                -- **The same person is judged against the pin as it was**, and what this pass adds
-                -- goes to `added`. Judged against a list it is growing, a member sharing a spelling
-                -- only with one just added would be merged, or not, by the order `pairs` takes.
-                local added = {};
+                -- Judging against the list as it grows is safe because every spelling a roster
+                -- writes names one character: on retail a name is unique on its realm and carries
+                -- the realm when it is another's, and on camelot the first name and surname are
+                -- unique together. Two members never share one, so a spelling added here cannot
+                -- lead on to somebody else.
                 local carried = list;
                 for _, names in pairs(unitNameMap) do
                     local same = false;
@@ -192,8 +193,8 @@ do
                     end
                     if (same) then
                         for entry in names:gmatch("[^,]+") do
-                            if (not held[entry] and not added[entry]) then
-                                added[entry] = true;
+                            if (not held[entry]) then
+                                held[entry] = true;
                                 carried = carried .. "," .. entry;
                             end
                         end

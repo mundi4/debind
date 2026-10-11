@@ -136,6 +136,8 @@ L["SWITCH_OFF"] = "꺼짐"
 L["SWITCH_ON"] = "켜짐"
 L["SWITCHES"] = "스위치"
 L["CUSTOM_TARGET_FAILED"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - |cnRED_FONT_COLOR:'%2$s'에서 지정하지 못했습니다|r"
+-- Asks in 해요체, unlike the 십시오 of the lines around it: those are debt, not precedent
+-- (`writing-user-facing-text.md`, "Register, in Korean").
 L["CUSTOM_TARGET_NAME_NOT_LOADED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:지정 안 됨|r - 그 사람의 이름을 아직 불러오지 못했습니다. 잠시 뒤 다시 지정해 주세요."
 L["CUSTOM_TARGET_INVALIDATED"] = "|cnHIGHLIGHT_FONT_COLOR:%s|r - |cnRED_FONT_COLOR:해제됨|r - 이름이 아니라 그룹 자리로 붙들고 있었는데 그룹이 바뀌었습니다. 다시 지정하십시오."
 L["CUSTOM_TARGET_SET_VOLATILE"] = "|cnHIGHLIGHT_FONT_COLOR:%1$s|r - %2$s(으)로 지정 - 이번 전투 중에 그룹이 바뀌어서 이름이 아니라 그룹 자리로 붙들고 있습니다. 전투가 끝난 뒤 다시 지정하면 그 사람을 따라갑니다."

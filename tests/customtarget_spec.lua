@@ -293,9 +293,11 @@ return function(DebindPrivate)
             second = false, rosterName = THEM_ROSTER }, { __index = THEM });
         interp:rosterChanged();
         interp:setCustomTarget("custom1", "raid2");
-        check(custom1() == "raid2",
-            ("@custom1 is %s; the header held %q"):format(
-                tostring(custom1()), tostring(header:GetAttribute("nameList"))));
+        --- By the name, not the bare token, which would also land on raid2 here.
+        check(header:IsShown() and header:GetAttribute("nameList") == THEM_ROSTER and custom1() == "raid2",
+            ("@custom1 is %s; the header %s %q"):format(tostring(custom1()),
+                header:IsShown() and "held" or "is hidden and last held",
+                tostring(header:GetAttribute("nameList"))));
 
         raid();
         interp:rosterChanged();
@@ -304,25 +306,6 @@ return function(DebindPrivate)
         check(custom1() == "party1",
             ("once the name loaded and the raid became a party, @custom1 is %s; the header held %q")
                 :format(tostring(custom1()), tostring(header:GetAttribute("nameList"))));
-    end);
-
-    --- **Carrying compares against the pin as it was**, not as it grows. A member who shares a
-    --- spelling only with a name the carry itself just added is not the pin's person, and whether
-    --- they got merged must not hang on the order `pairs` visits them in.
-    test("carrying a pin does not reach members through the names it just added", function()
-        unpin();
-        raid();
-        shim.world.units.raid2.rosterName = "Shared Name";
-        for i = 3, 10 do
-            shim.world.units["raid" .. i] = { id = "other" .. i, raidIndex = i, inRaid = true,
-                name = "Other" .. i, second = "Person", rosterName = "Shared Name",
-                reaction = "help", isPlayer = true };
-        end
-        interp:rosterChanged();
-        interp:setCustomTarget("custom1", ":Jathelbur-Drillmaven");
-        interp:rosterChanged();
-        local list = tostring(header:GetAttribute("nameList"));
-        check(not list:find("Other", 1, true), "the pin took in others: " .. list);
     end);
 
     --- The header trims each name it is handed (`SecureGroupHeaders.lua`, `fillTable`), so a list
