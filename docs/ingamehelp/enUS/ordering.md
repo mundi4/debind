@@ -18,7 +18,7 @@
 **What happens when nothing runs is one sentence and a link.** When a key is given back is its own page (`keys-given-back.md`); here it only closes the rule the paragraph opens. The held cast key's empty case differs from it and is said in the last paragraph, where the held key is; **the opening points there** (review, 2026-10-10), since a reader who stops here would otherwise take a held press to be given back too.
 -->
 
-Press a key that holds more than one action and Debind runs the first one whose conditions are met. If none of them runs, the key is given back by default, or the press does nothing, as set under *Keys Given Back* in Debind's settings; with the Self Cast Key or the Focus Cast Key held, see the end of this page. More is in [](keys-given-back.md).
+Press a key that holds more than one action and Debind runs the first one whose conditions are met. If none of them runs, the press does nothing, unless *When no action runs* under *Keys Given Back* in Debind's settings is set to *Key is given back*; with the Self Cast Key or the Focus Cast Key held, see the end of this page. More is in [](keys-given-back.md).
 
 <!--
 **"Grouped by key" is what points at the left list.** The Overview tab has two, and the one on the right is a layer's actions; the shape tells them apart where "left" alone would not survive a layout change.
@@ -52,7 +52,7 @@ So an Account action with conditions stands above a character's action without t
 **This character's action takes the presses an Account action on the same key should get.** If neither has conditions, give the one in the broader layer (Account here) a condition: it then stands above and takes the press whenever that condition holds, unless this character's action has the higher *Importance*. If the one in the narrower layer (this character's) has conditions, add more to it so that it holds in fewer cases, and every press it does not take goes on to the broader one. Only when neither can be done, raise the broader one's *Importance*.
 
 <!--
-**No paragraph on pressing an action bar slot from the key.** It was for a key with nothing left to run, which by default now goes back to the game and to whatever the game has on it, the slot included (`keys-given-back.md`). Item 2 already says what an action with no conditions does at the bottom of a key.
+**No paragraph on pressing an action bar slot from the key.** It was for a key with nothing left to run, which can go back to the game and to whatever the game has on it, the slot included, for every key through the setting or for one key through Give Key Back (`keys-given-back.md`). Item 2 already says what an action with no conditions does at the bottom of a key.
 
 **Kept to one paragraph.** Which press an action is set to use, and where it goes, is the targeting page; here it is only what moves an action in or out of the list above.
 

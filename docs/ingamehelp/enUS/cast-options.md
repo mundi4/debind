@@ -21,8 +21,8 @@ Cast* (review, 2026-10-10).
 
 **The held row's condition is the plain press, spelled out.** Written as "unless the key is given
 back at that moment", a cold reader sent a held press to the game on a key whose plain press would
-have cast (review, 2026-10-10); "given back" read as the default it is on the next row, not as a state
-of this key right now.
+have cast (review, 2026-10-10); "given back" read as the *Keys Given Back* setting, not as a state of
+this key right now.
 
 **A value whose label already says where it goes gets no sentence** (review, 2026-10-10): "*Cast on
 yourself* sends the action to you" taught nothing, and the usual target is defined above the list.
@@ -58,9 +58,9 @@ runs while they point at a unit (2026-10-11, owner).
 
 In *Cast Options* in an action's right-click menu, the first four rows each cover one way of pressing a key: whether this action takes part, and where it goes. Wherever it appears, *Cast on the usual target* means the unit an action bar button would be used on.
 
-- *Self Cast Key*: a press with that key held. *Skip this action* takes the action out of that press, and the actions below it are tried instead. With none left, the press does nothing if pressing the key on its own would run one of its actions. When none would run either, the key is given back by default ([](keys-given-back.md)), and the held press goes to the game too. A new action starts on *Cast on yourself*.
+- *Self Cast Key*: a press with that key held. *Skip this action* takes the action out of that press, and the actions below it are tried instead. With none left, the press does nothing if pressing the key on its own would run one of its actions. When none would run either, the held press goes where that plain press does, which is nowhere unless the key is given back ([](keys-given-back.md)). A new action starts on *Cast on yourself*.
 - *Focus Cast Key*: the same, with *Cast on your focus*. A new action starts on *Cast on your focus*.
-- *Hover Cast*: a press with no key held, while you point at a unit. *Skip this action* takes the action out of that press, and the actions below it are tried instead; with none left, it is a press where no action runs, and the key is given back by default. *Cast on the usual target* sends the action to its usual target, as if nothing were pointed at. A new action starts on *Cast on the usual target*. Which units count as pointed at is set on the same row: [](hover-cast.md).
+- *Hover Cast*: a press with no key held, while you point at a unit. *Skip this action* takes the action out of that press, and the actions below it are tried instead; with none left, it is a press where no action runs, and does nothing unless the key is given back. *Cast on the usual target* sends the action to its usual target, as if nothing were pointed at. A new action starts on *Cast on the usual target*. Which units count as pointed at is set on the same row: [](hover-cast.md).
 - *Normal Cast*: a press with no key held. Untick it and the action runs on such a press only while you point at a unit, going where its *Hover Cast* row sends it; with nothing pointed at, the actions below it are tried instead. For an action that, with no key held, runs only on the unit you point at, untick this and set *Hover Cast* to *Cast on the unit you point at*. With *Hover Cast* on *Skip this action* as well, the action never runs, not even with a key held, and the *Overview* tab marks it *Needs checking*. A new action starts ticked.
 
 <!--
