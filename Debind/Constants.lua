@@ -366,7 +366,7 @@ Constants.CASTING_FIELDS = {
     hoverCast = "string",
     hoverCastMode = "string",
     normalCast = "boolean",
-    usualIgnoresResolvedUnit = "boolean",
+    fallbackToSelf = "boolean",
     -- **네 이름은 클라이언트 CVar 이름 그대로다**, 그 값을 누르는 동안만 그 값으로 두는 줄들이라
     -- (`setting-the-clients-cast-automatics-per-action.md`). 셋째 값인 "게임 설정 그대로"는
     -- 이름이 없다: 값이 없는 것이 그것이다.
@@ -795,12 +795,12 @@ Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED           = "REACTIONS_NONE_SELE
 -- party and raid frames, the role narrows nothing and there is no code at all.
 Constants.BINDING_ISSUE_ROLES_NONE_SELECTED               = "ROLES_NONE_SELECTED";
 Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES        = "ROLES_NONE_ON_GROUP_FRAMES";
--- The Resolved Unit row empty on one of those two axes, on an action whose bindings with no unit do
--- not ask it (`usualIgnoresResolvedUnit`). **Kept, the way the role code above is**: those bindings
--- still run, and the reader is still told, since an empty row is not what anybody meant
+-- The Resolved Unit row empty on one of those two axes, on an action with a fallback that stands
+-- (`fallbackToSelf`), which does not ask the row. **Kept, the way the role code above is**: the
+-- fallback still runs, and the reader is still told, since an empty row is not what anybody meant
 -- (`falling-back-when-the-resolved-unit-fails.md` 3-5).
-Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL      = "REACTIONS_NONE_RUNS_AS_USUAL";
-Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL     = "UNITGROUPS_NONE_RUNS_AS_USUAL";
+Constants.BINDING_ISSUE_REACTIONS_NONE_FALLS_BACK         = "REACTIONS_NONE_FALLS_BACK";
+Constants.BINDING_ISSUE_UNITGROUPS_NONE_FALLS_BACK        = "UNITGROUPS_NONE_FALLS_BACK";
 Constants.BINDING_ISSUE_UNDEFINED_SWITCH                  = "UNDEFINED_SWITCH";
 -- An on/off/toggle action that does not say **which** switch yet. The picker adds exactly one of
 -- these. It offers one row instead of three per switch, and the switch is chosen in the action's
@@ -895,8 +895,8 @@ Constants.BINDING_ISSUE_OUTCOMES = {
     [Constants.BINDING_ISSUE_ROLES_NONE_SELECTED]               = Constants.ISSUE_OUTCOME_OMIT,
     -- It still runs over every frame that is not a party or raid frame.
     [Constants.BINDING_ISSUE_ROLES_NONE_ON_GROUP_FRAMES]        = Constants.ISSUE_OUTCOME_KEEP,
-    [Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL]      = Constants.ISSUE_OUTCOME_KEEP,
-    [Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL]     = Constants.ISSUE_OUTCOME_KEEP,
+    [Constants.BINDING_ISSUE_REACTIONS_NONE_FALLS_BACK]         = Constants.ISSUE_OUTCOME_KEEP,
+    [Constants.BINDING_ISSUE_UNITGROUPS_NONE_FALLS_BACK]        = Constants.ISSUE_OUTCOME_KEEP,
     [Constants.BINDING_ISSUE_UNDEFINED_SWITCH]                   = Constants.ISSUE_OUTCOME_OMIT,
     [Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED]              = Constants.ISSUE_OUTCOME_OMIT,
     -- Left in, the press finds no macro and does nothing where the next action could have run.

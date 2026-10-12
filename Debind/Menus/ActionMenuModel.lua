@@ -707,17 +707,17 @@ end
 
 --- **Off is the absent value**, which is why the box is not one of the kit's either: cleared, those
 --- store `false`.
-local function UsualIgnoresResolvedUnitIsOn(ctx)
-    return AllActions(ctx, DebindPrivate.UsualIgnoresResolvedUnit);
+local function FallbackToSelfIsOn(ctx)
+    return AllActions(ctx, DebindPrivate.FallsBackToSelf);
 end
 
-local function ToggleUsualIgnoresResolvedUnit(ctx)
+local function ToggleFallbackToSelf(ctx)
     local value;
-    if (not UsualIgnoresResolvedUnitIsOn(ctx)) then
+    if (not FallbackToSelfIsOn(ctx)) then
         value = true;
     end
     for _, action in ipairs(ctx.actions) do
-        ActionValues.Set(action, "casting.usualIgnoresResolvedUnit", value);
+        ActionValues.Set(action, "casting.fallbackToSelf", value);
     end
     return OnActionsChanged(ctx.actions);
 end
@@ -735,7 +735,7 @@ local ActionMenus = MenuKit.NewRegistry({
     end,
 
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
-    newFeatures = { "RESOLVED_UNIT_USUAL" },
+    newFeatures = { "RESOLVED_UNIT_FALLBACK" },
 
     -- **Not every group's key is an issue category.** Half the keys this menu writes have no check
     -- by that name (`combat`, `known`, `stealth`, `extrabar`, switch names, importance). Asking
@@ -1117,8 +1117,8 @@ ActionMenu.SetHoverCastChoice        = SetHoverCastChoice;
 ActionMenu.SetHoverCastMode          = SetHoverCastMode;
 ActionMenu.NormalCastIsOn            = NormalCastIsOn;
 ActionMenu.ToggleNormalCast          = ToggleNormalCast;
-ActionMenu.UsualIgnoresResolvedUnitIsOn   = UsualIgnoresResolvedUnitIsOn;
-ActionMenu.ToggleUsualIgnoresResolvedUnit = ToggleUsualIgnoresResolvedUnit;
+ActionMenu.FallbackToSelfIsOn   = FallbackToSelfIsOn;
+ActionMenu.ToggleFallbackToSelf = ToggleFallbackToSelf;
 
 ActionMenu.UnitConditionAxisOf       = UnitConditionAxisOf;
 ActionMenu.UnitConditionModeOf       = UnitConditionModeOf;

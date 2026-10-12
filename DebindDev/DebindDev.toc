@@ -39,6 +39,7 @@ Tests/StateInjection.lua
 Tests/Press.lua
 Tests/Packs.lua
 Tests/ClickTimeKeys.lua
+Tests/Fallback.lua
 Tests/MultiAxis.lua
 Tests/MacroStore.lua
 Tests/StandDown.lua

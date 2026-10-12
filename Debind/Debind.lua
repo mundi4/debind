@@ -252,6 +252,11 @@ do
 	---
 	--- **No tier takes a binding that cannot stand** (`binding.dead`). Nothing downstream drops it: a
 	--- zero in its box the solver neither marks nor drops, and the solo rule is not in the box at all.
+	---
+	--- **An action's fallbacks are walked after the rest of its tier**: each stands behind that
+	--- tier's original or twin, which the backwards walk puts last, and `[1]` stays the original because
+	--- `BuildKeyMap` takes it as the action's binding. A fallback's derived bindings still land ahead
+	--- of it.
 	local function UnrollIntoTiers(bindings)
 		local count = #bindings;
 		for i = 1, count do
@@ -268,12 +273,15 @@ do
 			end
 			for i = 1, count do
 				local list = Lists[_unroll[i]];
-				for j = #list, 1, -1 do
-					local binding = list[j];
-					if (not binding.dead and not binding.omitted and binding.castModifier == castModifier
-							and binding.normalCast ~= false) then
-						out = out + 1;
-						bindings[out] = binding;
+				for pass = 1, list.fallback and 2 or 1 do
+					local fallback = pass == 2 or nil;
+					for j = #list, 1, -1 do
+						local binding = list[j];
+						if (binding.fallback == fallback and not binding.dead and not binding.omitted
+								and binding.castModifier == castModifier and binding.normalCast ~= false) then
+							out = out + 1;
+							bindings[out] = binding;
+						end
 					end
 				end
 			end

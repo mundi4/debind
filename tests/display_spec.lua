@@ -342,27 +342,27 @@ return function(DebindPrivate)
     --- (`falling-back-when-the-resolved-unit-fails.md` §7).
     test("the Resolved Unit line says its box is ticked, with the kept reaction under it", function()
         Bind({ { type = Constants.SPELL, value = 585, key = "F1", seq = 1,
-            casting = { usualIgnoresResolvedUnit = true },
+            casting = { fallbackToSelf = true },
             conditions = { units = { ["@"] = { exists = true, reaction = 0 } } } } }, {});
         local row = DebindPrivate.CollectActionsForKey("F1")[1];
         check(row, "the action is not on the key");
         local at, count, text, texts = Lines(row);
-        local sentence = LLL["BINDING_ERROR_REACTIONS_NONE_RUNS_AS_USUAL"];
+        local sentence = LLL["BINDING_ERROR_REACTIONS_NONE_FALLS_BACK"];
         check(count(sentence) == 1, "the sentence came out " .. count(sentence) .. " times:\n" .. text);
         check(texts[at(sentence) - 1] == LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_EXISTS"]
-                .. " (" .. LLL["RESOLVED_TARGET_USUAL"] .. ")",
+                .. " (" .. LLL["RESOLVED_TARGET_FALLBACK"] .. ")",
             "the sentence is not under the Resolved Unit line with its box:\n" .. text);
 
         local plain = unitFrameRow({ ["@"] = { exists = true, reaction = Constants.REACTION_HELP } }, "F1");
         local _, plainCount, plainText = Lines(plain);
-        check(plainCount(LLL["RESOLVED_TARGET_USUAL"]) == 0, "the box is said without being ticked:\n" .. plainText);
+        check(plainCount(LLL["RESOLVED_TARGET_FALLBACK"]) == 0, "the box is said without being ticked:\n" .. plainText);
 
         -- Ticked on an action with a unit picked, where no binding goes out without one.
         Bind({ { type = Constants.SPELL, value = 585, key = "F1", seq = 1, unit = "target",
-            casting = { usualIgnoresResolvedUnit = true },
+            casting = { fallbackToSelf = true },
             conditions = { units = { ["@"] = { exists = true, reaction = Constants.REACTION_HELP } } } } }, {});
         local _, pickedCount, pickedText = Lines(DebindPrivate.CollectActionsForKey("F1")[1]);
-        check(pickedCount(LLL["RESOLVED_TARGET_USUAL"]) == 0,
+        check(pickedCount(LLL["RESOLVED_TARGET_FALLBACK"]) == 0,
             "the box is said on an action it does nothing for:\n" .. pickedText);
     end);
 

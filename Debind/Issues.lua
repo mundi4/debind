@@ -425,25 +425,25 @@ local function BindingStands(binding)
         and not binding.holdsOnly;
 end
 
---- Whether a binding of this action that leaves the Resolved Unit row unasked stands
---- (`ignoresResolvedUnit`). **Read off the list, since `FillBinding` is where that is decided**, and
---- built only for an action with the option on.
+--- Whether one of this action's fallbacks stands. **Read off the list, since
+--- `GetBindingsForAction` is where that is decided**, and built only for an action with the box
+--- ticked.
 ---
 --- **Public because the tooltip and the conditional mark ask it too**: the box ticked on an action
 --- it does nothing for is said nowhere but in its menu.
-local function ResolvedUnitIgnoredSomewhere(action)
-    if (not DebindPrivate.UsualIgnoresResolvedUnit(action)) then
+local function FallbackStands(action)
+    if (not DebindPrivate.FallsBackToSelf(action)) then
         return false;
     end
     local list = DebindPrivate.GetBindingsForAction(action);
     for i = 1, #list do
-        if (list[i].ignoresResolvedUnit and BindingStands(list[i])) then
+        if (list[i].fallback and BindingStands(list[i])) then
             return true;
         end
     end
     return false;
 end
-DebindPrivate.ResolvedUnitIgnoredSomewhere = ResolvedUnitIgnoredSomewhere;
+DebindPrivate.FallbackStands = FallbackStands;
 
 --- A row empty on `axis`, answered with `code`. **The Resolved Unit row is asked last and apart**:
 --- where a binding that does not ask it stands, it answers `keepCode` instead, and any other row
@@ -454,7 +454,7 @@ local function EmptyUnitRowCheck(axis, code, keepCode)
             return code;
         end
         if ((unit == nil or unit == "@") and HasEmptyUnitRow(action, "@", axis)) then
-            if (ResolvedUnitIgnoredSomewhere(action)) then
+            if (FallbackStands(action)) then
                 return keepCode;
             end
             return code;
@@ -626,7 +626,7 @@ local ACTION_CHECKS = {
         end
     end },
     { category = "units", label = "CONDITION_UNITS", check = EmptyUnitRowCheck(4,
-        Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED, Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL) },
+        Constants.BINDING_ISSUE_REACTIONS_NONE_SELECTED, Constants.BINDING_ISSUE_REACTIONS_NONE_FALLS_BACK) },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 5)) then
             return Constants.BINDING_ISSUE_ROLES_NONE_SELECTED;
@@ -638,7 +638,7 @@ local ACTION_CHECKS = {
         end
     end },
     { category = "units", label = "CONDITION_UNITS", check = EmptyUnitRowCheck(2,
-        Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL) },
+        Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED, Constants.BINDING_ISSUE_UNITGROUPS_NONE_FALLS_BACK) },
     { category = "units", label = "CONDITION_UNITS", check = function(action, unit)
         if (HasEmptyUnitRow(action, unit, 3)) then
             return Constants.BINDING_ISSUE_HOVER_NONE_SELECTED;

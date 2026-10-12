@@ -16,8 +16,8 @@
 >
 > Three things settled with the owner on 2026-10-12 are in here: the definition of a **named unit** (§1), the **fallback**
 > (cast on yourself when the conditions do not hold, §3-4), and the Target-before-cast-keys priority written as a rule (§2).
-> The fallback is not implemented yet. What the code has today is the old option that leaves the `[@]` condition unasked; why
-> that was dropped is in `falling-back-to-yourself.md` §1.
+> The fallback replaced an older option that left the `[@]` condition unasked; why that was dropped is in
+> `falling-back-to-yourself.md` §1.
 
 Several actions sit on one key. When the key is pressed, one of them runs. **Which one runs, and on which unit**, is decided by
 the rules in this document and nothing else. What the game then does with that cast, whether Auto Self Cast takes it and

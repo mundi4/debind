@@ -564,16 +564,16 @@ do
 				-- **On this line and not under Cast Options**, although it is a `casting` value: the
 				-- box sits in this row's menu and says something about this row alone. Only where it
 				-- reaches a binding, the way a Cast Options value that cannot reach draws nothing.
-				local usual = "";
-				if (DebindPrivate.ResolvedUnitIgnoredSomewhere(action)) then
-					usual = " (" .. LLL["RESOLVED_TARGET_USUAL"] .. ")";
+				local fallback = "";
+				if (DebindPrivate.FallbackStands(action)) then
+					fallback = " (" .. LLL["RESOLVED_TARGET_FALLBACK"] .. ")";
 				end
 				if (resolved == false) then
-					addUnitLine(LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"] .. usual,
+					addUnitLine(LLL["RESOLVED_TARGET"] .. " - " .. LLL["CONDITION_UNIT_DOES_NOT_EXIST"] .. fallback,
 						under);
 				else
 					addUnitLine(LLL["RESOLVED_TARGET"] .. " - "
-						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]) .. usual, under);
+						.. (UnitConditionSummary(resolved) or LLL["CONDITION_UNIT_EXISTS"]) .. fallback, under);
 					AddUnitFrameAxes(tooltip, resolved, said);
 				end
 			end

@@ -1915,17 +1915,14 @@ return function(DebindPrivate, _, ctx)
             return DebindPrivate.DefaultClickFrame:GetAttribute("*spell-" .. interp:actionButton(button));
         end
 
-        --- The unit the record a frame click fired aims at, found by the button it clicks among the
-        --- records a frame click can reach. A held twin can click the same button at another unit.
+        --- The unit the record a frame click fired aims at, by the winner's place among the records
+        --- a frame click can reach: an original and its fallback click the same button.
         local function ClickAim(n)
-            local button = interp:evalClickCast(unitFrame, n, 0);
+            local button, index = interp:evalClickCast(unitFrame, n, 0);
             local byMod = button and interp.env.ClickCastKeys[n];
-            for _, record in ipairs(byMod and byMod[0] or {}) do
-                if (record.clickbutton == button and record.castModifier == Constants.CASTMOD_NONE) then
-                    return Aimed(record);
-                end
-            end
-            return nil;
+            local record = index and byMod and byMod[0][index];
+            check(not button or record, "the frame click won no record it could name");
+            return Aimed(record);
         end
 
         local function Expect(row, got, want)
@@ -2490,10 +2487,14 @@ return function(DebindPrivate, _, ctx)
             Expect(72, { PressReleasing(72, {}, { "CTRL" }) }, {});
         end);
 
-        --- Resolved Unit [Friendly] with `usualIgnoresResolvedUnit` set, over a hostile target.
-        --- `casting` is merged into the option rather than replacing it.
-        local function Usual(fields, casting)
-            local merged = { usualIgnoresResolvedUnit = true };
+        --- Resolved Unit [Friendly] with `fallbackToSelf` set. `casting` is merged into the option
+        --- rather than replacing it.
+        ---
+        --- **What the fallback looks like here**: a record out at `player` with no key held, which no
+        --- action of these rows sends otherwise. With Normal Cast off it stands on [the pointed unit
+        --- is there], so `Press` calls it `hover`.
+        local function Fallback(fields, casting)
+            local merged = { fallbackToSelf = true };
             for k, v in pairs(casting or {}) do
                 merged[k] = v;
             end
@@ -2508,19 +2509,19 @@ return function(DebindPrivate, _, ctx)
         end
 
         Row(73, function()
-            Bind({ Usual(nil, { hoverCast = false }) });
+            Bind({ Fallback(nil, { hoverCast = false }) });
             HostileTarget();
             PointNothing();
-            Expect(73, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+            Expect(73, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
         end);
         Row(74, function()
-            Bind({ Usual(nil, { hoverCast = false }) });
+            Bind({ Fallback(nil, { hoverCast = false }) });
             HostileTarget();
             PointFrame(ENEMY);
-            Expect(74, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+            Expect(74, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
         end);
         Row(75, function()
-            local subject = Usual(nil, { hoverCast = false });
+            local subject = Fallback(nil, { hoverCast = false });
             subject.casting = nil;
             Bind({ subject });
             HostileTarget();
@@ -2528,81 +2529,84 @@ return function(DebindPrivate, _, ctx)
             Expect(75, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(76, function()
-            Bind({ Usual(nil, { hoverCast = false, selfCastKey = "usual", focusCastKey = "usual" }) });
+            Bind({ Fallback(nil, { hoverCast = false, selfCastKey = "usual", focusCastKey = "usual" }) });
             HostileTarget();
             PointNothing();
-            Expect(76, { Press("F1", "self", "unitframe") }, { "A", nil, "self" });
-            Expect(76, { Press("F1", "focus", "unitframe") }, { "A", nil, "focus" });
+            Expect(76, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
+            Expect(76, { Press("F1", "focus", "unitframe") }, { "A", "player", "focus" });
         end);
         Row(77, function()
-            Bind({ Usual(nil, { hoverCast = false }) });
+            Bind({ Fallback(nil, { hoverCast = false }) });
             shim.world.units.focus = ENEMY;
             PointNothing();
             Expect(77, { Press("F1", "focus", "unitframe") }, {});
         end);
         Row(78, function()
-            Bind({ Usual() });
+            Bind({ Fallback() });
             HostileTarget();
             PointFrame(ENEMY);
-            Expect(78, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+            Expect(78, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
         end);
         Row(79, function()
-            Bind({ Usual() });
+            Bind({ Fallback() });
             HostileTarget();
             PointFrame(FRIEND);
             Expect(79, { Press("F1", nil, "unitframe") }, { "A", "unitframe", "hover" });
         end);
         Row(80, function()
-            Bind({ Usual(nil, { hoverCast = "skip" }) });
+            Bind({ Fallback(nil, { hoverCast = "skip" }) });
             HostileTarget();
             PointFrame(FRIEND);
             Expect(80, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(81, function()
-            Bind({ Usual(nil, { hoverCast = false, normalCast = false }) });
+            Bind({ Fallback(nil, { hoverCast = false, normalCast = false }) });
             HostileTarget();
             PointFrame(ENEMY);
-            Expect(81, { Press("F1", nil, "unitframe") }, { "A", nil, "hover" });
+            Expect(81, { Press("F1", nil, "unitframe") }, { "A", "player", "hover" });
         end);
         Row(82, function()
-            Bind({ Usual(nil, { hoverCast = false, normalCast = false }) });
+            Bind({ Fallback(nil, { hoverCast = false, normalCast = false }) });
             HostileTarget();
             PointNothing();
             Expect(82, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(83, function()
-            Bind({ Usual(nil, { normalCast = false }) });
+            Bind({ Fallback(nil, { normalCast = false }) });
             HostileTarget();
             PointFrame(ENEMY);
-            Expect(83, { Press("F1", nil, "unitframe") }, {});
+            Expect(83, { Press("F1", nil, "unitframe") }, { "A", "player", "hover" });
         end);
         Row(84, function()
-            Bind({ Usual({ unit = "target" }, { hoverCast = false }) });
+            Bind({ Fallback({ unit = "target" }, { hoverCast = false }) });
             HostileTarget();
             PointNothing();
             Expect(84, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(85, function()
-            Bind({ Usual({ unit = "none" }, { hoverCast = false }) });
+            Bind({ Fallback({ unit = "none" }, { hoverCast = false }) });
             HostileTarget();
             PointNothing();
             Expect(85, { Press("F1", nil, "unitframe") }, {});
         end);
         Row(86, function()
-            Bind({ Usual({ key = "BUTTON4" }, { hoverCast = false }) });
+            Bind({ Fallback({ key = "BUTTON4" }, { hoverCast = false }) });
             HostileTarget();
             PointFrame(ENEMY);
-            check(Click(4) == "A" and ClickAim(4) == nil,
+            check(Click(4) == "A" and ClickAim(4) == "player",
                 "#86: the frame click fired " .. tostring(Click(4)) .. " at " .. tostring(ClickAim(4)));
         end);
         Row(87, function()
-            Bind({ Usual({ key = "BUTTON1" }) });
-            HostileTarget();
+            Bind({ Fallback({ key = "BUTTON1" }) });
+            -- The fallback is the frame click's alone, as the key is (#45).
+            check((_G.GetBindingAction("BUTTON1", true) or "") == "",
+                "#87: the key is bound to " .. tostring(_G.GetBindingAction("BUTTON1", true)));
             PointFrame(ENEMY);
-            check(Click(1) == nil, "#87: the frame click fired " .. tostring(Click(1)));
+            check(Click(1) == "A" and ClickAim(1) == "player",
+                "#87: the frame click fired " .. tostring(Click(1)) .. " at " .. tostring(ClickAim(1)));
         end);
         Row(88, function()
-            local tail = Usual({ type = Constants.GIVEBACK, seq = 2 }, { hoverCast = false });
+            local tail = Fallback({ type = Constants.GIVEBACK, seq = 2 }, { hoverCast = false });
             tail.value = nil;
             -- **The key handed to the game is how a tail's win shows**: a tail clicks nothing, so the
             -- press answers nil whether it won or nothing matched. With nothing matched the key
@@ -2614,18 +2618,57 @@ return function(DebindPrivate, _, ctx)
                 "#88: the key is bound to " .. tostring(_G.GetBindingAction("F1", true)));
         end);
         Row(89, function()
-            local subject = Usual({ conditions = { units = { ["@"] = { reaction = 0 } } } },
+            local subject = Fallback({ conditions = { units = { ["@"] = { reaction = 0 } } } },
                 { hoverCast = false, selfCastKey = "usual" });
             Bind({ subject });
             PointNothing();
-            Expect(89, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
-            Expect(89, { Press("F1", "self", "unitframe") }, { "A", nil, "self" });
+            Expect(89, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
+            Expect(89, { Press("F1", "self", "unitframe") }, { "A", "player", "self" });
             Expect(89, { Press("F1", "focus", "unitframe") }, {});
             local issue = DebindPrivate.GetBindingIssue(subject, "units", nil, "@");
-            check(issue ~= nil and issue == Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL,
+            check(issue ~= nil and issue == Constants.BINDING_ISSUE_REACTIONS_NONE_FALLS_BACK,
                 "#89: the Resolved Unit row says " .. tostring(issue));
             check(DebindPrivate.GetIssueOutcome(subject) == Constants.ISSUE_OUTCOME_KEEP,
                 "#89: the outcome is " .. tostring(DebindPrivate.GetIssueOutcome(subject)));
+        end);
+        Row(90, function()
+            Bind({ Fallback() });
+            PointFrame(ENEMY);
+            Expect(90, { Press("F1", nil, "unitframe") }, { "A", nil, "original" });
+        end);
+        Row(91, function()
+            Bind({ Fallback({ unit = "focus" }) });
+            shim.world.units.focus = ENEMY;
+            PointNothing();
+            Expect(91, { Press("F1", nil, "unitframe") }, {});
+        end);
+        Row(92, function()
+            Bind({ Fallback(nil, { hoverCast = false }) });
+            shim.world.units.focus = nil;
+            PointNothing();
+            Expect(92, { Press("F1", "focus", "unitframe") }, {});
+        end);
+        Row(93, function()
+            Bind({ Fallback({ conditions = { units = { ["@"] = { reaction = Constants.REACTION_HARM } } } }) });
+            PointNothing();
+            Expect(93, { Press("F1", "self", "unitframe") }, {});
+        end);
+        Row(94, function()
+            Bind({ Fallback({ conditions = { units = { ["@"] = {
+                reaction = Constants.REACTION_HELP, role = Constants.ROLE_TANK } } } }) });
+            HostileTarget();
+            PointNothing();
+            Expect(94, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
+        end);
+        --- **#94 cannot tell whether the row is asked of you again**: a role off a party or raid
+        --- frame has no say (§3-3), so [Tank] would hold on you either way, and so would [Friendly].
+        --- A group you are not in can: alone, you are in no party.
+        Row("94, asked of you", function()
+            Bind({ Fallback({ conditions = { units = { ["@"] = {
+                reaction = Constants.REACTION_HELP, group = Constants.UNITGROUP_PARTY } } } }) });
+            HostileTarget();
+            PointNothing();
+            Expect(94, { Press("F1", nil, "unitframe") }, { "A", "player", "original" });
         end);
 
         --- **The move answers like the rows it names** (§6, last paragraph). The profile is written

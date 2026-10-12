@@ -175,8 +175,11 @@ do
     --- **`unitSources` keeps what narrowed each unit's mask**, because a zero does not say which
     --- menu made it. `twinOwnUnit` is what tells the hover twin's own [the unit is there] apart from
     --- a row the reader wrote: both sit in `conditions.units` by the time `BuildUnitStates` reads it.
+    ---
+    --- **A fallback is called the way a twin is**, with `castModifier` and the unit it goes out at,
+    --- plus `fallback` (`GetBindingsForAction`).
     local function FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit,
-            entry, branch)
+            entry, branch, fallback)
         local twin = castModifier ~= nil;
         binding.type, binding.value = action.type, action.value;
         binding.pinnedSpell = action.pinnedSpell;
@@ -427,10 +430,7 @@ do
         -- **A field beside `conditions`, not the row taken out of it**: the order (`MakeOrderRecord`)
         -- and the conditional mark read `conditions.units`, and an action that loses its `"@"`
         -- there sorts as unconditional (`falling-back-when-the-resolved-unit-fails.md` 3-4).
-        -- **`CastUnitOf` and not `unit`**: `none` empties `unit` and still goes out at a unit.
-        local castUnit = DebindPrivate.CastUnitOf(binding);
-        binding.ignoresResolvedUnit = (DebindPrivate.UsualIgnoresResolvedUnit(action)
-            and (castUnit == nil or castUnit == "")) or nil;
+        binding.fallback = fallback or nil;
 
         -- **Every original stands on [none held]**, whatever its type or target: every action has
         -- the self and focus twins, so a held modifier is answered among those and never by an
@@ -451,8 +451,10 @@ do
         -- **Hover Cast's `"skip"` stands the original on [the mode's unit is not there], and not in
         -- `conditions`** (`deciding-what-a-press-runs.md` §3-3): that table is what the order counts and
         -- what the row shows, and a Cast Options value must move neither. The held twins keep the
-        -- presses the value does not name.
-        if (not twin and DebindPrivate.HoverCastChoiceOf(action) == "skip") then
+        -- presses the value does not name. **The fallback behind the original stands on the same
+        -- presses as the original** (`deciding-what-a-press-runs.md` §6 #80).
+        if ((not twin or (fallback and castModifier == Constants.CASTMOD_NONE))
+                and DebindPrivate.HoverCastChoiceOf(action) == "skip") then
             binding.skipsPointedUnit = DebindPrivate.HoverCastMode(action);
         else
             binding.skipsPointedUnit = nil;
@@ -632,10 +634,9 @@ do
         return not (casting and casting.normalCast == false);
     end
 
-    --- Whether the bindings of this action that go out with no unit leave the Resolved Unit
-    --- condition unasked (`FillBinding`'s `ignoresResolvedUnit`).
-    function DebindPrivate.UsualIgnoresResolvedUnit(action)
-        return CastingValue(action, "usualIgnoresResolvedUnit") == true;
+    --- Whether the box inside Resolved Unit is ticked. What it builds is `GetBindingsForAction`'s.
+    function DebindPrivate.FallsBackToSelf(action)
+        return CastingValue(action, "fallbackToSelf") == true;
     end
 
     --- 누르는 동안 클라이언트의 자동 동작을 액션이 정하는 네 줄. **이름이 CVar 이름 그대로이고,
@@ -777,6 +778,14 @@ do
     local _ActionToKnownFocusCache = setmetatable({}, { __mode = "k" });
     local _ActionToKnownSelfCache = setmetatable({}, { __mode = "k" });
 
+    --- The fallback of each tier, and the bindings that cast ahead of it, by the tier's
+    --- `castModifier` (`GetBindingsForAction`).
+    local _ActionToFallbackCaches, _ActionToKnownFallbackCaches = {}, {};
+    for _, castModifier in ipairs({ Constants.CASTMOD_NONE, Constants.CASTMOD_FOCUS, Constants.CASTMOD_SELF }) do
+        _ActionToFallbackCaches[castModifier] = setmetatable({}, { __mode = "kv" });
+        _ActionToKnownFallbackCaches[castModifier] = setmetatable({}, { __mode = "k" });
+    end
+
     local NO_KNOWN = {};
 
     local HELP_DEAD = { dead = true, reaction = Constants.REACTION_HELP };
@@ -905,6 +914,9 @@ do
         local original = DebindPrivate.GetBindingInfoForAction(action);
         list[1] = original;
         local n = 1;
+        -- Whether any entry is a fallback, so `UnrollIntoTiers` walks the list a second time only
+        -- for an action that has one.
+        list.fallback = nil;
 
         -- **A spec-resolved action casts only through bindings that ask `known`, one per entry of
         -- `SpecSpells.lua`'s list, and it has to be bindings rather than one binding with a cleverer
@@ -949,15 +961,17 @@ do
             lastDerived = lastDerived - 1;
         end
 
-        local function fill(cache, aimedUnit, twinCondition, castModifier, pointedUnit)
+        local function fill(cache, aimedUnit, twinCondition, castModifier, pointedUnit, fallback)
             local binding = cache[action];
             if (not binding) then
                 binding = {};
                 cache[action] = binding;
             end
-            FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit);
+            FillBinding(binding, action, aimedUnit, twinCondition, castModifier, pointedUnit, nil, nil,
+                fallback);
             n = n + 1;
             list[n] = binding;
+            return binding;
         end
 
         --- The casting bindings of one tier, after its original or twin so they land ahead of it.
@@ -965,7 +979,7 @@ do
         --- `aimsPointed` is a tier aimed at a unit that has to be there, where a resurrection's
         --- no-target branch cannot stand.
         local function fillKnown(cache, aimedUnit, twinCondition, castModifier, pointedUnit,
-                aimsPointed)
+                aimsPointed, fallback)
             if (lastDerived < 1) then
                 return;
             end
@@ -984,7 +998,7 @@ do
                         bindings[i] = binding;
                     end
                     FillBinding(binding, action, aimedUnit, twinCondition, castModifier,
-                        pointedUnit, not branch and asks[i] or nil, branch or nil);
+                        pointedUnit, not branch and asks[i] or nil, branch or nil, fallback);
                     n = n + 1;
                     list[n] = binding;
                 end
@@ -1017,9 +1031,32 @@ do
             return list;
         end
 
+        -- **The fallback stands behind a tier's bindings that go out at a unit the reader did not
+        -- name** (`deciding-what-a-press-runs.md` §1, §3-4): the usual target, or the pointed unit,
+        -- which only an action with none picked aims at. `none` is named, which is why this asks
+        -- `CastUnitOf`. **None on a resurrection**, for the reason it has no self tier below.
+        local fallsBack = DebindPrivate.FallsBackToSelf(action) and branches == nil;
+        local function goesUnnamed(binding)
+            local unit = DebindPrivate.CastUnitOf(binding);
+            return fallsBack and (unit == nil or unit == "");
+        end
+        -- **A tail's fallback is the tail itself**: it carries no unit, and standing there without
+        -- the `"@"` row is what lets it win (`deciding-what-a-press-runs.md` §6 #88).
+        local fallbackAim = "player";
+        if (isTail) then
+            fallbackAim = nil;
+        end
+        local function fillFallback(castModifier, pointed, condition)
+            fill(_ActionToFallbackCaches[castModifier], fallbackAim, condition, castModifier, pointed, true);
+            fillKnown(_ActionToKnownFallbackCaches[castModifier], fallbackAim, condition, castModifier,
+                pointed, nil, true);
+            list.fallback = true;
+        end
+
         -- **The list is filled back to front.** `BuildKeyMap` walks a list from its last entry
         -- down, so each casting binding is written after the one it stands beside and lands in
-        -- the same tier, ahead of it.
+        -- the same tier, ahead of it. The fallbacks are walked after every other binding of their
+        -- tier (`UnrollIntoTiers`), so where they sit in the list does not place them.
         fillKnown(_ActionToKnownCache, action.unit);
         if (pointedUnit) then
             fill(_ActionToTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE, pointedUnit);
@@ -1027,6 +1064,15 @@ do
             -- never stand. Cast as usual aims at the target instead, and there it can.
             fillKnown(_ActionToKnownTwinCache, pointedAim, pointedCondition, Constants.CASTMOD_NONE,
                 pointedUnit, pointedAim == pointedUnit);
+        end
+        -- **With Normal Cast off it keeps the hover twin's [the pointed unit is there]**, being
+        -- the fallback of the pointed press alone (`deciding-what-a-press-runs.md` §6 #81, #82).
+        if (goesUnnamed(original)) then
+            if (original.normalCast == false) then
+                fillFallback(Constants.CASTMOD_NONE, pointedUnit, pointedCondition);
+            else
+                fillFallback(Constants.CASTMOD_NONE);
+            end
         end
 
         -- **Twins on every action, a picked unit and one that takes no unit included**: the original
@@ -1047,9 +1093,15 @@ do
         if (CastsAsUsual(action, "selfCastKey")) then
             selfAim = original.unit;
         end
+        -- **A held key's tier falls back only where its row is `Cast on the usual target`**: a key
+        -- sending the press to you or your focus named that unit (`deciding-what-a-press-runs.md` §2,
+        -- rule 2).
         if (focusTwin) then
-            fill(_ActionToFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
+            local twin = fill(_ActionToFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
             fillKnown(_ActionToKnownFocusCache, focusAim, nil, Constants.CASTMOD_FOCUS);
+            if (goesUnnamed(twin)) then
+                fillFallback(Constants.CASTMOD_FOCUS);
+            end
         end
         -- **Nobody resurrects themselves**, so a resurrection has no self tier aimed at you. Aimed at a
         -- picked unit or cast as usual, it is an ordinary tier and every branch stands in it. Decided
@@ -1059,8 +1111,11 @@ do
             selfTwin = false;
         end
         if (selfTwin) then
-            fill(_ActionToSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
+            local twin = fill(_ActionToSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
             fillKnown(_ActionToKnownSelfCache, selfAim, nil, Constants.CASTMOD_SELF);
+            if (goesUnnamed(twin)) then
+                fillFallback(Constants.CASTMOD_SELF);
+            end
         end
 
         for i = n + 1, #list do

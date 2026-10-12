@@ -3904,6 +3904,13 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 		debind_driver:CallMethod("printMacroText", entry.attr, s)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
+
+
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return winner.clickbutton, i
+			end
+		end
 		return winner.clickbutton
 	
 
@@ -4352,6 +4359,13 @@ self:RunAttribute("SetPetBattle", true)self:RunAttribute("SetPetBattle", false)
 	s = table.concat(entry.fragments)
 		DefaultClickFrame:SetAttribute(entry.attr, s)
 	end
+
+
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return winner.clickbutton, i
+			end
+		end
 		return winner.clickbutton
 	
 

@@ -152,15 +152,16 @@ end
 
 --- The conditional mark: that conditions exist. Which ones is the row's own tooltip.
 ---
---- **The Resolved Unit box qualifies it**: with the box ticked, the presses on your current target
---- run the action whatever that row says (`falling-back-when-the-resolved-unit-fails.md` §7).
+--- **The Resolved Unit box qualifies it**: with the box ticked, a press on your current target or
+--- the unit you point at runs the action on you whatever that row says
+--- (`falling-back-when-the-resolved-unit-fails.md` §7).
 local function ConditionalMarkTooltip(tooltip, mark)
 	GameTooltip_AddNormalLine(tooltip, LLL["MARK_TOOLTIP_CONDITIONAL"], true);
 	local action = mark and mark.action;
 	local units = action and action.conditions and action.conditions.units;
 	if (units and DebindPrivate.UnitConditionForBinding(units["@"]) ~= nil
-			and DebindPrivate.ResolvedUnitIgnoredSomewhere(action)) then
-		GameTooltip_AddNormalLine(tooltip, format(LLL["MARK_TOOLTIP_CONDITIONAL_USUAL"], LLL["RESOLVED_TARGET"]), true);
+			and DebindPrivate.FallbackStands(action)) then
+		GameTooltip_AddNormalLine(tooltip, format(LLL["MARK_TOOLTIP_CONDITIONAL_FALLBACK"], LLL["RESOLVED_TARGET"]), true);
 	end
 end
 

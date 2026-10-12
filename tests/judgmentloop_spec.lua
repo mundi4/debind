@@ -241,12 +241,12 @@ return function(DebindPrivate)
         check(IsOurs("ALT-F1"), "B10: ALT-F1 was let go while F1 is ours");
     end);
 
-    -- **With `usualIgnoresResolvedUnit` the bare key always has a winner** and is never handed on
+    -- **With `fallbackToSelf` the bare key always has a winner** and is never handed on
     -- (`falling-back-when-the-resolved-unit-fails.md` §6). The focus chord still asks the focus, and
     -- with none it follows the bare key, which is ours.
     test("B10 to B13 with the Resolved Unit fallback: the bare key stays ours", function()
         Bind({
-            action({ casting = { usualIgnoresResolvedUnit = true }, conditions = { units = { ["@"] = {} } } }),
+            action({ casting = { fallbackToSelf = true }, conditions = { units = { ["@"] = {} } } }),
             action({ type = Constants.GIVEBACK }),
         });
         -- B13: no target, no focus.
