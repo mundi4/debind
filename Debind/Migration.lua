@@ -731,7 +731,7 @@ local function MigrateLayer(layerTbl, dbver, to)
 
         -- The pointed frame's unit is called `unitframe` from here on. `hover` stops being a unit
         -- at all and becomes the unit an action's Hover Cast mode picks
-        -- (`which-action-a-key-runs.md` §0), so every stored spelling of the old name has
+        -- (`deciding-what-a-press-runs.md` §0), so every stored spelling of the old name has
         -- to move before that second meaning arrives.
         --
         -- **Bodies move too, not only fields.** `@hover` is a unit token in hand-written macro text
@@ -780,7 +780,7 @@ local function MigrateLayer(layerTbl, dbver, to)
         -- The frame type mask becomes an axis of the condition on the pointed frame's unit.
         -- It was its own condition field while the Unit Frame menu was a group of its own; that
         -- group is gone and the mask is one more thing said about `units["unitframe"]`
-        -- (`which-action-a-key-runs.md` §0). The role mask was moved into that row by the
+        -- (`deciding-what-a-press-runs.md` §0). The role mask was moved into that row by the
         -- `dbver <= 4` step and stays where it is.
         --
         -- **A mask already on the row wins**, the way that step's row does: one row cannot hold two

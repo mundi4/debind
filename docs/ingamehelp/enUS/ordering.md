@@ -25,7 +25,7 @@ Press a key that holds more than one action and Debind runs the first one whose 
 
 **The list is the answer, not a third place the order shows up** (2026-09-22, owner). All four sort it, so what the reader sees under a key already is the run order, and the four are what puts a row where it is rather than a calculation to run. That is why the items say "stands higher" and not "goes first", and why the last is named by the list rather than by the field behind it, which has no name on screen at all.
 
-**The second item carries its own reason.** An action with no conditions matches every press, and that is the whole case for the step; without it the item reads as an arbitrary rule to memorise. **"every press it takes part in", not "every press"**: *Normal Cast* unticked or *Hover Cast* on *Skip this action* keeps an action with no conditions out of some presses, and those values are not conditions to the order (`which-action-a-key-runs.md` §2).
+**The second item carries its own reason.** An action with no conditions matches every press, and that is the whole case for the step; without it the item reads as an arbitrary rule to memorise. **"every press it takes part in", not "every press"**: *Normal Cast* unticked or *Hover Cast* on *Skip this action* keeps an action with no conditions out of some presses, and those values are not conditions to the order (`deciding-what-a-press-runs.md` §0).
 -->
 
 The *Overview* tab lists actions grouped by key, and under one key they stand in the order they are tried. Four things put them in that order, and the first of the four where two actions differ settles which stands higher.
@@ -58,7 +58,7 @@ So an Account action with conditions stands above a character's action without t
 
 **Nothing here says what the cursor is over** (2026-09-22, owner). In Unit Frames mode it is over a frame, not over a unit, so "point at a unit" is true of one mode only; and which of the two counts is the account mode or the action's own, which this page does not own. `Hover Cast has a unit for this press` holds either way, and the two hover pages answer the rest.
 
-**The held key gets its own empty case and the pointed press does not**, because that is the difference: a held key ends in its own tier and follows the plain key when nothing there runs, and a pointed press is a plain press, whose empty case is the first paragraph's (`which-action-a-key-runs.md` §3, S4). The wording matches the *Self Cast Key* item of `cast-options.md`, where a cold reader misread "unless the key is given back".
+**The held key gets its own empty case and the pointed press does not**, because that is the difference: a held key ends in its own tier and follows the plain key when nothing there runs, and a pointed press is a plain press, whose empty case is the first paragraph's (`deciding-what-a-press-runs.md` §4, S4). The wording matches the *Self Cast Key* item of `cast-options.md`, where a cold reader misread "unless the key is given back".
 
 **Normal Cast is named** (review, 2026-10-10). Item 2 says "every press it takes part in", and without this sentence nothing on the page says which value takes an action with no conditions out of a plain press, so an unticked one read as standing in front of the actions under it.
 -->

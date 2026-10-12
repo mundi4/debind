@@ -46,7 +46,7 @@ placement needs defending, the page is wrong, not under-documented.
 
 ## Check every claim, and never from a comment
 
-`devdocs/which-action-a-key-runs.md` is the source for what a press reaches and in what order.
+`devdocs/deciding-what-a-press-runs.md` is the source for what a press reaches and in what order.
 Read the section, not a summary of it.
 
 **A page can promise behaviour the code stopped doing.** `targeting.md` said Auto Self Cast applied

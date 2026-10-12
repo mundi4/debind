@@ -279,7 +279,7 @@ local function ConditionsSurviveMacroText(action)
     end
 
     -- **Twins do not keep an action from converting** (2026-09-16, owner). A twin stands whether or
-    -- not the action takes a unit, and takes one (`which-action-a-key-runs.md` §3). Whether the body
+    -- not the action takes a unit, and takes one (`deciding-what-a-press-runs.md` §4). Whether the body
     -- reads that unit is the action's business (`implementing-focus-and-self-cast.md` §4).
 
     local unit, units = AimedUnitKeyForMacroText(action, binding);

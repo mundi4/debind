@@ -814,13 +814,13 @@ Constants.BINDING_ISSUE_SWITCH_NONE_SELECTED              = "SWITCH_NONE_SELECTE
 -- only issue code about **what the action points at** rather than the conditions around it.
 Constants.BINDING_ISSUE_MISSING_MACRO                     = "MISSING_MACRO";
 -- Hover Cast's "don't run while pointing" with Normal Cast off: no plain press is left, so the action
--- makes no binding at all, the held twins included (`which-action-a-key-runs.md` S1). **An issue
+-- makes no binding at all, the held twins included (`deciding-what-a-press-runs.md` §3-2). **An issue
 -- and left out** (2026-10-04, owner): only those twins would be left, and they vary a press the
 -- action no longer has. Turning the action off closes it too, and keeps what it was set with.
 Constants.BINDING_ISSUE_NOTHING_RUNS                      = "NOTHING_RUNS";
 -- A left or right click with no modifier answers one press, a click on a unit frame, and the action
 -- carries [when there is none] on a unit that is always there on such a click: the frame's own unit,
--- or `mouseover`, which the client sets to that same unit (`which-action-a-key-runs.md` §0, S5 #48,
+-- or `mouseover`, which the client sets to that same unit (`deciding-what-a-press-runs.md` §0, §6 #48,
 -- #49). **Not `CONDITIONS_NEVER`**, which says the conditions cannot all be true at once. Here one
 -- condition is enough and nothing is wrong with it; what it cannot meet is the key.
 --

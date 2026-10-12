@@ -1,7 +1,7 @@
 -- Turning Hover Cast on, for the specs that need a hover twin without being about Hover Cast.
 --
 -- The usual target is what an action written with no `casting` has, and with Normal Cast on it
--- makes no twin (`which-action-a-key-runs.md` S1), so a spec that measures conditions or ordering
+-- makes no twin (`deciding-what-a-press-runs.md` §3-2), so a spec that measures conditions or ordering
 -- reads one record per action and needs nothing here.
 -- A spec that measures the pointed press needs the twin, and the twin is what this puts on.
 --

@@ -321,7 +321,7 @@ return function(DebindPrivate)
     -- The pointed frame's column, which every binding is run over.
     ---------------------------------------------------------------------------
 
-    -- **A mouse button adds nothing to the box** (`which-action-a-key-runs.md` S2). A record with
+    -- **A mouse button adds nothing to the box** (`deciding-what-a-press-runs.md` §3-3). A record with
     -- no [no unit frame] stands on the frame path too, so it reaches the pointed point, and one
     -- with no condition there covers a frame record behind it as it would on a keyboard key.
     test("a mouse button key narrows nothing of its own", function()

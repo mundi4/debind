@@ -7,7 +7,7 @@
 
 **Only the answer stays here** (2026-09-17, owner: a help page answers at once). What each row under Cast Options does is `cast-options.md`.
 
-**A picked unit that is not there swallows the press, and that is one rule for every unit** (`devdocs/which-action-a-key-runs.md` §5: no exception is made for the three). It stood as its own page for Unit Frame and Mouseover, which taught the reader they were special and left a focus or pet action with the same symptom no answer at all (2026-09-22, owner).
+**A picked unit that is not there swallows the press, and that is one rule for every unit** (`devdocs/deciding-what-a-press-runs.md` §3-1: no exception is made for the three). It stood as its own page for Unit Frame and Mouseover, which taught the reader they were special and left a focus or pet action with the same symptom no answer at all (2026-09-22, owner).
 
 **Mouseover is not explained, only used as the yardstick** (2026-09-22, owner: every player knows it, and anyone who does not finds it outside the game). What no tooltip carries is what Unit Frame picks up, and it is said against a word the reader already has.
 -->

@@ -80,7 +80,7 @@ end
 --- **`onlyPointedFrame` is the two that only a unit frame can answer.** A frame has a type and the
 --- unit on a group frame has a role; neither can be read off a unit token, so the answer for a unit
 --- that is not the one being pointed at is "yes" and the rows would say nothing
---- (`which-action-a-key-runs.md` §0). Only `"unitframe"` and the unit this action aims at
+--- (`deciding-what-a-press-runs.md` §0). Only `"unitframe"` and the unit this action aims at
 --- can be that unit.
 local UNIT_CONDITION_AXES = {
     {

@@ -229,7 +229,7 @@ local function Build()
         { value = "mouseover", label = L["POINTED_UNIT_CAST_MOUSEOVER"], tooltip = L["POINTED_UNIT_CAST_MOUSEOVER_DESC"] },
     };
     -- **The mode and nothing else.** Hover Cast is turned off per action, not here
-    -- (`which-action-a-key-runs.md` §1): an account-wide off would have to be beaten by the
+    -- (`deciding-what-a-press-runs.md` §3-2): an account-wide off would have to be beaten by the
     -- actions carried over from the unit frame condition, and a value the account cannot hold is one
     -- value fewer than a value every one of those actions has to override.
     Dropdown(L["POINTED_UNIT_CAST"], L["POINTED_UNIT_CAST_DESC"], function(_, rootDescription)

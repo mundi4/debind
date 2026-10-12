@@ -334,7 +334,7 @@ return function(DebindPrivate)
     ---------------------------------------------------------------------------
 
     -- **The key is laid out in tiers**: every self twin, every focus twin, then each action's hover
-    -- twin right ahead of its own original (`which-action-a-key-runs.md` S1). Action 1 has no hover
+    -- twin right ahead of its own original (`deciding-what-a-press-runs.md` §3-2). Action 1 has no hover
     -- twin, since its [when none is pointed at] leaves the twin nothing to match.
     test("the key is laid out in tiers", function()
         Bind({
@@ -598,7 +598,7 @@ return function(DebindPrivate)
 
     -- On a mouse button the twin is a click on the frame only, and the original stands on both
     -- paths: it holds the key, and a frame click the twin does not take reaches it
-    -- (`which-action-a-key-runs.md` S4).
+    -- (`deciding-what-a-press-runs.md` §4).
     test("on a mouse button the twin is the click-cast and the original stands on both paths", function()
         Bind({
             { type = Constants.SPELL, value = 585, key = "BUTTON3", seq = 1 },

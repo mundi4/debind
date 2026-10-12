@@ -434,7 +434,7 @@ return function(DebindPrivate, _, ctx)
         end
     end);
 
-    -- **The bare left and right click are never taken** (`which-action-a-key-runs.md` §7),
+    -- **The bare left and right click are never taken** (`deciding-what-a-press-runs.md` §5),
     -- and no longer because of an issue: the action there runs over a unit frame or not at all.
     test("the bare left click is not taken", function()
         Bind({ action({ value = 585, key = "BUTTON1" }) });

@@ -67,7 +67,7 @@ return function(DebindPrivate)
 
     --- **There was a unit frame step.** It stood second and put an action with a condition on the
     --- pointed frame's unit ahead of one without; it went when that unit became an ordinary unit
-    --- (`which-action-a-key-runs.md` §2). A condition on that unit now counts under `isConditional`
+    --- (`deciding-what-a-press-runs.md` §0). A condition on that unit now counts under `isConditional`
     --- below like any other.
 
     test("2단계 isConditional - 조건부가 먼저", function()

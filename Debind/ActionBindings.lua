@@ -212,7 +212,7 @@ do
         -- **Only the original answers a press with nothing held and nothing pointed at**, so this is
         -- the original's field: the twins answer the held and the pointed presses, and Normal Cast
         -- says nothing about those. `BuildKeyMap` reads it to leave the original off the key
-        -- (`which-action-a-key-runs.md` §6). The bare left and right click have no
+        -- (`deciding-what-a-press-runs.md` §7). The bare left and right click have no
         -- original whatever the box says: it would hold the key and take the world click (§7).
         if (twin or (DebindPrivate.NormalCastEnabled(action)
                 and not DebindPrivate.IsBareWorldClick(action.key))) then
@@ -443,13 +443,13 @@ do
         -- action has the self and focus twins, and a macro body can aim wherever it likes.
 
         -- **A unit frame condition fills no target in.** With no unit picked the original lets the
-        -- game place the cast, condition or no condition (`which-action-a-key-runs.md` §5);
+        -- game place the cast, condition or no condition (`deciding-what-a-press-runs.md` §3-1);
         -- the pointed unit is reached through the hover twin, which is what the condition's own
         -- action is carried over as (§8). The fill-in that used to sit here put `unitframe` in
         -- `unit`, which made an ordinary press over nothing cast at a unit that was not there.
 
         -- **Hover Cast's `"skip"` stands the original on [the mode's unit is not there], and not in
-        -- `conditions`** (`which-action-a-key-runs.md` S2): that table is what the order counts and
+        -- `conditions`** (`deciding-what-a-press-runs.md` §3-3): that table is what the order counts and
         -- what the row shows, and a Cast Options value must move neither. The held twins keep the
         -- presses the value does not name.
         if (not twin and DebindPrivate.HoverCastChoiceOf(action) == "skip") then
@@ -528,7 +528,7 @@ do
 
     --- Whether that press's twin goes out at the unit the press names, or the way the original does.
     --- "Cast as usual" is the second: the twin keeps its turn in that tier and lets the game place
-    --- the cast, Auto Self Cast included (`which-action-a-key-runs.md` §6).
+    --- the cast, Auto Self Cast included (`deciding-what-a-press-runs.md` §7).
     local function CastsAsUsual(action, name)
         return CastingValue(action, name) == "usual";
     end
@@ -546,7 +546,7 @@ do
 
     --- The unit this action counts as pointed at. **`hover` is a name storage uses and this is where
     --- it stops**: everything below reads `unitframe` or `mouseover`
-    --- (`which-action-a-key-runs.md` §0).
+    --- (`deciding-what-a-press-runs.md` §0).
     ---
     --- **A skipped action has a mode too**: it names the unit whose presence takes the action off the
     --- press (`skipsPointedUnit`).
@@ -554,7 +554,7 @@ do
     --- **Asked of no action it answers the account's mode**, which is what the settings tab shows.
     ---
     --- **The bare left and right click answer Unit Frames whatever the action or the tab says**
-    --- (`which-action-a-key-runs.md` §7). The key is never held there, so a Mouseover twin
+    --- (`deciding-what-a-press-runs.md` §5). The key is never held there, so a Mouseover twin
     --- would have to take the world click to stand at all.
     function DebindPrivate.HoverCastMode(action)
         if (action and DebindPrivate.IsBareWorldClick(action.key)) then
@@ -574,7 +574,7 @@ do
     ---
     --- **The account's box and the action's value are one answer.** With the box off the tier is not
     --- built at all, so the action's value has nothing to say there
-    --- (`which-action-a-key-runs.md` §6); asked of no action, this is the box alone, which
+    --- (`deciding-what-a-press-runs.md` §7); asked of no action, this is the box alone, which
     --- is what the emitter wires the press up from.
     function DebindPrivate.SelfCastEnabled(action)
         local options = DebindPrivate.Options;
@@ -614,7 +614,7 @@ do
 
     --- Which of the three a press holds: the action goes to that press's unit (`"cast"`), where the
     --- press would have gone anyway (`"usual"`), or it is out of that press (`"skip"`). The same three
-    --- on all three rows (`which-action-a-key-runs.md` §6).
+    --- on all three rows (`deciding-what-a-press-runs.md` §7).
     function DebindPrivate.CastKeyChoiceOf(action, row)
         local value = CastingValue(action, row);
         if (value == "usual" or value == "skip") then
@@ -626,7 +626,7 @@ do
     --- Whether the action stands on a press with nothing held and nothing pointed at. Off is the
     --- original not being made, so the press falls through to the next action on the key -- which is
     --- what the old [when a frame is pointed at] condition did, without swallowing the press
-    --- (`which-action-a-key-runs.md` §6).
+    --- (`deciding-what-a-press-runs.md` §7).
     function DebindPrivate.NormalCastEnabled(action)
         local casting = action and action.casting;
         return not (casting and casting.normalCast == false);
@@ -828,7 +828,7 @@ do
     --- The hover twin, as three answers: the pointed unit its condition stands under, that
     --- condition, and the unit it goes out at. nil where the action gets none.
     ---
-    --- **One rule, and the special cases are gone** (`which-action-a-key-runs.md` §4). The
+    --- **One rule, and the special cases are gone** (`deciding-what-a-press-runs.md` §3-2). The
     --- twin inherits every condition the reader wrote, adds [the pointed unit is there] on the unit
     --- the action's mode names, and goes out at that unit. A condition the reader wrote is never
     --- widened, and a unit the reader picked is never moved.
@@ -836,8 +836,8 @@ do
     --- **Only two values make one.** `"cast"` needs it to go out at the pointed unit. The usual
     --- target needs it only with Normal Cast off, where it is the one binding left and its
     --- [the unit is there] is what keeps the action to pointed presses; with Normal Cast on the
-    --- original already answers the pointed press at the same target (`which-action-a-key-runs.md`
-    --- S1). `"skip"` narrows the original instead (`skipsPointedUnit`).
+    --- original already answers the pointed press at the same target (`deciding-what-a-press-runs.md`
+    --- §3-2). `"skip"` narrows the original instead (`skipsPointedUnit`).
     ---
     --- **A condition the reader put on that unit is narrowed into, never replaced** (2026-09-12,
     --- owner). The twin says [the unit is there] and the reader may have said [it is hostile]; the
@@ -1004,7 +1004,7 @@ do
             focusTwin, selfTwin = DebindPrivate.FocusCastEnabled(action), DebindPrivate.SelfCastEnabled(action);
         end
         -- **Nothing on the plain presses is an action with no bindings at all**, the held twins
-        -- included (`which-action-a-key-runs.md` S1; 2026-10-05, owner). Those twins send the action
+        -- included (`deciding-what-a-press-runs.md` §3-2; 2026-10-05, owner). Those twins send the action
         -- at another unit, and an action no plain press reaches has nothing for them to vary. Either
         -- the values leave nothing (`"skip"` with Normal Cast off) or they meet a condition on the
         -- pointed unit that leaves nothing, and `Issues.lua` tells the two apart (`NoBindingCause`).
@@ -1116,7 +1116,7 @@ end
 --- nothing at all.
 ---
 --- **One record per action, twins included.** Every tier stands in the originals' order, which is
---- the order the window draws (`which-action-a-key-runs.md` §2), so a twin is never ordered
+--- the order the window draws (`deciding-what-a-press-runs.md` §0), so a twin is never ordered
 --- against anything on its own terms.
 ---
 --- **An ignored Switch still counts as a condition here** (2026-09-23, owner), although the binding
@@ -1160,7 +1160,7 @@ function DebindPrivate.IsConditionalBinding(binding)
 end
 
 --- The bare left and right click. **Never held**: the only press Debind answers on them is a click on
---- a unit frame, whatever the action's Cast Options say (`which-action-a-key-runs.md` §7).
+--- a unit frame, whatever the action's Cast Options say (`deciding-what-a-press-runs.md` §5).
 function DebindPrivate.IsBareWorldClick(key)
     return key == "BUTTON1" or key == "BUTTON2";
 end

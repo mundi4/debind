@@ -232,8 +232,8 @@ do
 	local _unroll = {};
 
 	--- Lays the sorted originals out as the key, in three tiers: every self twin, every focus twin,
-	--- and then each action's hover twin right ahead of its own original (`which-action-a-key-runs.md`
-	--- S1, S4). A probe goes with the binding it gates, right ahead of it.
+	--- and then each action's hover twin right ahead of its own original (`deciding-what-a-press-runs.md`
+	--- §3-2, S4). A probe goes with the binding it gates, right ahead of it.
 	---
 	--- **The hover twins are not gathered ahead of every original** (2026-10-04, owner). Gathered,
 	--- an action with no twin gave the pointed press to any action behind it that had one, wherever
@@ -343,7 +343,7 @@ do
 					-- would lose every press, so the key gets what a key whose actions all fail gets
 					-- (2026-09-15, owner; `giving-keys-back-when-no-action-runs.md` 1-1). That includes
 					-- an action with no binding at all, every press turned off in its Cast Options menu
-					-- (`which-action-a-key-runs.md` §6).
+					-- (`deciding-what-a-press-runs.md` §7).
 					--
 					-- **A specialization condition naming another class's specializations counts
 					-- too**, though nothing behind it can ever fire on this character

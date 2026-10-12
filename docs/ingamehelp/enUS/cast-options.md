@@ -14,7 +14,7 @@ below may have its conditions unmet or be skipped too, and a reader testing with
 page as wrong.
 
 **Each row names its own empty case, because the two differ.** A held press with nothing left
-follows the plain key (`which-action-a-key-runs.md` S4): nothing while one of the key's actions
+follows the plain key (`deciding-what-a-press-runs.md` §4): nothing while one of the key's actions
 would run on a plain press, the game while the key is given back. A pointed press is a plain press,
 and its empty case is the key's own. Said only on the first row, a reader carried it over to *Hover
 Cast* (review, 2026-10-10).
@@ -78,7 +78,7 @@ The four rows below them, *Auto Self Cast*, *Auto Cancel Form*, *Auto Dismount* 
 
 **The key names go plain in the last two items** (review, 2026-09-22). They point at the game's own keys and settings, where blue would send the reader looking for a row of ours.
 
-**The conflict item names the symptom** (review, 2026-09-22): the player it is for is looking at one key that does not answer the cast key. A held press reaches Debind only because the client drops an unbound ALT-X onto X (`which-action-a-key-runs.md` §3), and Debind's own keys go out through `SetBindingClick` on that same combination, so ours take it the same way (measured 2026-09-22). `Keybindings` is the client's name for that screen (`SETTINGS_KEYBINDINGS_LABEL`). It stays on this page because the reader it is for opens this page from the row that is not answering.
+**The conflict item names the symptom** (review, 2026-09-22): the player it is for is looking at one key that does not answer the cast key. A held press reaches Debind only because the client drops an unbound ALT-X onto X (`deciding-what-a-press-runs.md` §4), and Debind's own keys go out through `SetBindingClick` on that same combination, so ours take it the same way (measured 2026-09-22). `Keybindings` is the client's name for that screen (`SETTINGS_KEYBINDINGS_LABEL`). It stays on this page because the reader it is for opens this page from the row that is not answering.
 -->
 
 Good to know:

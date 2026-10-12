@@ -41,7 +41,7 @@ local DEFAULT_IMPORTANCE   = Constants.DEFAULT_IMPORTANCE;
 ---
 --- **The unit-frame step has gone.** It ranked a binding carrying a condition on the pointed
 --- frame's unit ahead of one that did not; that unit is an ordinary unit now, and nothing stands in
---- for the step (`which-action-a-key-runs.md` §3). The `dbver` step that took the condition apart
+--- for the step (`deciding-what-a-press-runs.md` §4). The `dbver` step that took the condition apart
 --- renumbers every key group with the old comparator, which keeps the order inside one layer for
 --- every action v3.5.2 ran; what it does not keep is in `orderupgrade_spec`'s main test.
 ---

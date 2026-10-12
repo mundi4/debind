@@ -479,7 +479,7 @@ RegisterTest("Resolved Unit: the row under Units writes the condition, and Targe
 --- locked, and the setter a press on it reaches are the client's menu tree. The press half runs the
 --- real snippet on a target the reader cannot be asked to set up, so its life is injected
 --- ("State injection: dead flips a binding" does the same). Which binding wins each press is headless
---- (`tests/eval_spec.lua`, §S5 #73 to #89).
+--- (`tests/eval_spec.lua`, §6 #73 to #89).
 RegisterTest("Resolved Unit: the box below the row stores the option, and the press stops asking the row", {
     description = "Resolved Unit 메뉴의 체크박스가 casting.usualIgnoresResolvedUnit을 쓰고 지우며, 대상을 골라도 잠기지 않는다. 켜면 현재 대상이 조건에 안 맞아도 그냥 누름이 나가고, 끄면 다시 안 나간다",
     run = function()

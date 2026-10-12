@@ -128,7 +128,7 @@ DebindPrivate.UnitConditionToState = UnitConditionToState;
 --- This binding's condition on `unitframe`, in binding shape: nil, `false`, or a table.
 ---
 --- **Read each time, not kept as a field.** The pointed frame's unit is an ordinary unit
---- (`which-action-a-key-runs.md` §0), so a second name for one entry of `units` would be
+--- (`deciding-what-a-press-runs.md` §0), so a second name for one entry of `units` would be
 --- the split that fold removed. The readers left are the ones that ask something about the **key**
 --- rather than about the unit: which path a press takes (`KeyRecords.lua`'s `isClickCast` and
 --- `holdsKey`), whether a mouse button can be bound at all (`IsKeyInvalidForAction`), and where the

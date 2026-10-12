@@ -463,7 +463,7 @@ local function CreateResurrectMenu(parentDescription, ctx)
 end
 
 --- The four presses an action can stand on, and where it goes on each
---- (`which-action-a-key-runs.md` §6).
+--- (`deciding-what-a-press-runs.md` §7).
 ---
 --- **On every action, not only one that takes a target.** Every action has all three twins (§3), so
 --- a held key reaches a macro or a mount as well, and taking one out of that press is the same
@@ -540,7 +540,7 @@ local function CreateCastingMenu(parentDescription, ctx)
     }) do
         -- **The account's box takes the whole row.** With the key turned off in the settings the
         -- tier is not built at all, so none of the three answers means anything
-        -- (`which-action-a-key-runs.md` §6). What is stored here is kept and waits.
+        -- (`deciding-what-a-press-runs.md` §7). What is stored here is kept and waits.
         local rowDescription = ActionMenus:BuildNode(description, {
             label = row.label,
             instruction = withUnitUnusedNote(format(row.instruction, row.label)),
@@ -959,7 +959,7 @@ end
 --- key, and drops out of the rebuild ahead of every other filter (`Debind.lua:286`). The key is
 --- still held for every other action on it, and goes back to the game only when none is left. It is
 --- the way out of "this action never runs" that does not mean turning a press back on
---- (`which-action-a-key-runs.md` §6).
+--- (`deciding-what-a-press-runs.md` §7).
 local function CreateDisableMenuItem(rootDescription, ctx)
     local description = CreateCheckbox(rootDescription, ctx, LLL["ACTION_DISABLED"], actionValueEquals,
         setActionValue, { ctx = ctx, key = "disabled", value = USE_CHECKED_VALUE });

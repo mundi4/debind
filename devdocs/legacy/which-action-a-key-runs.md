@@ -1,6 +1,10 @@
 # 키 하나가 무엇을 실행하나: Hover Cast, Focus Cast Key, Self Cast Key의 스펙
 
-> **표준 문서다.** 2026-09-15 문답으로 세우고 2026-09-16에 이름과 조건 축을 합쳤다. 2026-10-04에 Hover Cast의
+> 상태: **2026-10-12에 `deciding-what-a-press-runs.md`가 대신한다.** 규칙은 그쪽이 들고 거기와 갈리면 그쪽이 맞다. 이 문서가
+> 남는 까닭은 그때의 문서들이 이 문서의 절(S1~S5, §8)로 들어가기 때문이고, §8의 옮기기 표는 여기에만 있다. 더 고치지 않는다.
+> S5의 줄 번호는 새 문서의 §6과 같다.
+>
+> **표준 문서였다.** 2026-09-15 문답으로 세우고 2026-09-16에 이름과 조건 축을 합쳤다. 2026-10-04에 Hover Cast의
 > 끔을 없애고 층을 셋으로 줄였다(`taking-off-out-of-hover-cast.md`). 구현 순서와
 > 각 단계가 건드리는 자리는 `implementing-the-casting-spec.md`가 든다. 인게임 도움말
 > "Which action a key runs"와 "Which unit an action is used on"도 §9대로 다시 썼다.

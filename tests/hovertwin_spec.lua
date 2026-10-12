@@ -1,4 +1,4 @@
--- **The hover twin, one rule and no special cases** (`which-action-a-key-runs.md` §4, §5).
+-- **The hover twin, one rule and no special cases** (`deciding-what-a-press-runs.md` §3-2, §5).
 -- No WoW client needed.
 --
 -- The twin inherits every condition the reader wrote, adds [the pointed unit is there] on the unit
@@ -346,7 +346,7 @@ return function(DebindPrivate)
     end);
 
     -- **The usual target makes a twin only with Normal Cast off**, and it goes where the original
-    -- would (`which-action-a-key-runs.md` S1, S3). With Normal Cast on the original answers the
+    -- would (`deciding-what-a-press-runs.md` §3-2, S3). With Normal Cast on the original answers the
     -- pointed press at that same target, so a twin would only be a second copy of it.
     test("the usual target's twin stands only with Normal Cast off, aimed where the original is", function()
         for _, mode in ipairs({ "unitframe", "mouseover" }) do

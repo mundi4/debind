@@ -261,7 +261,7 @@ fine where it is the efficient tool, such as one mechanical change across many f
   - **Standing documents** sit at the top level and carry **no status header**. They are the rules
     (how a job is done here) and the specs (what the addon's behaviour has to be), and they stay put.
     - **A standing document about our own code lives only as long as something outside it keeps it
-      true.** `which-action-a-key-runs.md` earns its place because each row of its §S5 is a headless
+      true.** `deciding-what-a-press-runs.md` earns its place because each row of its §6 is a headless
       test, so the document and the code cannot drift without going red. One that merely restates
       what the code already says is a second copy, and it goes stale in silence with no check able
       to see it: `action-and-binding-shapes.md` is what that ends up looking like. Before writing

@@ -1429,7 +1429,7 @@ L["CASTING"] = "Cast Options"
 -- would be the menu written out on one line.
 L["CASTING_DESC"] = "Which presses this action stands on, and where it goes on each of them."
 -- The three rows inside a cast key's menu. **Each says what happens while the key is held**, which
--- is the question the reader opened the row with (`which-action-a-key-runs.md` §6).
+-- is the question the reader opened the row with (`deciding-what-a-press-runs.md` §7).
 --
 -- **The two keys are named by the client's own labels** (`AUTO_SELF_CAST_KEY_TEXT`,
 -- `FOCUS_CAST_KEY_TEXT`, the dropdowns in its settings), passed in as `%s` by `CreateCastingMenu`,
@@ -1480,7 +1480,7 @@ L["CASTING_POINTED_CAST_DESC"] = "Pointing at a unit sends this action to it."
 -- **The fourth press has no key and no unit to name it by**, so it is named by the key alone.
 -- Ticked is what every action did before any of these values existed.
 --
--- **Unticked, what is left is the pointed press** (`which-action-a-key-runs.md` §6): at the usual
+-- **Unticked, what is left is the pointed press** (`deciding-what-a-press-runs.md` §7): at the usual
 -- target or the pointed unit the action still runs while you point at a unit, and it sits out only
 -- the press with nothing pointed at. "Don't run while pointing" with this unticked leaves nothing,
 -- and that is said by the issue on the row, not here.
@@ -1540,7 +1540,7 @@ L["RESOLVED_TARGET"] = "Resolved Unit"
 --
 -- **Cast as usual is named because it lands on the current target too.** A held key or a pointed
 -- unit set to it sends the action where it would go with nothing held or pointed at, and the
--- conditions follow it there (`which-action-a-key-runs.md` S3). Without it the sentence
+-- conditions follow it there (`deciding-what-a-press-runs.md` §3). Without it the sentence
 -- promises you or your focus on a press that goes neither way.
 --
 -- **"Sits the press out", not "does not go out".** A condition that fails hands the press to the

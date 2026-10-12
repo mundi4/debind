@@ -41,7 +41,7 @@ local KEYS_TO_SAVE       = {
     arrivalID = "number",
     -- **The reader has turned this action off.** It keeps everything it was set with, reaches no
     -- key, and hands its key back to the game, which is what tells it apart from an action whose
-    -- presses are all off (`which-action-a-key-runs.md` §6). Deleting is the other way to
+    -- presses are all off (`deciding-what-a-press-runs.md` §7). Deleting is the other way to
     -- stop an action, and it takes the conditions, the importance and the place in the key with it.
     disabled = "boolean",
     -- **With nothing to cast, the next action on the key takes the press** instead of the key being

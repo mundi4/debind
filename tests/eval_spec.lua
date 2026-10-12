@@ -1152,7 +1152,7 @@ return function(DebindPrivate, _, ctx)
     end
 
     -- **Each action's pointed twin stands right ahead of its own original, not ahead of every
-    -- original** (`which-action-a-key-runs.md` S4, 2026-10-04, owner). An attack for hostile
+    -- original** (`deciding-what-a-press-runs.md` §4, 2026-10-04, owner). An attack for hostile
     -- units ahead of a heal for friendly ones, neither with a target picked, both on the pointed
     -- unit. Over a friendly frame with a hostile target the attack's original comes before the heal's
     -- twin and goes at the target: the drawn order answers a pointed press too. Splitting the heal
@@ -1825,7 +1825,7 @@ return function(DebindPrivate, _, ctx)
     end);
 
     ---------------------------------------------------------------------------
-    -- `which-action-a-key-runs.md` §S5: one row, one test
+    -- `deciding-what-a-press-runs.md` §6: one row, one test
     --
     -- Written from the table and not from the code: each row's action, press and answer are the
     -- row's own. "Next" is the action alone on its key, so the answer is that no record fires. What the
@@ -1935,7 +1935,7 @@ return function(DebindPrivate, _, ctx)
         end
 
         local function Row(n, fn)
-            test("§S5 #" .. n, function()
+            test("§6 #" .. n, function()
                 shim.world.units = { target = FRIEND, player = FRIEND, focus = FRIEND };
                 local ok, err = pcall(fn);
                 interp:clearHoverSlot();
@@ -2628,7 +2628,7 @@ return function(DebindPrivate, _, ctx)
                 "#89: the outcome is " .. tostring(DebindPrivate.GetIssueOutcome(subject)));
         end);
 
-        --- **The move answers like the rows it names** (§S5, last paragraph). The profile is written
+        --- **The move answers like the rows it names** (§6, last paragraph). The profile is written
         --- at `dbver` 6, so the ladder is what turns each old action into its new shape.
         ---
         --- **`casting` comes off first.** These actions are what the ladder is handed, and an old

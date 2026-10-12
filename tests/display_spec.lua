@@ -462,7 +462,7 @@ return function(DebindPrivate)
     end);
 
     --- **Hover Cast's value does not reach the bare left click** (`HoverCastChoiceOf`,
-    --- `which-action-a-key-runs.md` §7), so the row runs and has no reason to give. The line
+    --- `deciding-what-a-press-runs.md` §5), so the row runs and has no reason to give. The line
     --- is drawn all the same, because what that key answers with is the pointed unit.
     test("Hover Cast left at its default on the bare left click draws the pointed unit anyway", function()
         Bind({

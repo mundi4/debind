@@ -1396,7 +1396,7 @@ local EVAL_SNIPPET = [==[
 	-- A focus chord with `CastKeysOn` false cannot arrive: chords are bound only while a cast key
 	-- is on, the same rebuild that writes it a table.
 	-- A frame click takes no tier: what a modifier does on a frame is the frame's own, and nothing
-	-- here can read it (`which-action-a-key-runs.md` §7).
+	-- here can read it (`deciding-what-a-press-runs.md` §5).
 	local castModifier
 	if (clickCast) then
 		castModifier = CONSTANTS.CASTMOD_NONE

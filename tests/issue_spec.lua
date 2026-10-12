@@ -304,7 +304,7 @@ return function(DebindPrivate)
     -- makes cast key twins no press reaches.
     --
     -- **The bare left and right click run over a frame whatever the action says**
-    -- (`which-action-a-key-runs.md` §7), so the rest of the answers are asked of `BUTTON3`.
+    -- (`deciding-what-a-press-runs.md` §5), so the rest of the answers are asked of `BUTTON3`.
     ---------------------------------------------------------------------------
 
     local function unitFrameIsOn(fields, key)
@@ -1281,7 +1281,7 @@ return function(DebindPrivate)
     --- The bare click only runs when a unit frame is clicked, and there is always a unit there, so
     --- [when there is none] on it leaves the key nothing. **Undone by changing the key or the
     --- condition**, so both are told. Not `CONDITIONS_NEVER`: one condition is all there is, and
-    --- nothing is wrong with it (S5 #48).
+    --- nothing is wrong with it (§6 #48).
     test("the bare click with the pointed unit [none] is told at the key and at the unit", function()
         local action = { type = Constants.SPELL, value = 585, key = "BUTTON1",
             conditions = { units = { unitframe = { exists = false } } } };
@@ -1301,7 +1301,7 @@ return function(DebindPrivate)
         check(GetNotRunningReason(action) == nil, "also given as a reason");
     end);
 
-    --- **`mouseover` is the same unit on that click** (S5 #49). Pointing at a frame is what sets it,
+    --- **`mouseover` is the same unit on that click** (§6 #49). Pointing at a frame is what sets it,
     --- off the very attribute this addon reads for the frame's unit, so [when there is none] on it
     --- stops the click as surely as the row above. The mode has no say: this key points at frames
     --- whatever it says (`HoverCastMode`).

@@ -98,7 +98,7 @@ local function PrepareKeyBindings(key, bindingArray)
         local binding = bindingArray[i];
         -- **Every record on a mouse button stands on the frame path unless it rules the frame out**,
         -- by the reader's [no unit frame] or by Hover Cast's `"skip"` on that unit
-        -- (`which-action-a-key-runs.md` S4). The solver has no column for the path a record takes,
+        -- (`deciding-what-a-press-runs.md` §4). The solver has no column for the path a record takes,
         -- so a box is right only where the record really is: a key-path-only record whose box spans
         -- the frame half would cover, and delete, a frame record it never meets.
         --
@@ -113,7 +113,7 @@ local function PrepareKeyBindings(key, bindingArray)
         -- that click as it stands: what the frame does with it is Blizzard's click bindings, the
         -- frame's own attributes or another addon's wrapper, differs per frame and cannot be read
         -- reliably, so taking it would hide the game's side of every modified frame click by
-        -- default (`which-action-a-key-runs.md` §7).
+        -- default (`deciding-what-a-press-runs.md` §5).
         local unitFrameCondition = DebindPrivate.UnitFrameConditionOf(binding);
         local wantsFrame = type(unitFrameCondition) == "table";
         local refusesFrame = unitFrameCondition == false or binding.skipsPointedUnit == "unitframe"
@@ -563,7 +563,7 @@ local function EmitRecord(record)
     end
 
     -- **A giveback that wins a frame click lets it through** to the frame's own handler, which is the
-    -- game's side of that click (`which-action-a-key-runs.md` S4). Every other winner with nothing
+    -- game's side of that click (`deciding-what-a-press-runs.md` §4). Every other winner with nothing
     -- to click spends it (2026-10-05, owner): a block does nothing, as its own row says, and a
     -- command cannot run on a frame. Let through, either would run whatever the frame has on that
     -- click, which the reader did not pick, and do what the giveback does.

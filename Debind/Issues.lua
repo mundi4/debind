@@ -668,7 +668,7 @@ local BARE_CLICK_UNITS = { "unitframe", "mouseover" };
 --- The unit whose [when there is none] leaves a bare left or right click nothing to run, or nil.
 ---
 --- **Two units, one of them not the mode's.** That key answers one press, a click on a unit frame
---- (`which-action-a-key-runs.md` §7), and on such a click both the frame's own unit and `mouseover`
+--- (`deciding-what-a-press-runs.md` §5), and on such a click both the frame's own unit and `mouseover`
 --- are there: the client sets `mouseover` off the frame's `unit` attribute, which is the very
 --- attribute this addon reads for the frame's unit (`SecureBindings.lua`'s `setup_onenter`). A frame
 --- that cannot answer with a unit sets neither: `setup_onenter` writes nothing when the attribute
@@ -811,7 +811,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             and (category ~= "key" or DebindPrivate.IsBareWorldClick(action.key))
             and (StoredUnitRows(action) or action.casting or action.type == Constants.RESURRECT)) then
         local list = DebindPrivate.GetBindingsForAction(action);
-        -- **The key and one condition, neither of them wrong on its own** (S5 #48, #49). Told before
+        -- **The key and one condition, neither of them wrong on its own** (§6 #48, #49). Told before
         -- the list is looked at, because `mouseover` [when there is none] does not empty the list:
         -- the twin stands on [the frame's unit is there] and the solver keeps the two units apart,
         -- as it keeps every correlation apart (`Solver.lua`'s header). At the press they are one
@@ -833,7 +833,7 @@ local function EvaluateIssues(action, category, notCategory, arg, collected)
             --
             -- The contradiction is told on both sides that can undo it: the unit row the value met,
             -- and whatever emptied the rest of the list. On the bare click that is the key, which runs
-            -- only over a unit frame (`which-action-a-key-runs.md` §7); anywhere else it is Cast
+            -- only over a unit frame (`deciding-what-a-press-runs.md` §5); anywhere else it is Cast
             -- Options.
             local cause = NoBindingCause(action, list);
             if (cause == "NONE_LEFT") then

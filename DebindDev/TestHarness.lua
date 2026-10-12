@@ -563,7 +563,7 @@ local function NestConditions(action)
 end
 
 --- **A test action stores no Hover Cast value, which means the usual target**, and with Normal Cast
---- on that stands as one record and no pointed twin (`which-action-a-key-runs.md` §6). What the cases
+--- on that stands as one record and no pointed twin (`deciding-what-a-press-runs.md` §7). What the cases
 --- need from it is one record per action: with a twin standing in front, every case that counts
 --- records on a key would see each of its own actions twice. A case about the pointed press asks for
 --- the unit it points at itself.

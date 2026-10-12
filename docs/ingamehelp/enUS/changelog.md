@@ -125,7 +125,7 @@ It does nothing on a press and cannot be added any more. One saved on a key read
 *Hover Cast* sends an action to the unit you point at while you are pointing at one, and leaves it where it would go otherwise. An action that carried a *Unit Frame* condition now carries *Hover Cast* on *Unit Frames* instead and works as it did, and an action you make from now on starts with it set to *Off*. The *Hover Cast* row has a page of its own, [](hover-cast.md).
 
 <!--
-**What the reader meets is a row that moved** (`which-action-a-key-runs.md` §2). The unit frame step is the only one that left the order; having conditions was taken out and put back before 4.0 shipped, so it is not news to anyone (`putting-conditions-back-in-the-order.md`).
+**What the reader meets is a row that moved** (`deciding-what-a-press-runs.md` §0). The unit frame step is the only one that left the order; having conditions was taken out and put back before 4.0 shipped, so it is not news to anyone (`putting-conditions-back-in-the-order.md`).
 
 **It follows the Hover Cast section** (review, 2026-09-23), because "through Hover Cast" is what explains why nothing fires differently for the move, and the reader has met Hover Cast one section earlier.
 

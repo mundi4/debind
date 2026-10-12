@@ -208,7 +208,7 @@
 		restacks the rest.
 
 		**`layoutIndex` is the order a press reaches them in**: Hover Cast's twin stands right ahead
-		of its own original (`which-action-a-key-runs.md` §3), conditions are what the comparator
+		of its own original (`deciding-what-a-press-runs.md` §4), conditions are what the comparator
 		reads next, and last is whether the action works at all. The first two say when it is tried,
 		the last whether it does anything.
 	-->
