@@ -332,25 +332,27 @@ return function(DebindPrivate, _, harness)
         check(ticked.casting and ticked.casting.fallbackToSelf == true,
             "ticking stored " .. tostring(ticked.casting and ticked.casting.fallbackToSelf));
 
-        local pickedBox = FindChoice(Build({ picked }), LLL["RESOLVED_TARGET_FALLBACK"]);
-        check(pickedBox and pickedBox.enabled ~= false, "the box is locked on an action with a unit picked");
-
-        -- The new-feature dot on the box and on the row that opens it, which `Drawn` takes off.
-        local function Dotted(element)
-            local text = element.text;
-            local frame = { fontString = {
-                GetText = function() return text; end,
-                SetTextToFit = function(_, value) text = value; end,
-                SetTextColor = function() end,
-            } };
-            for _, fn in ipairs(element.initializers or {}) do
-                fn(frame, element);
+        --- `SetEnabled` takes a function as well as a value, the way the axis rows pass it.
+        local function Enabled(element)
+            local value = element and element.enabled;
+            if (type(value) == "function") then
+                value = value();
             end
-            return text:find("|A:", 1, true) ~= nil;
+            return value ~= false;
         end
-        local dotted = Build({ plain });
-        check(Dotted(FindChoice(dotted, LLL["RESOLVED_TARGET_FALLBACK"])), "the box wears no new-feature dot");
-        check(Dotted(FindRow(dotted, LLL["RESOLVED_TARGET"])), "the Resolved Unit row wears no new-feature dot");
+        local pickedBox = FindChoice(Build({ picked }), LLL["RESOLVED_TARGET_FALLBACK"]);
+        check(Enabled(pickedBox), "the box is locked on an action with a unit picked");
+
+        -- **Locked while the row is Off** (2026-10-12, owner): with no condition here there is nothing
+        -- for a unit to fail, so the box has nothing to stand behind.
+        local off = Spell(4, {});
+        ResetProfile({ plain, ticked, picked, off });
+        local offBox = FindChoice(Build({ off }), LLL["RESOLVED_TARGET_FALLBACK"]);
+        check(offBox and not Enabled(offBox), "the box is live on an action whose Resolved Unit row is Off");
+        local mixedBox = FindChoice(Build({ plain, off }), LLL["RESOLVED_TARGET_FALLBACK"]);
+        check(mixedBox and not Enabled(mixedBox), "the box is live over an action whose Resolved Unit row is Off");
+        check(Enabled(FindChoice(Build({ plain }), LLL["RESOLVED_TARGET_FALLBACK"])),
+            "the box is locked on an action with a Resolved Unit condition");
 
         local root = Build({ plain, ticked });
         local casting = FindRow(root, LLL["CASTING"]);

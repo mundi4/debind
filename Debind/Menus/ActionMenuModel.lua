@@ -735,7 +735,7 @@ local ActionMenus = MenuKit.NewRegistry({
     end,
 
     --- **What wears a new-feature dot. Emptying this list at a release takes them all off.**
-    newFeatures = { "RESOLVED_UNIT_FALLBACK" },
+    newFeatures = {},
 
     -- **Not every group's key is an issue category.** Half the keys this menu writes have no check
     -- by that name (`combat`, `known`, `stealth`, `extrabar`, switch names, importance). Asking

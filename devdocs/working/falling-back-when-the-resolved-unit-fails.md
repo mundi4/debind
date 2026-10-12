@@ -131,6 +131,10 @@ Auto Self Cast가 받지 않는다. 매크로의 `[]`도 같은 구멍이고, �
 "여기 조건을"이라는 지시가 그 자리에서만 선다. 아무 일도 안 하는 액션(Target을 고른 액션)에서도 잠그지 않고 그대로 보인다
 (2026-10-11, 소유자: *"그대로 노출"*). 잠그면 사용자가 정해진 순서를 따라야 한다.
 
+**Resolved Unit 줄이 Off인 동안은 잠근다** (2026-10-12, 소유자). 조건이 없으면 유닛이 안 맞을 일이 없어 체크박스가 설 자리가
+없다. 같은 메뉴의 축 줄(반응, 생사, 그룹, 역할)이 잠기는 것과 같은 조건(`axisIsEnabled`, 고른 액션 모두가 [있음])으로 잠근다.
+새 기능 딱지는 2026-10-12에 뗐다.
+
 ### 3-7. 옵션을 켠 액션이 없는 키는 지금과 똑같이 동작한다
 
 **한 키의 액션 가운데 옵션을 켠 것이 하나도 없으면, 그 키는 이 옵션이 생기기 전과 100% 같게 동작해야 한다** (2026-10-11, 소유자).
@@ -207,6 +211,13 @@ Debind가 잡으므로 ALT-X는 X를 따라가 아무 일도 안 한다.
     Target stays on that unit: there, a unit that does not fit still sits the press out, and the next action on the key takes it.`
   - 시험 결과: 툴팁까지 받은 둘은 열 시나리오 중 힐러 10, 캐주얼 7(틀림 0)이었고, 라벨만 받은 둘은 쥔 키와 Target을 고른 액션에서
     나에게 간다고 봤다. 넷 다 켜는 의도("버려질 누름이 셀프 치유가 되게")를 같게 적었다.
+- **들어간 툴팁** (2026-10-12, 소유자가 고름). 위 초안이 과하다고 해서 넷(초안 A, 40단어 B, "Not where you picked the unit
+  yourself" C, 첫 문장만 D)을 UX 라이터와 힐러 페르소나 둘에게 돌렸다. D는 둘 다 ALT-G와 Target=Focus에서 나에게 간다고 읽어
+  틀렸고, C는 "picked yourself"에 ALT와 가리킴이 드는지 둘 다 못 풀었고, B의 "keeps the press"는 지어낸 말이라 그 유닛에 시전되는
+  줄 알았다. A만 넷 다 맞았으나 끝까지 읽어야 했다. UX 라이터가 낸 것을 그대로 쓴다. 동사는 "casts on you"가 시전을 약속해서
+  `CASTING_SELF_CAST_DESC`의 "goes to you"로.
+  `When the unit this action would be used on does not meet these conditions, the press goes to you instead. Not with a unit
+  picked under Target, nor while the Self Cast Key or Focus Cast Key sends the press to you or your focus.`
 - **툴팁은 두 문장이다.** 안 맞으면 나에게 간다는 것, 그리고 유닛을 고른 자리(Target, 쥔 Self·Focus Cast Key)는 거기 머문다는 것.
   둘째는 예외가 아니라 창의 다른 줄이 이미 하는 약속을 한 번 더 가리키는 것이다. 시험에서 라벨만 받은 둘은 쥔 키에서도 나에게
   간다고 봤고 툴팁의 둘째 문장이 둘 다 고쳤다.
@@ -217,8 +228,11 @@ Debind가 잡으므로 ALT-X는 X를 따라가 아무 일도 안 한다.
   옵션을 켠 액션에서 틀리므로 옵션을 말하게 고친다. "Auto Self Cast도 차례가 없다"는 우리가 그 누름을 건너뛴다는 말이라 남는다.
 - **새 문구는 시전이 어디에 떨어지는지 말하지 않는다.** `player`를 실어 보낸다는 것까지가 우리 일이다. 나에게 쓸 수 있는 주문인지는
   말하지 않는다. `SELF_CAST_KEY_DESC`의 주석이 같은 한계를 적고 있다.
-- **`MARK_TOOLTIP_CONDITIONAL`**("Runs only while the conditions set on it hold.")은 폴백을 켜고 Resolved Unit 조건만 건 액션에서
-  맞지 않는다. 그 액션은 조건 있는 액션으로 표시되지만 말하지 않은 유닛에서는 조건과 상관없이 나간다.
+- **상태에 따라 다른 문장은 두지 않는다** (2026-10-12, 소유자; `writing-user-facing-text.md`의 "한 상태에서만 뜨는 문장은 대부분의
+  독자가 못 받는다"). 그래서 둘을 걷었다. 조건 표시 툴팁(`MARK_TOOLTIP_CONDITIONAL`, "Runs only while the conditions set on it
+  hold.")에 폴백을 켠 액션에서만 붙이던 둘째 줄, 그리고 반응·그룹을 하나도 안 골랐을 때의 이슈 문장 둘(`*_NONE_FALLS_BACK`)의
+  폴백용 변형. 이슈 코드는 결과(KEEP)가 달라 남고, 문장은 `*_NONE_SELECTED`와 같다. 조건 표시 툴팁이 폴백을 켠 액션에서 온전한
+  참이 아닌 것은 체크박스 자신의 툴팁이 말한다. 액션 툴팁의 괄호는 설정된 값을 보여 주는 것이라 그대로다.
 - **액션 툴팁**은 Resolved Unit 줄에 폴백이 켜졌다는 것을 붙인다. `casting` 값이지만 Cast Options 줄 아래에 그리지 않는다.
 - **도움말은 이 작업에 든다.** `setting-keys-up.md`의 "One key for a friend and an enemy"(액션 둘 처방)에 폴백 하나로 되는 길과
   매크로 타입으로 붙이는 길을 더한다. `targeting.md`는 Resolved Unit이 어느 유닛에 묻는지와 폴백. `help-pages` 스킬을 따르고, 그

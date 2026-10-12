@@ -73,12 +73,12 @@ L["BINDING_ERROR_ROLES_NONE_SELECTED"] = "No role is selected."
 -- on those, so the action still runs over the rest, and this says which frames it loses.
 L["BINDING_ERROR_ROLES_NONE_ON_GROUP_FRAMES"] = "No role is selected, so it does not run on party or raid frames."
 L["BINDING_ERROR_UNITGROUPS_NONE_SELECTED"] = "No group option is selected."
--- The same two empty axes on Resolved Unit, with its box ticked. The action stays on the key, and
--- what is left of it is the box: every press that would have gone to the current target or the unit
--- you point at goes to you, and every other press, a held key's on you or your focus, is sat out.
--- **Not the box's label in a `%s`**: it is a clause of its own and reads broken inside another.
-L["BINDING_ERROR_REACTIONS_NONE_FALLS_BACK"] = "No reaction is selected, so this action casts on you on every press that would have used it on your current target or the unit you point at, and sits out the rest."
-L["BINDING_ERROR_UNITGROUPS_NONE_FALLS_BACK"] = "No group option is selected, so this action casts on you on every press that would have used it on your current target or the unit you point at, and sits out the rest."
+-- The same two empty axes on Resolved Unit, with its box ticked. The codes differ from the two above
+-- only in what the key does with the action (kept, since the box can run), **not in what the reader
+-- is told**: a sentence that changes with the state of another box is one most readers never get
+-- (2026-10-12, owner; `writing-user-facing-text.md`). The fix is the same either way.
+L["BINDING_ERROR_REACTIONS_NONE_FALLS_BACK"] = "No reaction is selected."
+L["BINDING_ERROR_UNITGROUPS_NONE_FALLS_BACK"] = "No group option is selected."
 -- **The held keys are named because they are what the reader may still expect to work** (2026-10-04,
 -- owner): they send an action that runs to another unit, and with no press of its own left there is
 -- nothing to send. **It names the way out that is not changing a value back**, since the reader may
@@ -772,13 +772,11 @@ L["MARK_TOOLTIP_ISSUE_DESC"] = "Because of this, the action is sometimes or alwa
 -- The conditional mark's tooltip. **It says a condition exists and never which one** -- the row's
 -- own tooltip draws every condition with its value, and repeating one of them here would put the
 -- same setting on screen twice with nothing saying which is the whole list.
+-- **One line in every state.** On an action with the Resolved Unit box ticked the line is not the
+-- whole truth (a press the box covers runs on you when that row fails), and a second line used to
+-- say so there; it was taken out because a line that appears only in one state is one most readers
+-- never get (2026-10-12, owner; `writing-user-facing-text.md`). The box's own tooltip says it.
 L["MARK_TOOLTIP_CONDITIONAL"] = "Runs only while the conditions set on it hold."
--- Under it, on an action whose Resolved Unit box is ticked, where the line above is not true of
--- every press (`falling-back-when-the-resolved-unit-fails.md` §7). Formatted with `RESOLVED_TARGET`.
--- **"Would have used it on"**, as the two issue sentences put it: which of the two units a press
--- reaches is the action's Cast Options, so naming both as reached would be false of an action whose
--- Hover Cast skips pointing or whose Normal Cast is off.
-L["MARK_TOOLTIP_CONDITIONAL_FALLBACK"] = "A press that would have used it on your current target or the unit you point at casts on you instead when the %s conditions do not hold there."
 -- The same for the mark on a key's heading. **It says that actions under it have a problem and never
 -- which**: the heading cannot say which action each problem belongs to, and the row's own mark does.
 -- "Some actions", since it can be more than one (owner, 2026-10-07).
@@ -1579,18 +1577,26 @@ L["RESOLVED_TARGET_DESC"] = "The unit this action is used on once the key is pre
 -- whether the spell can be used on you is the game's (`falling-back-when-the-resolved-unit-fails.md`
 -- §7). Put through a reader test with the tooltip below, summarised in that section.
 L["RESOLVED_TARGET_FALLBACK"] = "Otherwise, cast on yourself"
--- **Two sentences, the same in every state** (3-6). The first is the box; the second points at the
--- rows that already pick a unit, which keep it. Without the second, readers of the label alone took
--- the box to reach a held cast key and an action with a unit picked under Target as well.
+-- **Two sentences, the same in every state** (3-6). The first is the box; the second names the two
+-- places that already picked the unit, which the box leaves alone. **The second cannot go**
+-- (2026-10-12, reviewed): with the first alone, every reader took the box to reach a held cast key
+-- and an action with a unit picked under Target as well, and a healer with Target on Focus would
+-- have met a dead press mid-raid with no sentence anywhere saying it was the design.
 --
--- **"A press the key sends to you" and not "a press with the key held"**: a cast key row set to the
--- usual target sends the press nowhere, and that press falls back (`deciding-what-a-press-runs.md`
--- §6 #76). The verb is `CASTING_SELF_CAST_DESC`'s and `CASTING_FOCUS_CAST_DESC`'s.
+-- **"Goes to you", not "casts on you"**: the press goes out at you, and whether the spell can be cast
+-- on you is the game's. `CASTING_SELF_CAST_DESC`'s verb.
 --
--- **"Is not there or does not meet"**, since a press with no target falls back too, and "without
--- checking them on you" because the conditions describe the unit aimed at, not you. The end of the
--- second sentence is `CASTING_SKIP_DESC`'s, being the same outcome.
-L["RESOLVED_TARGET_FALLBACK_DESC"] = "When the unit a press would use this action on is not there or does not meet these conditions, the press casts on you instead, without checking them on you. A press the %1$s or the %2$s sends to you or your focus stays there, and an action with a unit picked under %3$s stays on that unit: there, a unit that does not fit still sits the press out, and the next action on the key takes it."
+-- **"Sends the press to you or your focus" and not "while the key is held"**: a cast key row set
+-- to the usual target sends the press nowhere, and that press falls back
+-- (`deciding-what-a-press-runs.md` §6 #76). The words are `CASTING_SELF_CAST_DESC`'s and
+-- `CASTING_FOCUS_CAST_DESC`'s, so the sentence points the reader at those rows.
+--
+-- **What it leaves out, on purpose**: that a press with no target falls back (a missing unit fails
+-- these conditions like any other), that the conditions are not asked of you (nobody asked), and
+-- that the press sits out where the box does not reach (what the menu does without the box, and
+-- `CASTING_SKIP_DESC` says it). A longer draft carrying all three was read right only by readers
+-- who finished it (`falling-back-when-the-resolved-unit-fails.md` §7).
+L["RESOLVED_TARGET_FALLBACK_DESC"] = "When the unit this action would be used on does not meet these conditions, the press goes to you instead. Not with a unit picked under %3$s, nor while the %1$s or %2$s sends the press to you or your focus."
 L["TYPE_BLOCK"] = "Nothing"
 L["TYPE_BLOCK_DESC"] = "The press does nothing. No action under it on the same key runs, and neither does anything else bound to the key.|n|nPut conditions on it to stop the actions under it in those cases only."
 -- **Named for where the command is picked from**, WoW's Key Bindings list (owner, 2026-10-06).

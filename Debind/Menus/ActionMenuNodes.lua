@@ -274,8 +274,10 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         end
     end
 
-    -- **Never locked** (`falling-back-when-the-resolved-unit-fails.md` 3-6): on an action where it
-    -- does nothing, locking it would make the reader clear Target before they could tick it.
+    -- **Not locked for a unit picked under Target** (`falling-back-when-the-resolved-unit-fails.md`
+    -- 3-6): on an action where it does nothing, locking it would make the reader clear Target before
+    -- they could tick it. **Locked while the row is Off** (2026-10-12, owner), the way the axis rows
+    -- are: with no condition here there is nothing for a unit to fail.
     if (unit == "@") then
         optionsDescription:CreateDivider();
         local fallback = CreateCheckbox(optionsDescription, ctx, LLL["RESOLVED_TARGET_FALLBACK"],
@@ -285,6 +287,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
             function()
                 return ToggleFallbackToSelf(ctx);
             end);
+        fallback:SetEnabled(axisIsEnabled);
         SetInstructionTooltip(fallback, format(LLL["RESOLVED_TARGET_FALLBACK_DESC"], AUTO_SELF_CAST_KEY_TEXT,
             FOCUS_CAST_KEY_TEXT, LLL["TARGET_UNIT"]));
         -- The row that opens it too, which `BuildNode` has already taken off the open rows.
