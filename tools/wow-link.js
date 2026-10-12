@@ -288,6 +288,16 @@ if (stale.length > 0) {
     process.stdout.write(C.dim("  Disable them in the addon list, or remove them by hand.\n"));
 }
 
+// Linking is when the game starts loading this worktree, and some worktrees get their stamp nowhere
+// else (`stamp-dev.js` says which).
+try {
+    const label = require("./stamp-dev.js").stamp(worktreeRoot);
+    process.stdout.write(C.dim(`\n  stamp: ${label}\n`));
+} catch (e) {
+    const reason = (e.stderr ? String(e.stderr).trim() : "") || e.message;
+    process.stdout.write(C.yellow(`\n  stamp not written: ${reason.split(/\r?\n/)[0]}\n`));
+}
+
 process.stdout.write(C.green(`\n${changed} link(s) changed, ${skipped} skipped.\n`));
 if (skipped > 0) {
     process.stdout.write(C.yellow("Skipped ones are real folders and were not touched.\n"));

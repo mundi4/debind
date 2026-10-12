@@ -2,8 +2,8 @@
 // once for the checkout it is run from.
 //
 // Hooks live outside the working tree, so git cannot ship them -- this is what stands in for that.
-// Run it once per clone. Worktrees need nothing: they share the common `.git`, and therefore the
-// hook.
+// Run it once per clone: worktrees share the common `.git`, and therefore the hook, though not every
+// worktree fires it (`stamp-dev.js` says which).
 
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -25,4 +25,4 @@ fs.copyFileSync(source, hookPath);
 fs.chmodSync(hookPath, 0o755);
 process.stdout.write(`installed ${hookPath}\n`);
 
-require("./stamp-dev.js");
+process.stdout.write(`${require("./stamp-dev.js").stamp(git("rev-parse", "--show-toplevel"))}\n`);

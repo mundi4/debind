@@ -91,11 +91,15 @@ in [testing-a-change.md](testing-a-change.md) before reading an in-game failure 
 
 A released build shows its version in the window title and the login line, read from the TOC, which
 the packager stamps from the tag. A working copy has no version there, so it shows the checkout's
-name instead — that is `Debind/DevStamp.lua`, which the `post-checkout` hook writes.
+name instead — that is `Debind/DevStamp.lua`, which the `post-checkout` hook and `npm run link`
+write. A worktree under `.claude/worktrees/<name>` is stamped `<name>`; any other checkout gets its
+branch, or its tag, or its short sha.
 
 Hooks live outside the working tree and git cannot ship them, which is what `npm run stamp:install`
-is for. Run it once per clone; worktrees need nothing, since they share the common `.git` and
-therefore the hook. `npm run stamp` refreshes the file by hand.
+is for. Run it once per clone; worktrees share the common `.git` and therefore the hook. **A
+worktree Claude makes never fires it**: Claude creates it without a checkout and resets into it.
+`npm run link` covers that, since it stamps the worktree it links. `npm run stamp` refreshes the
+file by hand.
 
 The file is gitignored and its TOC line sits inside a `#@debug@` block, so it reaches neither the
 package nor a user. Without the hook there is no file and the label reads `dev`.
