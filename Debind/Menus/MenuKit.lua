@@ -567,6 +567,13 @@ function Registry:BuildNode(parentDescription, node, ctx)
                 GameTooltip_AddInstructionLine(tooltip, instruction);
                 first = false;
             end
+            if (node.status) then
+                if (not first) then
+                    GameTooltip_AddBlankLineToTooltip(tooltip);
+                end
+                GameTooltip_AddNormalLine(tooltip, node.status(ctx));
+                first = false;
+            end
             if (err) then
                 if (not first) then
                     GameTooltip_AddBlankLineToTooltip(tooltip);

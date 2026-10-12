@@ -1496,11 +1496,24 @@ L["CAST_KEY_OFF_ACCOUNT_WIDE"] = "This key is turned off for every Debind key, i
 -- in the shape of the two it does name.
 L["AUTO_CANCEL_FORM"] = "Auto Cancel Form"
 L["AUTO_DISMOUNT_TEXT"] = "Auto Dismount"
--- **One sentence for all four rows, and it does not explain the feature** (2026-10-11, owner). The
--- row only turns a game feature on or off for this action, and every player already knows what
--- dismounting before a cast is; the tooltip's title is the row's name, so the body does not repeat
--- it. **It does not point at the game's settings panel**: two of the four are not in it.
-L["AUTOMATIC_ROW_DESC"] = "Turns this game feature on or off for this action, or leaves it as the game has it."
+-- **One sentence for all four rows, and it does not explain the feature** (2026-10-11, owner): every
+-- player already knows what dismounting before a cast is, and the title is the row's name. **It does
+-- not point at the game's settings panel**: two of the four are not in it.
+--
+-- **It says outright that the game's setting is changed, and for how long** (2026-10-12, owner).
+-- Players are wary of addons that touch their settings, and the CVar written and put back around
+-- the press (`ButtonAttributes.lua`'s `AutomaticsLines`) is the only way the feature works. "Within
+-- the same press" and not "after the action runs": the old value is back while a cast with a cast
+-- time is still going. "Switches to that value" and not "changes": picking what the game already
+-- has changes nothing.
+--
+-- **Debind is the subject on purpose**, past "Read the subject too" in
+-- `writing-user-facing-text.md`: the passive hides who switches the setting, which is the one thing
+-- this reader is asking. `%1$s` and `%2$s` are `AUTOMATIC_ON` and `AUTOMATIC_OFF`.
+L["AUTOMATIC_ROW_DESC"] = "Sets whether the game does this when this action runs. With %1$s or %2$s picked, Debind switches the game's setting to that value for each press and switches it back within the same press."
+-- Under the sentence above, set apart by a blank line: the value it can be checked against. `%s` is
+-- `AUTOMATIC_ON` or `AUTOMATIC_OFF`, read as the tooltip is drawn.
+L["AUTOMATIC_GAME_VALUE"] = "The game's setting right now: %s"
 -- **Their own keys, though `DISABLE` says `Off` in this window too.** That one is a condition that
 -- constrains nothing. These are not: the label above them names a setting of the game's, so they
 -- are that setting's two states and nothing else. Kept apart so a translator can use different
@@ -1511,9 +1524,11 @@ L["AUTOMATIC_OFF"] = "Off"
 -- than called a default, the way Hover Cast's account row is (`CASTING_HOVER_ACCOUNT`).
 L["AUTOMATIC_GAME_SETTING"] = "Use the game's setting"
 -- **It names the value the game has right now** (2026-10-11, owner), as `CASTING_HOVER_ACCOUNT_DESC`
--- does: for the two rows the settings panel does not offer, this is the only place it can be seen.
--- `%s` is `AUTOMATIC_ON` or `AUTOMATIC_OFF`, read when the menu is built. **Not "for every other
--- action"**: another Debind action can set the same feature for itself.
+-- does, and the row it sits under says it too (`AUTOMATIC_GAME_VALUE`): two of the four are in no
+-- settings panel. `%s` is `AUTOMATIC_ON` or `AUTOMATIC_OFF`, read as the tooltip is drawn. **Not "for every other action"**:
+-- another Debind action can set the same feature for itself. **Nothing here about Debind leaving the
+-- setting alone** (2026-10-12, owner): read on its own, that makes the other two choices sound
+-- riskier than they are.
 L["AUTOMATIC_GAME_SETTING_DESC"] = "Whatever the game is set to, which is %s right now."
 -- **One sentence for two positions, because it is one fact** (`ActionMenuItems.lua`): a picked
 -- target is never moved by any of these presses. On the first row of each it says the label is not

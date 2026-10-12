@@ -489,6 +489,50 @@ return function(DebindPrivate, _, harness)
         end
     end);
 
+    -- **The row itself names the game's value too, apart from the sentence** (2026-10-12, owner):
+    -- the sentence says the setting comes straight back, and the value line under it is what the
+    -- reader can check that against. A blank line and the ordinary colour set it off from the
+    -- instruction, which says the same in every state.
+    test("each automatics row ends on the game's current value, under a blank line", function()
+        local cvars = require("wow_shim").world.cvars;
+        local action = Spell(1);
+        ResetProfile({ action });
+        local root = Build({ action });
+        local rows = DebindPrivate.CAST_AUTOMATIC_ROWS;
+        local savedText = rawget(LLL, "AUTOMATIC_GAME_VALUE");
+        local savedCVars = {};
+        for _, row in ipairs(rows) do
+            savedCVars[row] = cvars[row];
+        end
+        rawset(LLL, "AUTOMATIC_GAME_VALUE", "%s");
+        local ok, err = pcall(function()
+            for _, row in ipairs(rows) do
+                local rowElement = FindRow(root, DebindPrivate.CastAutomaticLabel(row));
+                check(rowElement ~= nil, "no row for " .. row);
+                for _, value in ipairs({ true, false }) do
+                    cvars[row] = value;
+                    local lines = TooltipLines(rowElement);
+                    local n = #lines;
+                    check(n >= 3, row .. ": " .. n .. " lines");
+                    check(lines[n - 2].kind == "instruction",
+                        row .. ": the sentence is a " .. tostring(lines[n - 2].kind) .. " line");
+                    check(lines[n - 1].kind == "blank", row .. ": no blank line above the value");
+                    local wanted = LLL[value and "AUTOMATIC_ON" or "AUTOMATIC_OFF"];
+                    check(lines[n].kind == "normal" and lines[n].text == wanted,
+                        row .. " " .. tostring(value) .. ": the last line is "
+                        .. tostring(lines[n].kind) .. " " .. tostring(lines[n].text));
+                end
+            end
+        end);
+        rawset(LLL, "AUTOMATIC_GAME_VALUE", savedText);
+        for _, row in ipairs(rows) do
+            cvars[row] = savedCVars[row];
+        end
+        if (not ok) then
+            error(err, 0);
+        end
+    end);
+
     -- **The shared-layer warning stands in every state** (2026-10-11, owner): a line shown only on a
     -- shared layer never reaches whoever read the row on their own one first. So it is asked on a
     -- layer only this character has.

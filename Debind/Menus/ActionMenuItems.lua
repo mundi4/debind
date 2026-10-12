@@ -709,7 +709,11 @@ local function CreateCastingMenu(parentDescription, ctx)
     for _, row in ipairs(DebindPrivate.CAST_AUTOMATIC_ROWS) do
         local rowDescription = ActionMenus:BuildNode(description, {
             label = DebindPrivate.CastAutomaticLabel(row),
-            instruction = LLL["AUTOMATIC_ROW_DESC"],
+            instruction = format(LLL["AUTOMATIC_ROW_DESC"], LLL["AUTOMATIC_ON"], LLL["AUTOMATIC_OFF"]),
+            status = function()
+                return format(LLL["AUTOMATIC_GAME_VALUE"],
+                    LLL[GetCVarBool(row) and "AUTOMATIC_ON" or "AUTOMATIC_OFF"]);
+            end,
             isActive = function()
                 return AnyAction(ctx, function(action)
                     return DebindPrivate.CastAutomaticOf(action, row) ~= nil;
