@@ -112,6 +112,15 @@ it.
 
 **No macro beside it** (2026-09-22, owner). Showing the same thing as one macro line reads as
 recommending a Custom Macro, and this page is for the people who do not need one.
+
+**Not decided: whether this page says anything about the Resolved Unit box "Otherwise, cast on
+yourself"** (2026-10-12, owner). If it does, what it would carry: one action that heals the unit
+you point at, else your target, else you, the thing `/cast [@mouseover,help,nodead][@player]` does.
+*Resolved Unit* under *Units* with *Friendly* (and alive) ticked, *Hover Cast* on *Cast on the unit
+you point at*, and the box ticked. Where it would go is open too: a short section of its own, or a
+paragraph under "One key for a friend and an enemy", which is about attack-or-heal and which the box
+does not replace. `falling-back-when-the-resolved-unit-fails.md` §7 also names the way through a
+macro action, which the "No macro beside it" note above weighs against.
 -->
 
 # How do I set my keys up?

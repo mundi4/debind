@@ -326,13 +326,13 @@ return function(DebindPrivate, _, harness)
         local picked = Spell(3, { units = Row().units, unit = "target" });
         ResetProfile({ plain, ticked, picked });
 
-        local box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_USUAL"]);
+        local box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_FALLBACK"]);
         check(box, "no box in the menu");
         box.setSelected(box.data);
-        check(ticked.casting and ticked.casting.usualIgnoresResolvedUnit == true,
-            "ticking stored " .. tostring(ticked.casting and ticked.casting.usualIgnoresResolvedUnit));
+        check(ticked.casting and ticked.casting.fallbackToSelf == true,
+            "ticking stored " .. tostring(ticked.casting and ticked.casting.fallbackToSelf));
 
-        local pickedBox = FindChoice(Build({ picked }), LLL["RESOLVED_TARGET_USUAL"]);
+        local pickedBox = FindChoice(Build({ picked }), LLL["RESOLVED_TARGET_FALLBACK"]);
         check(pickedBox and pickedBox.enabled ~= false, "the box is locked on an action with a unit picked");
 
         -- The new-feature dot on the box and on the row that opens it, which `Drawn` takes off.
@@ -349,7 +349,7 @@ return function(DebindPrivate, _, harness)
             return text:find("|A:", 1, true) ~= nil;
         end
         local dotted = Build({ plain });
-        check(Dotted(FindChoice(dotted, LLL["RESOLVED_TARGET_USUAL"])), "the box wears no new-feature dot");
+        check(Dotted(FindChoice(dotted, LLL["RESOLVED_TARGET_FALLBACK"])), "the box wears no new-feature dot");
         check(Dotted(FindRow(dotted, LLL["RESOLVED_TARGET"])), "the Resolved Unit row wears no new-feature dot");
 
         local root = Build({ plain, ticked });
@@ -360,9 +360,9 @@ return function(DebindPrivate, _, harness)
         check(resolved and Drawn(resolved) ~= LLL["RESOLVED_TARGET"],
             "Resolved Unit did not count the box: " .. tostring(resolved and Drawn(resolved)));
 
-        box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_USUAL"]);
+        box = FindChoice(Build({ ticked }), LLL["RESOLVED_TARGET_FALLBACK"]);
         box.setSelected(box.data);
-        check(ticked.casting == nil, "unticking left " .. tostring(ticked.casting and ticked.casting.usualIgnoresResolvedUnit));
+        check(ticked.casting == nil, "unticking left " .. tostring(ticked.casting and ticked.casting.fallbackToSelf));
     end);
 
     -- **A row a mixed pick shows is written to the actions it applies to alone** (2026-09-23,

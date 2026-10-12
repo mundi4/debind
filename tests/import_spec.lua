@@ -499,7 +499,7 @@ return function(DebindPrivate, DebindStorage, ctx)
         -- 어느 누름에서 이 액션이 서는가. 안쪽 이름은 `DebindStorage.CASTING_TYPES`가 든다.
         casting = {
             hoverCastMode = "mouseover", hoverCast = "cast", normalCast = false,
-            usualIgnoresResolvedUnit = true,
+            fallbackToSelf = true,
             selfCastKey = "skip", focusCastKey = "skip",
             autoSelfCast = true, autoUnshift = false,
             autoDismount = true, autoDismountFlying = false,

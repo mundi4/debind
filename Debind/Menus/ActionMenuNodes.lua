@@ -58,8 +58,8 @@ local FRAMETYPE_ITEMS                = ActionMenu.FRAMETYPE_ITEMS;
 local SORTED_UNIT_LIST               = ActionMenu.SORTED_UNIT_LIST;
 local range                          = ActionMenu.range;
 local SetInstructionTooltip          = ActionMenu.SetInstructionTooltip;
-local UsualIgnoresResolvedUnitIsOn   = ActionMenu.UsualIgnoresResolvedUnitIsOn;
-local ToggleUsualIgnoresResolvedUnit = ActionMenu.ToggleUsualIgnoresResolvedUnit;
+local FallbackToSelfIsOn   = ActionMenu.FallbackToSelfIsOn;
+local ToggleFallbackToSelf = ActionMenu.ToggleFallbackToSelf;
 
 
 local UnitConditionIsOff             = ActionMenu.UnitConditionIsOff;
@@ -190,8 +190,7 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     if (unit == "@") then
         instruction = format(LLL["RESOLVED_TARGET_DESC"], LLL["TARGET_UNIT"], AUTO_SELF_CAST_KEY_TEXT,
             FOCUS_CAST_KEY_TEXT, LLL["CASTING_AS_USUAL"], LLL["POINTED_UNIT_CAST"],
-            LLL["CASTING_POINTED_CAST"], DebindPrivate.CastAutomaticLabel("autoSelfCast"),
-            LLL["RESOLVED_TARGET_USUAL"]);
+            LLL["CASTING_POINTED_CAST"], DebindPrivate.CastAutomaticLabel("autoSelfCast"));
     end
 
     local optionsDescription = ActionMenus:BuildNode(parentDescription, {
@@ -203,8 +202,8 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
         valueOf = function(action)
             local units = UnitConditionsOf(action);
             local row = units and units[unit];
-            if (unit == "@" and DebindPrivate.UsualIgnoresResolvedUnit(action)) then
-                return { row = row, usual = true };
+            if (unit == "@" and DebindPrivate.FallsBackToSelf(action)) then
+                return { row = row, fallback = true };
             end
             return row;
         end,
@@ -279,18 +278,18 @@ local function CreateUnitConditionSubmenu(parentDescription, ctx, label, unit)
     -- does nothing, locking it would make the reader clear Target before they could tick it.
     if (unit == "@") then
         optionsDescription:CreateDivider();
-        local usual = CreateCheckbox(optionsDescription, ctx, LLL["RESOLVED_TARGET_USUAL"],
+        local fallback = CreateCheckbox(optionsDescription, ctx, LLL["RESOLVED_TARGET_FALLBACK"],
             function()
-                return UsualIgnoresResolvedUnitIsOn(ctx);
+                return FallbackToSelfIsOn(ctx);
             end,
             function()
-                return ToggleUsualIgnoresResolvedUnit(ctx);
+                return ToggleFallbackToSelf(ctx);
             end);
-        SetInstructionTooltip(usual, format(LLL["RESOLVED_TARGET_USUAL_DESC"], LLL["TARGET_UNIT"],
-            LLL["CASTING_NORMAL"]));
+        SetInstructionTooltip(fallback, format(LLL["RESOLVED_TARGET_FALLBACK_DESC"], AUTO_SELF_CAST_KEY_TEXT,
+            FOCUS_CAST_KEY_TEXT, LLL["TARGET_UNIT"]));
         -- The row that opens it too, which `BuildNode` has already taken off the open rows.
-        ActionMenus:MarkNew("RESOLVED_UNIT_USUAL", usual);
-        ActionMenus:MarkNew("RESOLVED_UNIT_USUAL", optionsDescription);
+        ActionMenus:MarkNew("RESOLVED_UNIT_FALLBACK", fallback);
+        ActionMenus:MarkNew("RESOLVED_UNIT_FALLBACK", optionsDescription);
     end
 
     return optionsDescription;

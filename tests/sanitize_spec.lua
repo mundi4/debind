@@ -185,10 +185,10 @@ return function(DebindPrivate)
         spell({ casting = { normalCast = true } }), spell());
     case("normalCast = false stays", spell({ casting = { normalCast = false } }),
         spell({ casting = { normalCast = false } }));
-    case("usualIgnoresResolvedUnit = true stays", spell({ casting = { usualIgnoresResolvedUnit = true } }),
-        spell({ casting = { usualIgnoresResolvedUnit = true } }));
-    case("usualIgnoresResolvedUnit = false is the default and goes, and the empty casting with it",
-        spell({ casting = { usualIgnoresResolvedUnit = false } }), spell());
+    case("fallbackToSelf = true stays", spell({ casting = { fallbackToSelf = true } }),
+        spell({ casting = { fallbackToSelf = true } }));
+    case("fallbackToSelf = false is the default and goes, and the empty casting with it",
+        spell({ casting = { fallbackToSelf = false } }), spell());
     case("a casting value of the wrong type goes", spell({ casting = { hoverCast = 5, autoSelfCast = "x" } }), spell());
     case("a casting name nobody knows goes", spell({ casting = { notACastingValue = "skip" } }), spell());
     case("a casting spelling nobody knows stays when it is a string",

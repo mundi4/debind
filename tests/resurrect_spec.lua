@@ -260,21 +260,32 @@ return function(DebindPrivate, _, ctx)
         reset();
     end);
 
-    -- **`usualIgnoresResolvedUnit` takes the reader's row away and leaves the branches' own**
-    -- (`falling-back-when-the-resolved-unit-fails.md` 3-3). [In my party] no longer stops a dead
-    -- friend outside it, and a living friend is still no branch's.
-    test("the Resolved Unit fallback leaves each branch's own target condition", function()
+    -- **A resurrection has no fallback** (`falling-back-when-the-resolved-unit-fails.md` 3-2), for
+    -- the reason it has no self tier: nobody resurrects themselves. The box ticked changes no press:
+    -- [In my party] still hands a dead friend outside it to the action behind.
+    test("the Resolved Unit fallback stands behind no resurrection", function()
         druidWorld();
-        Bind({
-            action({ type = Constants.RESURRECT, key = "F1",
-                casting = { usualIgnoresResolvedUnit = true },
-                conditions = { units = { ["@"] = { exists = true, group = Constants.UNITGROUP_PARTY } } } }),
-            action({ type = Constants.SPELL, key = "F1", value = REGROWTH }),
-        });
-        shim.world.units = { target = DEAD_FRIEND };
-        check(fired("F1") == "Revive", "a dead friend outside the party: " .. tostring(fired("F1")));
-        shim.world.units = { target = LIVE_FRIEND };
-        check(fired("F1") == false, "a living friend: " .. tostring(fired("F1")));
+        local answers = {};
+        for _, ticked in ipairs({ false, true }) do
+            local subject = action({ type = Constants.RESURRECT, key = "F1",
+                casting = ticked and { fallbackToSelf = true } or nil,
+                conditions = { units = { ["@"] = { exists = true, group = Constants.UNITGROUP_PARTY } } } });
+            Bind({ subject, action({ type = Constants.SPELL, key = "F1", value = REGROWTH }) });
+            for _, binding in ipairs(DebindPrivate.GetBindingsForAction(subject)) do
+                check(not binding.fallback, "a fallback was built with the box " .. tostring(ticked));
+            end
+            local got = {};
+            for _, target in ipairs({ DEAD_FRIEND, LIVE_FRIEND, false }) do
+                shim.world.units = { target = target or nil };
+                got[#got + 1] = tostring(fired("F1"));
+                interp.state.modifiedClick.SELFCAST = true;
+                got[#got + 1] = tostring(fired("F1"));
+                interp.state.modifiedClick.SELFCAST = nil;
+            end
+            answers[ticked] = table.concat(got, " ");
+        end
+        check(answers[true] == answers[false],
+            "ticked " .. answers[true] .. ", unticked " .. answers[false]);
         reset();
     end);
 

@@ -496,12 +496,12 @@ local function CreateCastingMenu(parentDescription, ctx)
     --- `casting` less the Resolved Unit box, which is drawn in that row's menu and counted there.
     local function CastOptionsOf(action)
         local casting = action.casting;
-        if (casting == nil or casting.usualIgnoresResolvedUnit == nil) then
+        if (casting == nil or casting.fallbackToSelf == nil) then
             return casting;
         end
         local rest;
         for name, value in pairs(casting) do
-            if (name ~= "usualIgnoresResolvedUnit") then
+            if (name ~= "fallbackToSelf") then
                 rest = rest or {};
                 rest[name] = value;
             end

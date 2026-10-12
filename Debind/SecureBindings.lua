@@ -2056,6 +2056,13 @@ if (DebindPrivate.DEBUG) then
 			return
 		end
 ]==] .. RESOLVE_UNIT_SNIPPET .. BAKE_WINNER_MACROTEXT_SNIPPET .. [==[
+		-- The winner's place as well, for the reason `EvalClickTimeKey` gives it: an original and the
+		-- fallback behind it click one button at two units.
+		for i = 1, #bindings do
+			if (bindings[i] == winner) then
+				return winner.clickbutton, i
+			end
+		end
 		return winner.clickbutton
 	]==]);
 end

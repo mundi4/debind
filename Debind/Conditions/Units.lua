@@ -401,7 +401,7 @@ local function BuildUnitStates(binding)
             if (key == "@") then
                 -- **The row alone, not `addAimed`**: a resurrection branch's `branchUnit` lands
                 -- through it as well, and that one stays.
-                if (not binding.ignoresResolvedUnit) then
+                if (not binding.fallback) then
                     addAimed(value);
                 end
             else

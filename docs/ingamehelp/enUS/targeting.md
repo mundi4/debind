@@ -3,6 +3,14 @@
 
 **Written as what the reader did**, never as what the addon stores. Labels are named where the reader has to go: the Target menu, Units, Resolved Unit, Hover Cast and Cast Options. Renaming any of them moves this text with it.
 
+**Not decided: whether this page mentions the Resolved Unit box "Otherwise, cast on yourself"**
+(2026-10-12, owner). If it does, it is a sentence or two beside the *Resolved Unit* paragraph: with
+the box ticked, a press whose unit fails those conditions goes to you instead of to the next
+action, but only where you did not pick the unit, which is your current target or the unit you point
+at. A unit picked under *Target*, and the press a held Self Cast Key or Focus Cast Key sends to you
+or your focus, stay where they are (`deciding-what-a-press-runs.md` §1, §3-4). The box's own tooltip
+already says this, which is the case for leaving the page alone.
+
 **The title does not open with `Where`.** It is also a button on the settings tab, which is global, and there "where is an action" reads as which tab it is in. Asking for the unit leaves one reading.
 
 **Only the answer stays here** (2026-09-17, owner: a help page answers at once). What each row under Cast Options does is `cast-options.md`.

@@ -239,18 +239,22 @@ return function(DebindPrivate)
         check(Values("DELETE") == "116 585", "the order came out " .. Values("DELETE"));
     end);
 
-    -- **With `usualIgnoresResolvedUnit` the Resolved Unit condition still counts in the order**
+    -- **With `fallbackToSelf` the Resolved Unit condition still counts in the order**
     -- (`falling-back-when-the-resolved-unit-fails.md` 3-4). The plain press then always runs it,
-    -- so the unconditional action behind loses that press. Its held twins stay, because the twins
-    -- ahead of them still ask the player and the focus, so it reads as reachable.
+    -- its original or the fallback behind it, so the unconditional action behind loses that press.
+    -- Its held twins stay, because the twins ahead of them still ask the player and the focus, so it
+    -- reads as reachable.
     test("the Resolved Unit fallback still sorts as conditional and covers the plain press", function()
         local subject = { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
-            casting = { usualIgnoresResolvedUnit = true },
+            casting = { fallbackToSelf = true },
             conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
         local behind = { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 };
         Bind({ behind, subject });
         check(DebindPrivate.IsConditionalAction(subject), "the action reads as unconditional");
-        check(Values("DELETE") == "116", "the plain presses came out " .. Values("DELETE"));
+        check(Values("DELETE") == "116 116", "the plain presses came out " .. Values("DELETE"));
+        local records = Records("DELETE");
+        check(records[1].unit == nil and records[2].unit == "player",
+            "the plain presses go out at " .. tostring(records[1].unit) .. " and " .. tostring(records[2].unit));
         check(DebindPrivate.IsUnreachableAction(behind) == false,
             "the action behind reads as unreachable with its held twins left");
     end);
@@ -259,7 +263,7 @@ return function(DebindPrivate)
     -- the action behind had.
     test("with no held twins the action behind the fallback never runs", function()
         local subject = { type = Constants.SPELL, value = 116, key = "DELETE", seq = 2,
-            casting = { usualIgnoresResolvedUnit = true },
+            casting = { fallbackToSelf = true },
             conditions = { units = { ["@"] = { reaction = Constants.REACTION_HELP } } } };
         local behind = { type = Constants.SPELL, value = 585, key = "DELETE", seq = 1 };
         Bind({ behind, subject }, nil, { selfCast = false, focusCast = false });

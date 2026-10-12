@@ -1555,23 +1555,22 @@ return function(DebindPrivate)
     end);
 
     ---------------------------------------------------------------------------
-    -- An empty Resolved Unit row beside `usualIgnoresResolvedUnit`
+    -- An empty Resolved Unit row beside `fallbackToSelf`
     -- (`falling-back-when-the-resolved-unit-fails.md` 3-5)
     --
-    -- **Kept and still reported where a binding goes out with no unit**, since that binding does not
-    -- ask the row. Everywhere else the row is what it was: every binding asks it and the action is
-    -- left out.
+    -- **Kept and still reported where a fallback stands**, since the fallback does not ask the row.
+    -- Everywhere else the row is what it was: every binding asks it and the action is left out.
     ---------------------------------------------------------------------------
 
-    local REACTIONS_USUAL = Constants.BINDING_ISSUE_REACTIONS_NONE_RUNS_AS_USUAL;
-    local UNITGROUPS_USUAL = Constants.BINDING_ISSUE_UNITGROUPS_NONE_RUNS_AS_USUAL;
+    local REACTIONS_USUAL = Constants.BINDING_ISSUE_REACTIONS_NONE_FALLS_BACK;
+    local UNITGROUPS_USUAL = Constants.BINDING_ISSUE_UNITGROUPS_NONE_FALLS_BACK;
     local UNITGROUPS_NONE_SELECTED = Constants.BINDING_ISSUE_UNITGROUPS_NONE_SELECTED;
 
-    --- An action with the option on and `row` as its Resolved Unit row. `fields` overrides any field,
-    --- and `casting` is merged into the option.
+    --- An action with the box ticked and `row` as its Resolved Unit row. `fields` overrides any field,
+    --- and `casting` is merged into the box.
     local function UsualAction(row, fields, casting)
         local action = { type = Constants.SPELL, value = 585, key = "F1",
-            casting = { usualIgnoresResolvedUnit = true },
+            casting = { fallbackToSelf = true },
             conditions = { units = { ["@"] = row } } };
         for k, v in pairs(casting or {}) do
             action.casting[k] = v;
@@ -1604,27 +1603,30 @@ return function(DebindPrivate)
         check(Outcome(action) == Constants.ISSUE_OUTCOME_KEEP, "outcome: " .. tostring(Outcome(action)));
     end);
 
-    --- The only binding with no unit is the hover twin of an action with Normal Cast off and Hover
-    --- Cast on the usual target, or a held twin on Cast as usual.
-    test("the option reaches a twin with no unit as well", function()
-        for _, casting in ipairs({ { normalCast = false }, { selfCastKey = "usual", normalCast = false,
-                hoverCast = "cast" } }) do
-            local action = UsualAction({ reaction = 0 }, nil, casting);
-            check(GetBindingIssue(action) == REACTIONS_USUAL,
-                "reported: " .. tostring(GetBindingIssue(action)));
-            check(Outcome(action) == Constants.ISSUE_OUTCOME_KEEP, "outcome: " .. tostring(Outcome(action)));
+    --- **With Normal Cast off the fallback is the pointed press's**, behind the hover twin, and the
+    --- pointed unit is not named (`deciding-what-a-press-runs.md` §1): the bare left click as well.
+    test("the fallback of a pointed press keeps the action too", function()
+        local cases = {
+            { label = "usual target, Normal Cast off", action = UsualAction({ reaction = 0 }, nil,
+                { normalCast = false }) },
+            { label = "pointed unit, Normal Cast off", action = UsualAction({ reaction = 0 }, nil,
+                { normalCast = false, hoverCast = "cast" }) },
+            { label = "the bare left click", action = UsualAction({ reaction = 0 }, { key = "BUTTON1" }) },
+        };
+        for _, case in ipairs(cases) do
+            check(GetBindingIssue(case.action) == REACTIONS_USUAL,
+                case.label .. ": reported " .. tostring(GetBindingIssue(case.action)));
+            check(Outcome(case.action) == Constants.ISSUE_OUTCOME_KEEP,
+                case.label .. ": outcome " .. tostring(Outcome(case.action)));
         end
     end);
 
-    --- **None of these makes a binding with no unit**, so every binding asks the row, as without the
-    --- option.
-    test("where the option reaches no binding the row is left out as before", function()
+    --- **A picked unit is named, `none` included**, so no fallback stands and every binding asks the
+    --- row, as with the box unticked.
+    test("where no fallback stands the row is left out as before", function()
         local cases = {
             { label = "a picked unit", action = UsualAction({ reaction = 0 }, { unit = "focus" }) },
             { label = "none", action = UsualAction({ reaction = 0 }, { unit = "none" }) },
-            { label = "pointed with Normal Cast off",
-                action = UsualAction({ reaction = 0 }, nil, { normalCast = false, hoverCast = "cast" }) },
-            { label = "the bare left click", action = UsualAction({ reaction = 0 }, { key = "BUTTON1" }) },
             { label = "a group block, picked unit",
                 action = UsualAction({ group = 0 }, { unit = "target" }), code = UNITGROUPS_NONE_SELECTED },
         };

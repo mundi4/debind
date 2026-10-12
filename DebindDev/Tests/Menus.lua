@@ -18,6 +18,7 @@ local SetMockState = Dev.SetMockState
 local EnableProbes = Dev.EnableProbes
 local EvalClickTimeKey = Dev.EvalClickTimeKey
 local LastWinner = Dev.LastWinner
+local LastEvalUnit = Dev.LastEvalUnit
 local WaitForWinner = Dev.WaitForWinner
 
 --- The entry that opens the same window stands on a row too, and **there it must carry that row
@@ -479,9 +480,9 @@ RegisterTest("Resolved Unit: the row under Units writes the condition, and Targe
 --- locked, and the setter a press on it reaches are the client's menu tree. The press half runs the
 --- real snippet on a target the reader cannot be asked to set up, so its life is injected
 --- ("State injection: dead flips a binding" does the same). Which binding wins each press is headless
---- (`tests/eval_spec.lua`, §6 #73 to #89).
-RegisterTest("Resolved Unit: the box below the row stores the option, and the press stops asking the row", {
-    description = "Resolved Unit 메뉴의 체크박스가 casting.usualIgnoresResolvedUnit을 쓰고 지우며, 대상을 골라도 잠기지 않는다. 켜면 현재 대상이 조건에 안 맞아도 그냥 누름이 나가고, 끄면 다시 안 나간다",
+--- (`tests/eval_spec.lua`, §6 #73 to #94) and per kind of press in `Tests/Fallback.lua`.
+RegisterTest("Resolved Unit: the box below the row stores the option, and the press falls back to you", {
+    description = "Resolved Unit 메뉴의 체크박스가 casting.fallbackToSelf를 쓰고 지우며, 대상을 골라도 잠기지 않는다. 켜면 현재 대상이 조건에 안 맞을 때 그냥 누름이 나에게 나가고, 끄면 다시 안 나간다",
     run = function()
         local NAME = "Resolved Unit box"
         local KEY = "CTRL-ALT-F5"
@@ -533,9 +534,9 @@ RegisterTest("Resolved Unit: the box below the row stores the option, and the pr
             if not row then
                 return nil, format("no [%s] row: %s", LLL["RESOLVED_TARGET"], ChildTexts(units))
             end
-            local box = ChildByText(row, LLL["RESOLVED_TARGET_USUAL"])
+            local box = ChildByText(row, LLL["RESOLVED_TARGET_FALLBACK"])
             if not box then
-                return nil, format("no [%s] box: %s", LLL["RESOLVED_TARGET_USUAL"], ChildTexts(row))
+                return nil, format("no [%s] box: %s", LLL["RESOLVED_TARGET_FALLBACK"], ChildTexts(row))
             end
             return box
         end
@@ -555,8 +556,8 @@ RegisterTest("Resolved Unit: the box below the row stores the option, and the pr
         local box, err = Box(action)
         if not box then return Fail(NAME, err) end
         box:Pick(MenuInputContext.MouseButton, "LeftButton")
-        if not (action.casting and action.casting.usualIgnoresResolvedUnit == true) then
-            return Fail(NAME, "ticking the box stored " .. tostring(action.casting and action.casting.usualIgnoresResolvedUnit))
+        if not (action.casting and action.casting.fallbackToSelf == true) then
+            return Fail(NAME, "ticking the box stored " .. tostring(action.casting and action.casting.fallbackToSelf))
         end
         ApplyBindings()
         ran, rerr = EvalClickTimeKey(KEY)
@@ -565,14 +566,19 @@ RegisterTest("Resolved Unit: the box below the row stores the option, and the pr
         if ticked == nil then
             return Fail(NAME, "with the box ticked the press still asked the row and fired nothing")
         end
+        local winner = GetKeyBindings(KEY)[ticked]
+        if not (winner and winner.fallback) or LastEvalUnit() ~= "player" then
+            return Fail(NAME, format("with the box ticked #%d won at %s, and it is %s", ticked,
+                tostring(LastEvalUnit()), winner and winner.fallback and "the fallback" or "not the fallback"))
+        end
 
         -- Unticked, the row is asked again. Without this half a key that fires whatever the box says
         -- passes too.
         box, err = Box(action)
         if not box then return Fail(NAME, err) end
         box:Pick(MenuInputContext.MouseButton, "LeftButton")
-        if action.casting and action.casting.usualIgnoresResolvedUnit ~= nil then
-            return Fail(NAME, "unticking the box left " .. tostring(action.casting.usualIgnoresResolvedUnit))
+        if action.casting and action.casting.fallbackToSelf ~= nil then
+            return Fail(NAME, "unticking the box left " .. tostring(action.casting.fallbackToSelf))
         end
         ApplyBindings()
         ran, rerr = EvalClickTimeKey(KEY)
@@ -591,7 +597,8 @@ RegisterTest("Resolved Unit: the box below the row stores the option, and the pr
             return Fail(NAME, "the box is locked on an action with a unit picked")
         end
 
-        return Pass(NAME, format("stored and cleared from the menu; ticked, the press fired #%d", ticked))
+        return Pass(NAME, format("stored and cleared from the menu; ticked, the press fired the fallback #%d at you",
+            ticked))
     end,
 })
 
