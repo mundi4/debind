@@ -169,8 +169,8 @@ Resolved Unit 줄 안(`conditions.units["@"]`)에 두지 않는 까닭은 2026-1
   `pointedUnit`을 실은 hover 쌍둥이. Target을 고른 액션은 `ActionHasPickedUnit`으로 빠진다. `none`은 고른 대상이다(`castsAtNone`).
 - **목록 모양.** `GetBindingsForAction`은 `list[1]`에 원본을 두고 뒤에서부터 채우며, `UnrollIntoTiers`가 목록을 끝에서부터 걸어
   나중 항목이 같은 층 앞에 선다. 원본은 늘 그 액션의 맨 뒤다. **폴백은 원본보다 뒤에 서야 하므로 이 걷기로는 자리가 없다**
-  (2026-10-11 11절이 적어 둔 걸림). `list[1]`을 원본으로 읽는 곳이 셋 있다. `Debind.lua`의 키 기록, `Solver.lua`의 조건 표,
-  `Issues.lua`. 그래서 `list[1]`은 그대로 두고, 폴백 바인딩에 표시(`fallback = true`)를 두어 `UnrollIntoTiers`가 **층마다 보통
+  (2026-10-11 11절이 적어 둔 걸림). `list[1]`을 원본으로 읽는 곳은 `Debind.lua`의 `BuildKeyMap` 하나다(`Solver.lua`와 `Issues.lua`는
+  목록 전체를 건다. 2026-10-12, 구현 세션 `debind-7f`가 확인). 그래서 `list[1]`은 그대로 두고, 폴백 바인딩에 표시(`fallback = true`)를 두어 `UnrollIntoTiers`가 **층마다 보통
   항목을 끝에서부터 건 다음 폴백 항목을 건다.** 솔버와 판단은 `UnrollIntoTiers`가 편 순서를 읽으므로 그대로 따라온다.
 - **보안 쪽은 바뀌지 않는다.** 폴백은 `player`를 실은 보통 바인딩이라 레코드와 스니펫에 새 입력이 없다.
 - **이슈 검사.** 3-5대로 Resolved Unit 줄이 비었을 때 폴백이 서는지 알아야 한다. 지금 `Issues.lua`가 `ignoresResolvedUnit`을 보는
@@ -201,6 +201,10 @@ Debind가 잡으므로 ALT-X는 X를 따라가 아무 일도 안 한다.
   - 툴팁: `When the unit a press would use this action on does not meet these conditions, the press casts on you instead, with
     these conditions left unasked. A press with the Self Cast Key or Focus Cast Key held stays on you or your focus, and an action
     with a unit picked under Target stays on that unit: there, a unit that does not fit still sits the press out.`
+  - **둘째 문장은 시험한 그대로 쓰면 틀린다** (2026-10-12, `debind-7f`가 짚음). 시전 키 줄을 `Cast on the usual target`으로 두면
+    쥔 누름도 폴백이 서는데(스펙 #76), 문장은 쥔 누름이 다 머문다고 읽힌다. 창의 동사("sends this action to you")로 좁힌다:
+    `A press the Self Cast Key or the Focus Cast Key sends to you or your focus stays there, and an action with a unit picked under
+    Target stays on that unit: there, a unit that does not fit still sits the press out, and the next action on the key takes it.`
   - 시험 결과: 툴팁까지 받은 둘은 열 시나리오 중 힐러 10, 캐주얼 7(틀림 0)이었고, 라벨만 받은 둘은 쥔 키와 Target을 고른 액션에서
     나에게 간다고 봤다. 넷 다 켜는 의도("버려질 누름이 셀프 치유가 되게")를 같게 적었다.
 - **툴팁은 두 문장이다.** 안 맞으면 나에게 간다는 것, 그리고 유닛을 고른 자리(Target, 쥔 Self·Focus Cast Key)는 거기 머문다는 것.
